@@ -652,3 +652,141 @@ grep "2024-01-01" /opt/morizo/Morizo-aiv2/morizo_ai.log
 
 本番環境では、INFO以上のみを出力することを推奨します。
 
+---
+
+## 11. ログレベル分類基準
+
+### 11.1 概要
+
+本番環境での適切なログ出力を実現するため、既存のログをINFOとDEBUGに分類し直します。
+この分類基準に基づいて、コードベース全体のログ出力を段階的に修正します。
+
+### 11.2 分類基準
+
+#### INFOレベル（本番環境でも出力）
+
+**リクエスト受信・処理開始**
+- エンドポイントへのリクエスト受信（詳細パラメータは含めない）
+- 例: `logger.info("🔍 [API] Inventory list request received")`
+
+**認証成功**
+- 認証成功メッセージ（user_idは含める）
+- 例: `logger.info(f"✅ [API] Authenticated client created for user: {user_id}")`
+
+**処理完了・成功**
+- 処理の成功メッセージ（IDや件数などの詳細は含めない）
+- 例: `logger.info("✅ [API] Inventory item added")`
+
+**重要な状態変化**
+- システムの重要な状態変化
+- エラー発生時のエラーメッセージ
+
+#### DEBUGレベル（開発環境のみ出力）
+
+**詳細な変数の値**
+- user_id、item_id、mapping_idなどの識別子（認証成功ログのuser_idを除く）
+- ファイル名、パラメータの詳細値
+- 例: `logger.debug(f"🔍 [API] User ID: {user_id}")`
+- 例: `logger.debug(f"🔍 [API] Item ID: {item_id}")`
+- 例: `logger.debug(f"🔍 [API] Filename: {file.filename}")`
+
+**中間処理の詳細**
+- データ変換、マッピング適用などの中間処理
+- 例: `logger.debug(f"✅ [API] Applied item mappings to {len(items)} items")`
+
+**データ構造の内容**
+- JSON、リスト、辞書などのデータ構造の詳細
+- 例: `logger.debug(f"📊 [INVENTORY] List result: {result}")`
+
+**条件分岐の詳細**
+- 条件分岐の判定結果、ループ処理の詳細
+
+**件数・統計情報**
+- 取得件数、処理件数などの統計情報
+- 例: `logger.debug(f"🔍 [API] Retrieved {len(result.get('data', []))} items")`
+
+### 11.3 分類の具体例
+
+#### 例1: リクエスト受信ログ
+
+**修正前:**
+```python
+logger.info(f"🔍 [API] Inventory list request received: sort_by={sort_by}, sort_order={sort_order}")
+```
+
+**修正後:**
+```python
+logger.info("🔍 [API] Inventory list request received")
+logger.debug(f"🔍 [API] Sort parameters: sort_by={sort_by}, sort_order={sort_order}")
+```
+
+#### 例2: 認証成功ログ
+
+**修正前:**
+```python
+logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
+```
+
+**修正後:**
+```python
+# user_idは認証成功ログに重要なのでINFOに残す（変更なし）
+logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
+```
+
+#### 例3: 処理完了ログ
+
+**修正前:**
+```python
+logger.info(f"✅ [API] Inventory item added: {result.get('data', {}).get('id')}")
+```
+
+**修正後:**
+```python
+logger.info("✅ [API] Inventory item added")
+logger.debug(f"🔍 [API] Added item ID: {result.get('data', {}).get('id')}")
+```
+
+#### 例4: 件数ログ
+
+**修正前:**
+```python
+logger.info(f"✅ [API] Retrieved {len(result.get('data', []))} inventory items")
+```
+
+**修正後:**
+```python
+logger.info("✅ [API] Retrieved inventory items")
+logger.debug(f"🔍 [API] Retrieved {len(result.get('data', []))} items")
+```
+
+### 11.4 分類作業の進め方
+
+1. **優先順位の高い層から開始**
+   - API層（`api/routes/`, `api/middleware/`）
+   - MCP層（`mcp_servers/`）
+   - Service層（`services/`）
+   - Core層（`core/`）
+
+2. **ファイル単位で分類**
+   - 1ファイルずつ確認・分類・修正
+   - 修正後、動作確認
+
+3. **作業プランの提示**
+   - 各ファイルについて以下を提示:
+     - 修正箇所（ファイル名、行番号、関数名）
+     - 修正内容（INFO/DEBUGの変更）
+     - 修正理由
+     - 修正の影響
+
+### 11.5 注意事項
+
+- **認証成功ログのuser_id**: 認証成功ログにはuser_idを含める（INFOレベル）
+- **エラーログ**: ERRORレベルは変更しない
+- **警告ログ**: WARNINGレベルは変更しない
+- **後方互換性**: 既存の動作に影響を与えないよう注意
+
+### 11.6 サンプルファイル
+
+分類基準の確認のため、`api/routes/inventory.py`をサンプルとして分類済み。
+この基準に基づいて、他のファイルも同様に分類する。
+

@@ -41,11 +41,14 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         """リクエスト処理"""
         try:
+            self.logger.debug(f"🔍 [Auth] Processing request: {request.method} {request.url.path}")
             # 認証が必要なパスかチェック
             if self._requires_auth(request.url.path):
+                self.logger.debug(f"🔍 [Auth] Authentication required for path: {request.url.path}")
                 # トークンの取得と検証
                 user_info = await self._authenticate_request(request)
                 if not user_info:
+                    self.logger.debug(f"🔍 [Auth] Authentication failed for path: {request.url.path}")
                     raise HTTPException(status_code=401, detail="認証が必要です")
                 
                 # リクエストにユーザー情報を追加
@@ -80,6 +83,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         try:
             # Authorizationヘッダーからトークンを取得
             authorization = request.headers.get("Authorization")
+            self.logger.debug(f"🔍 [Auth] Authorization header: {'Present' if authorization else 'Missing'}")
             if not authorization:
                 self.logger.warning("⚠️ [Auth] No Authorization header")
                 return None

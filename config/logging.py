@@ -70,18 +70,18 @@ class LoggingConfig:
         root_logger.handlers.clear()
         
         # Setup file handler with rotation
-        self._setup_file_handler(root_logger, initialize)
+        self._setup_file_handler(root_logger, log_level, initialize)
         
         # Setup console handler for development
-        self._setup_console_handler(root_logger)
+        self._setup_console_handler(root_logger, log_level)
         
         # Prevent propagation to avoid duplicate logs
         root_logger.propagate = False
         
-        root_logger.info("🔧 [LOGGING] ロギング設定が完了しました")
+        root_logger.info(f"🔧 [LOGGING] ロギング設定が完了しました (ログレベル: {log_level})")
         return root_logger
     
-    def _setup_file_handler(self, logger: logging.Logger, initialize: bool = True) -> None:
+    def _setup_file_handler(self, logger: logging.Logger, log_level: str, initialize: bool = True) -> None:
         """Setup file handler with rotation"""
         try:
             # Create backup if log file exists and initialization is requested
@@ -95,7 +95,7 @@ class LoggingConfig:
                 backupCount=self.backup_count,
                 encoding='utf-8'
             )
-            file_handler.setLevel(logging.INFO)
+            file_handler.setLevel(getattr(logging, log_level.upper()))
             
             # Set aligned formatter
             formatter = AlignedFormatter(
@@ -110,11 +110,11 @@ class LoggingConfig:
         except Exception as e:
             logger.error(f"❌ [LOGGING] ファイルハンドラー設定エラー: {e}")
     
-    def _setup_console_handler(self, logger: logging.Logger) -> None:
+    def _setup_console_handler(self, logger: logging.Logger, log_level: str) -> None:
         """Setup console handler for development"""
         try:
             console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging.INFO)
+            console_handler.setLevel(getattr(logging, log_level.upper()))
             
             # Set aligned formatter
             formatter = AlignedFormatter(

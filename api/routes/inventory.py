@@ -30,7 +30,8 @@ async def get_inventory_list(
         sort_order: ソート順序 (asc, desc)
     """
     try:
-        logger.info(f"🔍 [API] Inventory list request received: sort_by={sort_by}, sort_order={sort_order}")
+        logger.info("🔍 [API] Inventory list request received")
+        logger.debug(f"🔍 [API] Sort parameters: sort_by={sort_by}, sort_order={sort_order}")
         
         # 1. 認証処理
         authorization = http_request.headers.get("Authorization")
@@ -42,7 +43,7 @@ async def get_inventory_list(
             raise HTTPException(status_code=401, detail="認証が必要です")
         
         user_id = user_info['user_id']
-        logger.info(f"🔍 [API] User ID: {user_id}")
+        logger.debug(f"🔍 [API] User ID: {user_id}")
         
         # 2. 認証済みSupabaseクライアントの作成
         try:
@@ -62,7 +63,8 @@ async def get_inventory_list(
             logger.error(f"❌ [API] Failed to get inventory list: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "在庫取得処理でエラーが発生しました"))
         
-        logger.info(f"✅ [API] Retrieved {len(result.get('data', []))} inventory items")
+        logger.info("✅ [API] Retrieved inventory items")
+        logger.debug(f"🔍 [API] Retrieved {len(result.get('data', []))} items")
         
         return {
             "success": True,
@@ -80,7 +82,8 @@ async def get_inventory_list(
 async def add_inventory_item(request: InventoryRequest, http_request: Request):
     """在庫アイテムを追加するエンドポイント"""
     try:
-        logger.info(f"🔍 [API] Inventory add request received: item_name={request.item_name}")
+        logger.info("🔍 [API] Inventory add request received")
+        logger.debug(f"🔍 [API] Item name: {request.item_name}")
         
         # 1. 認証処理
         authorization = http_request.headers.get("Authorization")
@@ -92,7 +95,7 @@ async def add_inventory_item(request: InventoryRequest, http_request: Request):
             raise HTTPException(status_code=401, detail="認証が必要です")
         
         user_id = user_info['user_id']
-        logger.info(f"🔍 [API] User ID: {user_id}")
+        logger.debug(f"🔍 [API] User ID: {user_id}")
         
         # 2. 認証済みSupabaseクライアントの作成
         try:
@@ -120,7 +123,8 @@ async def add_inventory_item(request: InventoryRequest, http_request: Request):
             logger.error(f"❌ [API] Failed to add inventory: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "在庫追加処理でエラーが発生しました"))
         
-        logger.info(f"✅ [API] Inventory item added: {result.get('data', {}).get('id')}")
+        logger.info("✅ [API] Inventory item added")
+        logger.debug(f"🔍 [API] Added item ID: {result.get('data', {}).get('id')}")
         
         return {
             "success": True,
@@ -142,7 +146,8 @@ async def update_inventory_item(
 ):
     """在庫アイテムを更新するエンドポイント"""
     try:
-        logger.info(f"🔍 [API] Inventory update request received: item_id={item_id}")
+        logger.info("🔍 [API] Inventory update request received")
+        logger.debug(f"🔍 [API] Item ID: {item_id}")
         
         # 1. 認証処理
         authorization = http_request.headers.get("Authorization")
@@ -182,7 +187,8 @@ async def update_inventory_item(
             logger.error(f"❌ [API] Failed to update inventory: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "在庫更新処理でエラーが発生しました"))
         
-        logger.info(f"✅ [API] Inventory item updated: {item_id}")
+        logger.info("✅ [API] Inventory item updated")
+        logger.debug(f"🔍 [API] Updated item ID: {item_id}")
         
         return {
             "success": True,
@@ -200,7 +206,8 @@ async def update_inventory_item(
 async def delete_inventory_item(item_id: str, http_request: Request):
     """在庫アイテムを削除するエンドポイント"""
     try:
-        logger.info(f"🔍 [API] Inventory delete request received: item_id={item_id}")
+        logger.info("🔍 [API] Inventory delete request received")
+        logger.debug(f"🔍 [API] Item ID: {item_id}")
         
         # 1. 認証処理
         authorization = http_request.headers.get("Authorization")
@@ -231,7 +238,8 @@ async def delete_inventory_item(item_id: str, http_request: Request):
             logger.error(f"❌ [API] Failed to delete inventory: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "在庫削除処理でエラーが発生しました"))
         
-        logger.info(f"✅ [API] Inventory item deleted: {item_id}")
+        logger.info("✅ [API] Inventory item deleted")
+        logger.debug(f"🔍 [API] Deleted item ID: {item_id}")
         
         return {
             "success": True,
@@ -251,7 +259,8 @@ async def upload_csv_inventory(
 ):
     """CSVファイルから在庫データを一括登録"""
     try:
-        logger.info(f"🔍 [API] CSV upload request received: {file.filename}")
+        logger.info("🔍 [API] CSV upload request received")
+        logger.debug(f"🔍 [API] Filename: {file.filename}")
         
         # 1. 認証処理
         authorization = http_request.headers.get("Authorization")
@@ -448,7 +457,8 @@ async def ocr_receipt(
 ):
     """レシート画像をOCR解析して在庫データを抽出・登録"""
     try:
-        logger.info(f"🔍 [API] OCR receipt request received: {image.filename}")
+        logger.info("🔍 [API] OCR receipt request received")
+        logger.debug(f"🔍 [API] Filename: {image.filename}")
         
         # 1. 認証処理
         authorization = http_request.headers.get("Authorization")
@@ -500,7 +510,7 @@ async def ocr_receipt(
             
             # 変換テーブルを適用
             items = await ocr_service.apply_item_mappings(items, client, user_id)
-            logger.info(f"✅ [API] Applied item mappings to {len(items)} items")
+            logger.debug(f"✅ [API] Applied item mappings to {len(items)} items")
         except Exception as e:
             # 変換テーブル適用が失敗しても、既存の処理は継続
             logger.warning(f"⚠️ [API] Failed to apply item mappings: {e}")
@@ -592,7 +602,8 @@ async def add_ocr_mapping(
 ):
     """OCR変換テーブルに登録"""
     try:
-        logger.info(f"🔍 [API] OCR mapping request received: '{request.original_name}' -> '{request.normalized_name}'")
+        logger.info("🔍 [API] OCR mapping request received")
+        logger.debug(f"🔍 [API] Mapping: '{request.original_name}' -> '{request.normalized_name}'")
         
         # 1. 認証処理
         authorization = http_request.headers.get("Authorization")
@@ -631,7 +642,8 @@ async def add_ocr_mapping(
         
         mapping_id = result.get("data", {}).get("id") if result.get("data") else None
         
-        logger.info(f"✅ [API] OCR mapping added successfully: {mapping_id}")
+        logger.info("✅ [API] OCR mapping added successfully")
+        logger.debug(f"🔍 [API] Mapping ID: {mapping_id}")
         
         return {
             "success": True,

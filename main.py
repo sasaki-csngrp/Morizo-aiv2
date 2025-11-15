@@ -11,9 +11,10 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
 from datetime import datetime
+import os
 from dotenv import load_dotenv
 from config.loggers import GenericLogger
-from config.logging import setup_logging
+from config.logging import setup_logging, get_log_level
 from api.middleware import AuthenticationMiddleware, LoggingMiddleware
 from api.routes import chat_router, health_router, recipe_router, menu_router, inventory_router
 from api.models import ErrorResponse
@@ -21,11 +22,22 @@ from api.models import ErrorResponse
 # 環境変数の読み込み
 load_dotenv()
 
+# ログレベルの取得と確認
+log_level = get_log_level()
+print(f"🔍 [DEBUG] 取得したログレベル: {log_level}")
+print(f"🔍 [DEBUG] 環境変数LOG_LEVEL: {os.getenv('LOG_LEVEL', 'NOT SET')}")
+
 # ログ設定の初期化とローテーション
-setup_logging(log_level="INFO", initialize=True)
+setup_logging(log_level=log_level, initialize=True)
 
 # ロガーの初期化
 logger = GenericLogger("api", "main")
+
+# DEBUGログのテスト（起動時）
+logger.debug("🔍 [DEBUG] これはDEBUGログのテストです")
+logger.info("ℹ️ [INFO] これはINFOログのテストです")
+logger.warning("⚠️ [WARNING] これはWARNINGログのテストです")
+logger.error("❌ [ERROR] これはERRORログのテストです（テスト用なので問題ありません）")
 
 
 @asynccontextmanager
