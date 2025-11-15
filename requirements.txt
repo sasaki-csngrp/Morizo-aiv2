@@ -14,7 +14,6 @@ langchain-community>=0.0.20
 chromadb>=0.4.0
 
 # Web検索API
-perplexity-api>=0.1.0
 requests>=2.31.0
 
 # データベース・認証

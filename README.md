@@ -78,7 +78,7 @@ tests/03_1_test_logging.py 等
 - **認証**: Supabase Auth
 - **FastMCP**: Micro-Agent Communication Protocol 2.12.3
 - **HTTP**: httpx 0.28.1
-- **Web検索**: Perplexity API 1.0.5
+- **Web検索**: Google Search API
 - **ベクトルDB**: ChromaDB 1.1.0
 - **自然言語処理**: spaCy 3.8.7, NLTK 3.9.1
 - **データ処理**: pandas 2.3.2, numpy 2.3.3

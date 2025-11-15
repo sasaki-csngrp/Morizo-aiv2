@@ -207,10 +207,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_MODEL=gpt-4o-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 
-# Perplexity設定
-PERPLEXITY_API_KEY=your_perplexity_api_key_here
-
-# Google Search API設定（使用する場合）
+# Google Search API設定
 GOOGLE_SEARCH_API_KEY=your_google_search_api_key_here
 GOOGLE_SEARCH_ENGINE_ID=your_google_search_engine_id_here
 
