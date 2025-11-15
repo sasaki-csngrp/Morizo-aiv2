@@ -191,13 +191,14 @@ async def get_ingredient_delete_candidates(
             logger.error(f"❌ [API] Invalid date format: {date}")
             raise HTTPException(status_code=400, detail="日付の形式が不正です（YYYY-MM-DD形式で指定してください）")
         
-        # 4. 指定日付のレシピ履歴を取得
+        # 4. 指定日付のレシピ履歴を取得（削除未済みのみ）
         crud = RecipeHistoryCRUD()
         result = client.table("recipe_historys")\
             .select("*")\
             .eq("user_id", user_id)\
             .gte("cooked_at", start_datetime.isoformat())\
             .lte("cooked_at", end_datetime.isoformat())\
+            .or_("ingredients_deleted.is.null,ingredients_deleted.eq.false")\
             .execute()
         
         logger.info(f"🔍 [API] Retrieved {len(result.data)} recipe histories for date: {date}")
