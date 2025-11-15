@@ -38,7 +38,7 @@ class StageManager:
                 return "main"
             
             stage = session.get_current_stage()
-            self.logger.info(f"✅ [STAGE] Current stage: {stage}")
+            self.logger.debug(f"✅ [STAGE] Current stage: {stage}")
             return stage
             
         except Exception as e:
@@ -57,7 +57,7 @@ class StageManager:
             Dict[str, Any]: 選択されたレシピ情報
         """
         try:
-            self.logger.info(f"🔍 [STAGE] Getting selected recipe: task_id={task_id}, selection={selection}")
+            self.logger.debug(f"🔍 [STAGE] Getting selected recipe: task_id={task_id}, selection={selection}")
             
             # セッションから候補情報を取得
             session = await self.session_service.get_session(sse_session_id, user_id=None)
@@ -79,9 +79,9 @@ class StageManager:
             selected_recipe = candidates[selection - 1]  # インデックスは1ベース
             ingredients = selected_recipe.get('ingredients', [])
             has_ingredients = 'ingredients' in selected_recipe and ingredients
-            self.logger.info(f"✅ [STAGE] Selected recipe: title='{selected_recipe.get('title', 'Unknown')}', source='{selected_recipe.get('source', 'N/A')}'")
+            self.logger.debug(f"✅ [STAGE] Selected recipe: title='{selected_recipe.get('title', 'Unknown')}', source='{selected_recipe.get('source', 'N/A')}'")
             if has_ingredients:
-                self.logger.info(f"✅ [STAGE] Selected recipe has {len(ingredients)} ingredients: {ingredients}")
+                self.logger.debug(f"✅ [STAGE] Selected recipe has {len(ingredients)} ingredients: {ingredients}")
             else:
                 self.logger.warning(f"⚠️ [STAGE] Selected recipe missing or empty 'ingredients' field (ingredients={ingredients})")
             
@@ -111,7 +111,7 @@ class StageManager:
             
             # 現在の段階を取得
             current_stage = session.get_current_stage()
-            self.logger.info(f"🔍 [STAGE] Current stage: {current_stage}")
+            self.logger.debug(f"🔍 [STAGE] Current stage: {current_stage}")
             
             # 段階に応じて処理
             # 注意: Session.set_selected_recipe()は2つの引数（category, recipe）のみを受け取る
@@ -120,13 +120,13 @@ class StageManager:
                 # 主菜を選択した場合、副菜段階に進む
                 session.set_selected_recipe("main", selected_recipe)
                 next_stage = "sub"
-                self.logger.info(f"✅ [STAGE] Advanced to stage: sub")
+                self.logger.debug(f"✅ [STAGE] Advanced to stage: sub")
                 
             elif current_stage == "sub":
                 # 副菜を選択した場合、汁物段階に進む
                 session.set_selected_recipe("sub", selected_recipe)
                 next_stage = "soup"
-                self.logger.info(f"✅ [STAGE] Advanced to stage: soup")
+                self.logger.debug(f"✅ [STAGE] Advanced to stage: soup")
                 
             elif current_stage == "soup":
                 # 汁物を選択した場合、完了

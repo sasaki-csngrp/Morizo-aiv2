@@ -39,7 +39,7 @@ class SessionCRUDManager:
             作成されたセッション
         """
         try:
-            self.session_service.logger.info(f"🔧 [SessionService] Creating session for user: {user_id}")
+            self.session_service.logger.debug(f"🔧 [SessionService] Creating session for user: {user_id}")
             
             # セッションIDを生成または指定されたIDを使用
             if session_id is None:
@@ -81,7 +81,7 @@ class SessionCRUDManager:
             セッション（存在しない場合はNone）
         """
         try:
-            self.session_service.logger.info(f"🔧 [SessionService] Getting session: {session_id}")
+            self.session_service.logger.debug(f"🔧 [SessionService] Getting session: {session_id}")
             
             session = None
             
@@ -99,7 +99,7 @@ class SessionCRUDManager:
             if session:
                 # 最終アクセス時刻の更新
                 session.last_accessed = datetime.now()
-                self.session_service.logger.info(f"✅ [SessionService] Session retrieved successfully")
+                self.session_service.logger.debug(f"✅ [SessionService] Session retrieved successfully")
             else:
                 self.session_service.logger.warning(f"⚠️ [SessionService] Session not found: {session_id}")
             
@@ -125,7 +125,7 @@ class SessionCRUDManager:
             更新成功の可否
         """
         try:
-            self.session_service.logger.info(f"🔧 [SessionService] Updating session: {session_id}")
+            self.session_service.logger.debug(f"🔧 [SessionService] Updating session: {session_id}")
             
             # 全ユーザーからセッションを検索
             session = None
@@ -164,7 +164,7 @@ class SessionCRUDManager:
             削除成功の可否
         """
         try:
-            self.session_service.logger.info(f"🔧 [SessionService] Deleting session: {session_id}")
+            self.session_service.logger.debug(f"🔧 [SessionService] Deleting session: {session_id}")
             
             # 全ユーザーからセッションを検索して削除
             deleted = False
@@ -213,7 +213,7 @@ class SessionCRUDManager:
             for user_id, session_id in expired_sessions:
                 del self.session_service.user_sessions[user_id][session_id]
             
-            self.session_service.logger.info(f"✅ [SessionService] Cleaned up {len(expired_sessions)} expired sessions")
+            self.session_service.logger.debug(f"✅ [SessionService] Cleaned up {len(expired_sessions)} expired sessions")
             
             return len(expired_sessions)
             

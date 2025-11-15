@@ -55,11 +55,12 @@ async def get_recipe_history_for_user(user_id: str, token: str = None) -> Dict[s
     Returns:
         Dict[str, Any]: レシピ履歴のリスト
     """
-    logger.info(f"🔧 [RECIPE] Starting get_recipe_history_for_user for user: {user_id}")
+    logger.info(f"🔧 [RECIPE] Starting get_recipe_history_for_user")
+    logger.debug(f"🔍 [RECIPE] User ID: {user_id}")
     
     try:
         client = get_authenticated_client(user_id)
-        logger.info(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
         
         result = await llm_client.get_recipe_history(client, user_id)
         logger.info(f"✅ [RECIPE] get_recipe_history_for_user completed successfully")
@@ -93,11 +94,12 @@ async def generate_menu_plan_with_history(
     Returns:
         Dict[str, Any]: 生成された献立プラン
     """
-    logger.info(f"🔧 [RECIPE] Starting generate_menu_plan_with_history for user: {user_id}, menu_type: {menu_type}")
+    logger.info(f"🔧 [RECIPE] Starting generate_menu_plan_with_history")
+    logger.debug(f"🔍 [RECIPE] User ID: {user_id}, menu_type: {menu_type}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
         
         result = await llm_client.generate_menu_titles(inventory_items, menu_type, excluded_recipes)
         logger.info(f"✅ [RECIPE] generate_menu_plan_with_history completed successfully")
@@ -143,12 +145,13 @@ async def search_menu_from_rag_with_history(
             }
         }
     """
-    logger.info(f"🔧 [RECIPE] Starting search_menu_from_rag_with_history for user: {user_id}, menu_type: {menu_type}")
+    logger.info(f"🔧 [RECIPE] Starting search_menu_from_rag_with_history")
+    logger.debug(f"🔍 [RECIPE] User ID: {user_id}, menu_type: {menu_type}")
     
     try:
         # 認証済みクライアントを取得（一貫性のため）
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
         
         # RAG検索を実行（3ベクトルDB対応）
         categorized_results = await rag_client.search_recipes_by_category(
@@ -159,9 +162,9 @@ async def search_menu_from_rag_with_history(
         )
         
         logger.info(f"🔍 [RECIPE] RAG search completed, found categorized results")
-        logger.info(f"🔍 [RECIPE] Main: {len(categorized_results.get('main', []))} recipes")
-        logger.info(f"🔍 [RECIPE] Sub: {len(categorized_results.get('sub', []))} recipes")
-        logger.info(f"🔍 [RECIPE] Soup: {len(categorized_results.get('soup', []))} recipes")
+        logger.debug(f"📊 [RECIPE] Main: {len(categorized_results.get('main', []))} recipes")
+        logger.debug(f"📊 [RECIPE] Sub: {len(categorized_results.get('sub', []))} recipes")
+        logger.debug(f"📊 [RECIPE] Soup: {len(categorized_results.get('soup', []))} recipes")
         
         # RAG検索結果を献立形式に変換（3ベクトルDB対応）
         try:
@@ -260,8 +263,9 @@ async def search_recipe_from_web(
     Returns:
         Dict[str, Any]: 分類された検索結果のレシピリスト（画像URL含む）
     """
-    logger.info(f"🔧 [RECIPE] Starting search_recipe_from_web for {len(recipe_titles)} titles: {recipe_titles}, num_results: {num_results}")
-    logger.info(f"📊 [RECIPE] Menu categories: {menu_categories}, source: {menu_source}")
+    logger.debug(f"🔧 [RECIPE] Starting search_recipe_from_web")
+    logger.debug(f"🔍 [RECIPE] Titles count: {len(recipe_titles)}, titles: {recipe_titles}, num_results: {num_results}")
+    logger.debug(f"📊 [RECIPE] Menu categories: {menu_categories}, source: {menu_source}")
     
     try:
         import asyncio
@@ -271,15 +275,16 @@ async def search_recipe_from_web(
             try:
                 # Web検索クライアントを使用
                 recipes = await search_client.search_recipes(title, num_results)
-                logger.info(f"🔍 [RECIPE] Web search completed for '{title}', found {len(recipes)} recipes")
+                logger.debug(f"🔍 [RECIPE] Web search completed")
+                logger.debug(f"📊 [RECIPE] Title: '{title}', found {len(recipes)} recipes")
                 
                 # レシピを優先順位でソート
                 prioritized_recipes = prioritize_recipes(recipes)
-                logger.info(f"📊 [RECIPE] Recipes prioritized for '{title}'")
+                logger.debug(f"📊 [RECIPE] Recipes prioritized for '{title}'")
                 
                 # 結果をフィルタリング
                 filtered_recipes = filter_recipe_results(prioritized_recipes)
-                logger.info(f"🔍 [RECIPE] Recipes filtered for '{title}', final count: {len(filtered_recipes)}")
+                logger.debug(f"📊 [RECIPE] Recipes filtered for '{title}', final count: {len(filtered_recipes)}")
                 
                 return {
                     "success": True,
@@ -324,7 +329,8 @@ async def search_recipe_from_web(
             elif result.get("success"):
                 recipes = result.get("data", [])
                 successful_searches += 1
-                logger.info(f"✅ [RECIPE] Found {len(recipes)} recipes for '{recipe_titles[i]}'")
+                logger.debug(f"✅ [RECIPE] Found recipes")
+                logger.debug(f"📊 [RECIPE] Found {len(recipes)} recipes for '{recipe_titles[i]}'")
                 # 単一カテゴリ提案の場合は、各レシピタイトルに対応する最初のレシピを取得
                 # （候補リストの順序と一致させるため）
                 if is_single_category:
@@ -333,7 +339,8 @@ async def search_recipe_from_web(
             else:
                 logger.error(f"❌ [RECIPE] Search failed for '{recipe_titles[i]}': {result.get('error')}")
         
-        logger.info(f"✅ [RECIPE] Recipe search completed: {successful_searches}/{len(recipe_titles)} successful")
+        logger.info(f"✅ [RECIPE] Recipe search completed")
+        logger.debug(f"📊 [RECIPE] Successful searches: {successful_searches}/{len(recipe_titles)}")
         
         # 単一カテゴリ提案の場合はシンプルな構造を返す
         if is_single_category:
@@ -395,7 +402,7 @@ async def search_recipe_from_web(
                 "total_searches": len(recipe_titles)
             }
         
-        logger.info(f"✅ [RECIPE] search_recipe_from_web completed successfully")
+        logger.debug(f"✅ [RECIPE] search_recipe_from_web completed successfully")
         logger.debug(f"📊 [RECIPE] Web search result: {result}")
         
         return result
@@ -426,20 +433,20 @@ async def generate_proposals(
         used_ingredients: すでに使った食材（副菜・汁物で使用）
         menu_category: 献立カテゴリ（汁物の判断に使用）
     """
-    logger.info(f"🔧 [RECIPE] Starting generate_proposals")
-    logger.info(f"  Category: {category}, User: {user_id}")
-    logger.info(f"  Main ingredient: {main_ingredient}, Used ingredients: {used_ingredients}")
-    logger.info(f"  Excluded recipes: {len(excluded_recipes or [])} recipes")
+    logger.debug(f"🔧 [RECIPE] Starting generate_proposals")
+    logger.debug(f"🔍 [RECIPE] Category: {category}, User: {user_id}")
+    logger.debug(f"🔍 [RECIPE] Main ingredient: {main_ingredient}, Used ingredients: {used_ingredients}")
+    logger.debug(f"📊 [RECIPE] Excluded recipes: {len(excluded_recipes or [])} recipes")
     
     try:
         # 認証済みクライアントを取得
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
         
         # Phase 3A: セッション内の提案済みレシピは、呼び出し元でexcluded_recipesとして渡されるため
         # MCPサーバー内では追加処理は不要（プロセス分離のため）
         all_excluded = (excluded_recipes or []).copy()
-        logger.info(f"📝 [RECIPE] Total excluded: {len(all_excluded)} recipes")
+        logger.debug(f"📊 [RECIPE] Total excluded: {len(all_excluded)} recipes")
         
         # LLMとRAGを並列実行（汎用メソッドを使用）
         llm_task = llm_client.generate_candidates(
@@ -482,7 +489,8 @@ async def generate_proposals(
         for i, candidate in enumerate(candidates):
             logger.debug(f"🔍 [RECIPE] Candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}'")
         
-        logger.info(f"✅ [RECIPE] generate_proposals completed: {len(candidates)} candidates (LLM: {len(llm_result.get('data', {}).get('candidates', [])) if llm_result.get('success') else 0}, RAG: {len(rag_result) if rag_result else 0})")
+        logger.info(f"✅ [RECIPE] generate_proposals completed")
+        logger.debug(f"📊 [RECIPE] {len(candidates)} candidates (LLM: {len(llm_result.get('data', {}).get('candidates', [])) if llm_result.get('success') else 0}, RAG: {len(rag_result) if rag_result else 0})")
         
         return {
             "success": True,
@@ -505,5 +513,5 @@ async def generate_proposals(
 
 
 if __name__ == "__main__":
-    logger.info("🚀 Starting Recipe MCP Server")
+    logger.debug("🚀 Starting Recipe MCP Server")
     mcp.run()

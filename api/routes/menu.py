@@ -22,7 +22,7 @@ logger = GenericLogger("api", "menu")
 async def save_menu(request: MenuSaveRequest, http_request: Request):
     """献立をDBに保存するエンドポイント"""
     try:
-        logger.info(f"🔍 [API] Menu save request received: sse_session_id={request.sse_session_id}")
+        logger.debug(f"🔍 [API] Menu save request received: sse_session_id={request.sse_session_id}")
         
         # 1. 認証処理
         authorization = http_request.headers.get("Authorization")
@@ -34,26 +34,26 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
             raise HTTPException(status_code=401, detail="認証が必要です")
         
         user_id = user_info['user_id']
-        logger.info(f"🔍 [API] User ID: {user_id}")
+        logger.debug(f"🔍 [API] User ID: {user_id}")
         
         # 2. 選択済みレシピを取得（フロントエンドから直接送信された場合は優先）
         if request.recipes:
             # フロントエンドから直接送信されたレシピ情報を使用
             selected_recipes = request.recipes
-            logger.info(f"🔍 [API] Using recipes from request: main={selected_recipes.get('main') is not None}, sub={selected_recipes.get('sub') is not None}, soup={selected_recipes.get('soup') is not None}")
+            logger.debug(f"🔍 [API] Using recipes from request: main={selected_recipes.get('main') is not None}, sub={selected_recipes.get('sub') is not None}, soup={selected_recipes.get('soup') is not None}")
             # デバッグログ: フロントエンドから送信されたレシピデータの内容を確認
             for category in ["main", "sub", "soup"]:
                 recipe = selected_recipes.get(category)
                 if recipe:
                     ingredients = recipe.get("ingredients", [])
                     has_ingredients = "ingredients" in recipe and ingredients
-                    logger.info(f"🔍 [API] Recipe data from frontend ({category}): title='{recipe.get('title', 'N/A')}', source='{recipe.get('source', 'N/A')}', has_ingredients={has_ingredients}, ingredients={ingredients}")
+                    logger.debug(f"🔍 [API] Recipe data from frontend ({category}): title='{recipe.get('title', 'N/A')}', source='{recipe.get('source', 'N/A')}', has_ingredients={has_ingredients}, ingredients={ingredients}")
                 else:
-                    logger.info(f"🔍 [API] Recipe data from frontend ({category}): None")
+                    logger.debug(f"🔍 [API] Recipe data from frontend ({category}): None")
         elif request.sse_session_id:
             # セッションIDから選択済みレシピを取得（後方互換性）
             selected_recipes = await session_service.get_selected_recipes(request.sse_session_id)
-            logger.info(f"🔍 [API] Using recipes from session: main={selected_recipes.get('main') is not None}, sub={selected_recipes.get('sub') is not None}, soup={selected_recipes.get('soup') is not None}")
+            logger.debug(f"🔍 [API] Using recipes from session: main={selected_recipes.get('main') is not None}, sub={selected_recipes.get('sub') is not None}, soup={selected_recipes.get('soup') is not None}")
         else:
             # どちらも指定されていない場合はエラー
             logger.warning(f"⚠️ [API] Neither recipes nor sse_session_id provided")
@@ -75,13 +75,13 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
             )
         
         # 選択済みレシピのログ出力
-        logger.info(f"🔍 [API] Selected recipes to save:")
+        logger.debug(f"🔍 [API] Selected recipes to save:")
         for category in ["main", "sub", "soup"]:
             recipe = selected_recipes.get(category)
             if recipe:
-                logger.info(f"  {category}: {recipe.get('title', 'N/A')} (source: {recipe.get('source', 'N/A')})")
+                logger.debug(f"  {category}: {recipe.get('title', 'N/A')} (source: {recipe.get('source', 'N/A')})")
             else:
-                logger.info(f"  {category}: None")
+                logger.debug(f"  {category}: None")
         
         # 3. 認証済みSupabaseクライアントの作成
         try:
@@ -132,7 +132,7 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
                     ingredients = None  # 空リストの場合はNoneに
                 
                 if has_ingredients:
-                    logger.info(f"✅ [API] Saving {category}: title='{prefixed_title}', source={recipe_source}→{db_source}, ingredients={recipe.get('ingredients', [])} ({len(recipe.get('ingredients', []))} items)")
+                    logger.debug(f"✅ [API] Saving {category}: title='{prefixed_title}', source={recipe_source}→{db_source}, ingredients={recipe.get('ingredients', [])} ({len(recipe.get('ingredients', []))} items)")
                 else:
                     logger.warning(f"⚠️ [API] Saving {category}: title='{prefixed_title}', source={recipe_source}→{db_source}, ingredients missing or empty (ingredients={ingredients})")
                 
@@ -199,7 +199,7 @@ async def get_menu_history(
 ):
     """献立履歴を取得するエンドポイント"""
     try:
-        logger.info(f"🔍 [API] Menu history request received: days={days}, category={category}")
+        logger.debug(f"🔍 [API] Menu history request received: days={days}, category={category}")
         
         # 1. 認証処理
         authorization = http_request.headers.get("Authorization")
@@ -211,7 +211,7 @@ async def get_menu_history(
             raise HTTPException(status_code=401, detail="認証が必要です")
         
         user_id = user_info['user_id']
-        logger.info(f"🔍 [API] User ID: {user_id}")
+        logger.debug(f"🔍 [API] User ID: {user_id}")
         
         # 2. 認証済みSupabaseクライアントの作成
         try:
@@ -232,7 +232,7 @@ async def get_menu_history(
             .order("cooked_at", desc=True)\
             .execute()
         
-        logger.info(f"🔍 [API] Retrieved {len(result.data)} recipe histories from database")
+        logger.debug(f"🔍 [API] Retrieved {len(result.data)} recipe histories from database")
         
         # 4. 日付ごとにグループ化
         history_by_date = {}
@@ -314,7 +314,7 @@ async def get_menu_history(
             reverse=True
         )
         
-        logger.info(f"✅ [API] Returning {len(sorted_history)} date entries with total {sum(len(entry.recipes) for entry in sorted_history)} recipes")
+        logger.debug(f"✅ [API] Returning {len(sorted_history)} date entries with total {sum(len(entry.recipes) for entry in sorted_history)} recipes")
         
         # 7. レスポンスを生成
         return MenuHistoryResponse(

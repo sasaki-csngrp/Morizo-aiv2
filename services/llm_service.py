@@ -51,8 +51,8 @@ class LLMService:
             分解されたタスクリスト、または曖昧性確認用のレスポンス
         """
         try:
-            self.logger.info(f"🔧 [LLMService] Decomposing tasks for user: {user_id}")
-            self.logger.info(f"📝 [LLMService] User request: '{user_request}'")
+            self.logger.debug(f"🔧 [LLMService] Decomposing tasks for user: {user_id}")
+            self.logger.debug(f"📝 [LLMService] User request: '{user_request}'")
             
             # Phase 2.5C: リクエスト分析（RequestAnalyzer を使用）
             analysis_result = self.request_analyzer.analyze(
@@ -62,7 +62,7 @@ class LLMService:
                 session_context=session_context or {}
             )
             
-            self.logger.info(f"🔍 [LLMService] Analysis result: pattern={analysis_result['pattern']}")
+            self.logger.debug(f"🔍 [LLMService] Analysis result: pattern={analysis_result['pattern']}")
             
             # 曖昧性がある場合、確認質問を返す
             if analysis_result["ambiguities"]:
@@ -80,7 +80,7 @@ class LLMService:
                     user_id=user_id,
                     sse_session_id=sse_session_id
                 )
-                self.logger.info(f"✅ [LLMService] Dynamic prompt built using RequestAnalyzer (pattern={analysis_result['pattern']})")
+                self.logger.debug(f"✅ [LLMService] Dynamic prompt built using RequestAnalyzer (pattern={analysis_result['pattern']})")
             except Exception as e:
                 import traceback
                 self.logger.error(f"❌ [LLMService] Failed to build dynamic prompt: {e}")
@@ -126,11 +126,11 @@ class LLMService:
             # 生成されたタスクの詳細をログ出力
             self.logger.info(f"✅ [LLMService] Tasks decomposed successfully: {len(converted_tasks)} tasks")
             for i, task in enumerate(converted_tasks, 1):
-                self.logger.info(f"📋 [LLMService] Task {i}:")
-                self.logger.info(f"  Service: {task.get('service')}")
-                self.logger.info(f"  Method: {task.get('method')}")
-                self.logger.info(f"  Parameters: {task.get('parameters')}")
-                self.logger.info(f"  Dependencies: {task.get('dependencies')}")
+                self.logger.debug(f"📋 [LLMService] Task {i}:")
+                self.logger.debug(f"  Service: {task.get('service')}")
+                self.logger.debug(f"  Method: {task.get('method')}")
+                self.logger.debug(f"  Parameters: {task.get('parameters')}")
+                self.logger.debug(f"  Dependencies: {task.get('dependencies')}")
             
             return converted_tasks
             
@@ -155,9 +155,9 @@ class LLMService:
             (整形された回答, JSON形式のレシピデータ)
         """
         response, menu_data = await self.response_processor.format_final_response(results, sse_session_id)
-        self.logger.info(f"🔍 [LLMService] Menu data received: {menu_data is not None}")
+        self.logger.debug(f"🔍 [LLMService] Menu data received: {menu_data is not None}")
         if menu_data:
-            self.logger.info(f"📊 [LLMService] Menu data size: {len(str(menu_data))} characters")
+            self.logger.debug(f"📊 [LLMService] Menu data size: {len(str(menu_data))} characters")
         return response, menu_data
     
     def create_dynamic_prompt(

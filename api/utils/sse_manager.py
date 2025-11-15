@@ -42,7 +42,7 @@ class SSESender:
                 
                 for session_id in empty_sessions:
                     del self._connections[session_id]
-                    self.logger.info(f"🧹 [SSE] Cleaned up empty session: {session_id}")
+                    self.logger.debug(f"🧹 [SSE] Cleaned up empty session: {session_id}")
                 
             except Exception as e:
                 self.logger.error(f"❌ [SSE] Cleanup task error: {e}")
@@ -58,7 +58,7 @@ class SSESender:
             self._connections[session_id].append(queue)
             
             total_connections = len(self._connections[session_id])
-            self.logger.info(f"🔗 [SSE] Added connection {connection_id} to session {session_id} (total: {total_connections})")
+            self.logger.debug(f"🔗 [SSE] Added connection {connection_id} to session {session_id} (total: {total_connections})")
             return connection_id
             
         except Exception as e:
@@ -74,7 +74,7 @@ class SSESender:
                     self._connections[session_id].pop(0)  # 簡易実装
                 
                 remaining_connections = len(self._connections[session_id])
-                self.logger.info(f"🔌 [SSE] Removed connection from session {session_id} (remaining: {remaining_connections})")
+                self.logger.debug(f"🔌 [SSE] Removed connection from session {session_id} (remaining: {remaining_connections})")
                 
         except Exception as e:
             self.logger.error(f"❌ [SSE] Failed to remove connection: {e}")
@@ -98,10 +98,10 @@ class SSESender:
             }
             
             # デバッグ用ログ
-            self.logger.info(f"📊 [SSE] Progress message content: {event_data}")
+            self.logger.debug(f"📊 [SSE] Progress message content: {event_data}")
             
             await self._send_to_session(session_id, event_data)
-            self.logger.info(f"📊 [SSE] Sent progress {progress_data.get('progress_percentage', 0)}% to session {session_id}")
+            self.logger.debug(f"📊 [SSE] Sent progress {progress_data.get('progress_percentage', 0)}% to session {session_id}")
             
         except Exception as e:
             self.logger.error(f"❌ [SSE] Failed to send progress: {e}")
@@ -119,18 +119,18 @@ class SSESender:
             # menu_dataがある場合は追加
             if menu_data:
                 event_data["result"]["menu_data"] = menu_data
-                self.logger.info(f"📊 [SSE] Menu data included in response: {len(str(menu_data))} characters")
-                self.logger.info(f"🔍 [SSE] Menu data preview: {str(menu_data)[:200]}...")
+                self.logger.debug(f"📊 [SSE] Menu data included in response: {len(str(menu_data))} characters")
+                self.logger.debug(f"🔍 [SSE] Menu data preview: {str(menu_data)[:200]}...")
             else:
-                self.logger.info(f"⚠️ [SSE] No menu data provided")
+                self.logger.debug(f"⚠️ [SSE] No menu data provided")
             
             # confirmation_dataがある場合は追加
             if confirmation_data:
                 event_data["result"]["requires_confirmation"] = confirmation_data.get("requires_confirmation", False)
                 event_data["result"]["confirmation_session_id"] = confirmation_data.get("confirmation_session_id")
-                self.logger.info(f"🔍 [SSE] Confirmation data included: {confirmation_data}")
+                self.logger.debug(f"🔍 [SSE] Confirmation data included: {confirmation_data}")
             else:
-                self.logger.info(f"⚠️ [SSE] No confirmation data provided")
+                self.logger.debug(f"⚠️ [SSE] No confirmation data provided")
             
             # 実際の送信処理を追加
             await self._send_to_session(session_id, event_data)

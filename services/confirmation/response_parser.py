@@ -158,7 +158,7 @@ class UserResponseParser:
         specify_keywords = ["はい", "指定", "1"]
         if any(keyword in user_response for keyword in specify_keywords):
             # 食材名を抽出（次のユーザー入力を待つ）
-            self.logger.info(f"🔍 [ResponseParser] User chose to specify ingredient")
+            self.logger.debug(f"🔍 [ResponseParser] User chose to specify ingredient")
             return {
                 "is_confirmed": False,
                 "updated_tasks": [],
@@ -176,7 +176,7 @@ class UserResponseParser:
                 ambiguity_info.get("task_id"),
                 specified_ingredient
             )
-            self.logger.info(f"✅ [ResponseParser] Ingredient specified: {specified_ingredient}")
+            self.logger.debug(f"✅ [ResponseParser] Ingredient specified: {specified_ingredient}")
             return {
                 "is_confirmed": True,
                 "updated_tasks": updated_tasks,

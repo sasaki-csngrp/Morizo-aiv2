@@ -28,7 +28,8 @@ class RecipeHistoryCRUD:
     ) -> Dict[str, Any]:
         """レシピ履歴を1件追加"""
         try:
-            self.logger.info(f"📝 [CRUD] Adding recipe history: {title}")
+            self.logger.info(f"📝 [CRUD] Adding recipe history")
+            self.logger.debug(f"🔍 [CRUD] Title: {title}")
             
             # データ準備
             data = {
@@ -48,7 +49,8 @@ class RecipeHistoryCRUD:
             result = client.table("recipe_historys").insert(data).execute()
             
             if result.data:
-                self.logger.info(f"✅ [CRUD] Recipe history added successfully: {result.data[0]['id']}")
+                self.logger.info(f"✅ [CRUD] Recipe history added successfully")
+                self.logger.debug(f"🔍 [CRUD] History ID: {result.data[0]['id']}")
                 return {"success": True, "data": result.data[0]}
             else:
                 raise Exception("No data returned from insert")
@@ -60,11 +62,13 @@ class RecipeHistoryCRUD:
     async def get_all_histories(self, client: Client, user_id: str) -> Dict[str, Any]:
         """ユーザーの全レシピ履歴を取得"""
         try:
-            self.logger.info(f"📋 [CRUD] Getting all recipe histories for user: {user_id}")
+            self.logger.info(f"📋 [CRUD] Getting all recipe histories")
+            self.logger.debug(f"🔍 [CRUD] User ID: {user_id}")
             
             result = client.table("recipe_historys").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
             
-            self.logger.info(f"✅ [CRUD] Retrieved {len(result.data)} recipe histories")
+            self.logger.info(f"✅ [CRUD] Retrieved recipe histories successfully")
+            self.logger.debug(f"📊 [CRUD] Retrieved {len(result.data)} recipe histories")
             return {"success": True, "data": result.data}
             
         except Exception as e:
@@ -74,7 +78,8 @@ class RecipeHistoryCRUD:
     async def get_history_by_id(self, client: Client, user_id: str, history_id: str) -> Dict[str, Any]:
         """特定のレシピ履歴を1件取得"""
         try:
-            self.logger.info(f"🔍 [CRUD] Getting recipe history by ID: {history_id}")
+            self.logger.info(f"🔍 [CRUD] Getting recipe history by ID")
+            self.logger.debug(f"🔍 [CRUD] History ID: {history_id}")
             
             result = client.table("recipe_historys").select("*").eq("user_id", user_id).eq("id", history_id).execute()
             
@@ -99,7 +104,8 @@ class RecipeHistoryCRUD:
     ) -> Dict[str, Any]:
         """ID指定でのレシピ履歴1件更新"""
         try:
-            self.logger.info(f"✏️ [CRUD] Updating recipe history by ID: {history_id}")
+            self.logger.info(f"✏️ [CRUD] Updating recipe history by ID")
+            self.logger.debug(f"🔍 [CRUD] History ID: {history_id}")
             
             # 更新データの準備
             update_data = {}
@@ -129,7 +135,8 @@ class RecipeHistoryCRUD:
     async def delete_history_by_id(self, client: Client, user_id: str, history_id: str) -> Dict[str, Any]:
         """ID指定でのレシピ履歴1件削除"""
         try:
-            self.logger.info(f"🗑️ [CRUD] Deleting recipe history by ID: {history_id}")
+            self.logger.info(f"🗑️ [CRUD] Deleting recipe history by ID")
+            self.logger.debug(f"🔍 [CRUD] History ID: {history_id}")
             
             result = client.table("recipe_historys").delete().eq("user_id", user_id).eq("id", history_id).execute()
             
@@ -162,7 +169,8 @@ class RecipeHistoryCRUD:
             Dict[str, Any]: {"success": bool, "data": List[str]} レシピタイトルのリスト
         """
         try:
-            self.logger.info(f"📋 [CRUD] Getting recent {category} recipes for user: {user_id} (last {days} days)")
+            self.logger.debug(f"📋 [CRUD] Getting recent recipes")
+            self.logger.debug(f"🔍 [CRUD] Category: {category}, User ID: {user_id}, Days: {days}")
             
             from datetime import datetime, timedelta
             
@@ -191,7 +199,8 @@ class RecipeHistoryCRUD:
                 # カテゴリ指定がない場合は全件
                 titles = [item["title"] for item in result.data]
             
-            self.logger.info(f"✅ [CRUD] Retrieved {len(titles)} recent {category} recipe titles")
+            self.logger.debug(f"✅ [CRUD] Retrieved recent recipe titles successfully")
+            self.logger.debug(f"📊 [CRUD] Retrieved {len(titles)} recent {category} recipe titles")
             return {"success": True, "data": titles}
             
         except Exception as e:
@@ -207,7 +216,8 @@ class RecipeHistoryCRUD:
     ) -> Dict[str, Any]:
         """指定日付のレシピ履歴のingredients_deletedフラグを更新"""
         try:
-            self.logger.info(f"✏️ [CRUD] Updating ingredients_deleted flag for date: {date}")
+            self.logger.debug(f"✏️ [CRUD] Updating ingredients_deleted flag")
+            self.logger.debug(f"🔍 [CRUD] Date: {date}")
             
             # 日付の検証と変換
             try:
@@ -238,7 +248,8 @@ class RecipeHistoryCRUD:
                 .execute()
             
             updated_count = len(update_result.data) if update_result.data else 0
-            self.logger.info(f"✅ [CRUD] Updated {updated_count} recipe histories")
+            self.logger.debug(f"✅ [CRUD] Updated recipe histories successfully")
+            self.logger.debug(f"📊 [CRUD] Updated {updated_count} recipe histories")
             
             return {"success": True, "data": update_result.data, "updated_count": updated_count}
             

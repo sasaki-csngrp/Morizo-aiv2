@@ -87,7 +87,7 @@ class MCPClient:
             client = self.get_supabase_client()
             user = client.auth.get_user(token)
             is_valid = user is not None
-            self.logger.info(f"🔐 [MCP] Token verification: {'Valid' if is_valid else 'Invalid'}")
+            self.logger.debug(f"🔐 [MCP] Token verification: {'Valid' if is_valid else 'Invalid'}")
             return is_valid
         except Exception as e:
             self.logger.error(f"❌ [MCP] Token verification failed: {e}")
@@ -100,7 +100,7 @@ class MCPClient:
         
         client = self.get_supabase_client()
         client.auth.set_session(token)
-        self.logger.info("🔐 [MCP] Authenticated client created")
+        self.logger.debug("🔐 [MCP] Authenticated client created")
         return client
     
     async def _get_mcp_client(self, server_name: str):
@@ -112,7 +112,7 @@ class MCPClient:
                 # FastMCPクライアントでサーバーファイルにstdio接続
                 from fastmcp.client import Client
                 self.mcp_clients[server_name] = Client(server_path)
-                self.logger.info(f"🔧 [MCP] MCP client created for {server_name} via stdio")
+                self.logger.debug(f"🔧 [MCP] MCP client created for {server_name} via stdio")
                 
             except Exception as e:
                 self.logger.error(f"❌ [MCP] Failed to create MCP client for {server_name}: {e}")
@@ -122,7 +122,8 @@ class MCPClient:
     
     async def call_tool(self, tool_name: str, parameters: Dict[str, Any], token: str) -> Dict[str, Any]:
         """FastMCPクライアントでツールを呼び出し（stdio接続）"""
-        self.logger.info(f"🔧 [MCP] Calling tool: {tool_name}")
+        self.logger.debug(f"🔧 [MCP] Calling tool")
+        self.logger.debug(f"🔍 [MCP] Tool name: {tool_name}")
         self.logger.debug(f"📝 [MCP] Parameters: {parameters}")
         
         try:
@@ -168,7 +169,8 @@ class MCPClient:
                 else:
                     actual_result = {'success': False, 'error': 'No result data available'}
             
-            self.logger.info(f"✅ [MCP] Tool {tool_name} completed successfully")
+            self.logger.debug(f"✅ [MCP] Tool completed successfully")
+            self.logger.debug(f"🔍 [MCP] Tool name: {tool_name}")
             self.logger.debug(f"📊 [MCP] Result: {actual_result}")
             
             return {

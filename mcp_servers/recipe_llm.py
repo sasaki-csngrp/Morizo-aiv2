@@ -33,7 +33,8 @@ class RecipeLLM:
         # OpenAIクライアントを初期化
         self.client = AsyncOpenAI(api_key=self.api_key)
         
-        self.logger.info(f"🤖 [LLM] Initialized with model: {self.model}, temperature: {self.temperature}")
+        self.logger.debug(f"🤖 [LLM] Initialized")
+        self.logger.debug(f"🔍 [LLM] Model: {self.model}, temperature: {self.temperature}")
     
     # 食材重複抑止機能
     # - プロンプト内で「食材の重複を避ける」と明示的に指示
@@ -65,7 +66,8 @@ class RecipeLLM:
         - LLMの推論能力により、献立内の食材バランスを自動調整
         """
         try:
-            self.logger.info(f"🧠 [LLM] Generating menu titles for {menu_type} with {len(inventory_items)} ingredients")
+            self.logger.debug(f"🧠 [LLM] Generating menu titles")
+            self.logger.debug(f"🔍 [LLM] Menu type: {menu_type}, ingredients count: {len(inventory_items)}")
             
             # プロンプトを構築
             prompt = self._build_menu_prompt(inventory_items, menu_type, excluded_recipes)
@@ -84,7 +86,8 @@ class RecipeLLM:
             # レスポンスを解析
             menu_titles = self._parse_menu_response(response.choices[0].message.content)
             
-            self.logger.info(f"✅ [LLM] Generated {len(menu_titles)} menu titles")
+            self.logger.debug(f"✅ [LLM] Generated menu titles")
+            self.logger.debug(f"📊 [LLM] Generated {len(menu_titles)} menu titles")
             return {"success": True, "data": menu_titles}
             
         except Exception as e:
@@ -421,7 +424,8 @@ ingredients_usedは献立全体で使用される食材のリストです。
                 main_ingredient, used_ingredients, excluded_recipes, count
             )
             
-            self.logger.info(f"🤖 [LLM] Generating {count} {category} candidates")
+            self.logger.debug(f"🤖 [LLM] Generating {category} candidates")
+            self.logger.debug(f"🔍 [LLM] Count: {count}")
             
             # プロンプトロギング
             log_prompt_with_tokens(prompt, max_tokens=1000, logger_name="mcp.recipe_llm")
@@ -437,7 +441,8 @@ ingredients_usedは献立全体で使用される食材のリストです。
             # レスポンスを解析
             candidates = self._parse_candidate_response(response.choices[0].message.content)
             
-            self.logger.info(f"✅ [LLM] Generated {len(candidates)} {category} candidates")
+            self.logger.debug(f"✅ [LLM] Generated {category} candidates")
+            self.logger.debug(f"📊 [LLM] Generated {len(candidates)} {category} candidates")
             return {"success": True, "data": {"candidates": candidates}}
             
         except Exception as e:
@@ -515,7 +520,7 @@ ingredients_usedは献立全体で使用される食材のリストです。
                 candidates = data.get("candidates", [])
                 
                 # デバッグログ: LLMレスポンスのJSON構造を確認
-                self.logger.info(f"🔍 [LLM] Parsed {len(candidates)} candidates from LLM response")
+                self.logger.debug(f"🔍 [LLM] Parsed {len(candidates)} candidates from LLM response")
                 
                 # ingredientsが含まれていることを確認
                 for i, candidate in enumerate(candidates):
@@ -524,7 +529,7 @@ ingredients_usedは献立全体で使用される食材のリストです。
                         candidate["ingredients"] = []  # デフォルト値
                     else:
                         ingredients = candidate.get("ingredients", [])
-                        self.logger.info(f"✅ [LLM] Candidate {i+1} ('{candidate.get('title', 'N/A')}') has {len(ingredients)} ingredients: {ingredients}")
+                        self.logger.debug(f"✅ [LLM] Candidate {i+1} ('{candidate.get('title', 'N/A')}') has {len(ingredients)} ingredients: {ingredients}")
                 
                 return candidates
             

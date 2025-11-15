@@ -30,7 +30,7 @@ class CandidateComponent:
         """
         if category in self.candidates:
             self.candidates[category] = candidates
-            self.logger.info(f"💾 [SESSION] Set {len(candidates)} {category} candidates")
+            self.logger.debug(f"💾 [SESSION] Set {len(candidates)} {category} candidates")
     
     def get(self, category: str) -> list:
         """候補情報を取得

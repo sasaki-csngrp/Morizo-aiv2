@@ -22,14 +22,14 @@ class AuthHandler:
         self.supabase_url = os.getenv("SUPABASE_URL")
         self.supabase_key = os.getenv("SUPABASE_KEY")
         
-        self.logger.info(f"🔍 [Auth] Environment variables check:")
-        self.logger.info(f"  SUPABASE_URL: {'SET' if self.supabase_url else 'NOT SET'}")
-        self.logger.info(f"  SUPABASE_KEY: {'SET' if self.supabase_key else 'NOT SET'}")
+        self.logger.debug(f"🔍 [Auth] Environment variables check:")
+        self.logger.debug(f"  SUPABASE_URL: {'SET' if self.supabase_url else 'NOT SET'}")
+        self.logger.debug(f"  SUPABASE_KEY: {'SET' if self.supabase_key else 'NOT SET'}")
         
         if self.supabase_url:
-            self.logger.info(f"  SUPABASE_URL value: {self.supabase_url[:20]}..." if len(self.supabase_url) > 20 else f"  SUPABASE_URL value: {self.supabase_url}")
+            self.logger.debug(f"  SUPABASE_URL value: {self.supabase_url[:20]}..." if len(self.supabase_url) > 20 else f"  SUPABASE_URL value: {self.supabase_url}")
         if self.supabase_key:
-            self.logger.info(f"  SUPABASE_KEY value: {self.supabase_key[:20]}..." if len(self.supabase_key) > 20 else f"  SUPABASE_KEY value: {self.supabase_key}")
+            self.logger.debug(f"  SUPABASE_KEY value: {self.supabase_key[:20]}..." if len(self.supabase_key) > 20 else f"  SUPABASE_KEY value: {self.supabase_key}")
         
         # Supabaseクライアントの初期化
         if self.supabase_url and self.supabase_key:

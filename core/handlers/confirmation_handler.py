@@ -97,7 +97,7 @@ class ConfirmationHandler:
                 user_id,
                 state_data
             )
-            self.logger.info(f"💾 [CONFIRMATION] Confirmation state saved for session: {task_chain_manager.sse_session_id}")
+            self.logger.debug(f"💾 [CONFIRMATION] Confirmation state saved for session: {task_chain_manager.sse_session_id}")
             
             # ユーザーに確認メッセージを返す（次のリクエストで再開）
             # 曖昧性のタイプに応じて適切なメソッドを呼び出す
@@ -107,8 +107,8 @@ class ConfirmationHandler:
                 confirmation_message = self.create_confirmation_message(ambiguity_info)
             
             # デバッグログ: ambiguity_infoの詳細を出力
-            self.logger.info(f"🔍 [CONFIRMATION] Ambiguity info details: {ambiguity_info.details if hasattr(ambiguity_info, 'details') else 'No details'}")
-            self.logger.info(f"📝 [CONFIRMATION] Confirmation message: {confirmation_message}")
+            self.logger.debug(f"🔍 [CONFIRMATION] Ambiguity info details: {ambiguity_info.details if hasattr(ambiguity_info, 'details') else 'No details'}")
+            self.logger.debug(f"📝 [CONFIRMATION] Confirmation message: {confirmation_message}")
             
             result_dict = {
                 "response": confirmation_message,
@@ -117,7 +117,7 @@ class ConfirmationHandler:
             }
             
             # デバッグログ: 戻り値の辞書を出力
-            self.logger.info(f"📤 [CONFIRMATION] Returning confirmation result: {result_dict}")
+            self.logger.debug(f"📤 [CONFIRMATION] Returning confirmation result: {result_dict}")
             
             return result_dict
                 
@@ -172,7 +172,7 @@ class ConfirmationHandler:
                     session.clear_confirmation_context()
                     
                     # 統合されたリクエストで通常のプランニングループを実行
-                    self.logger.info(f"▶️ [CONFIRMATION] Resuming planning loop with integrated request: {integrated_request}")
+                    self.logger.debug(f"▶️ [CONFIRMATION] Resuming planning loop with integrated request: {integrated_request}")
                     if self.process_request_callback:
                         result = await self.process_request_callback(integrated_request, user_id, token, sse_session_id, False)
                         return result
@@ -310,16 +310,16 @@ class ConfirmationHandler:
         - 結果: 「レンコンの主菜を教えて」
         """
         
-        self.logger.info(f"🔗 [CONFIRMATION] Integrating request")
-        self.logger.info(f"  Original: {original_request}")
-        self.logger.info(f"  Response: {user_response}")
+        self.logger.debug(f"🔗 [CONFIRMATION] Integrating request")
+        self.logger.debug(f"  Original: {original_request}")
+        self.logger.debug(f"  Response: {user_response}")
         
         # パターン1: 「指定しない」系の回答
         proceed_keywords = ["いいえ", "そのまま", "提案して", "在庫から", "このまま", "進めて", "指定しない", "2"]
         if any(keyword in user_response for keyword in proceed_keywords):
             # 元のリクエストをそのまま使用
             integrated_request = original_request
-            self.logger.info(f"✅ [CONFIRMATION] Integrated (proceed): {integrated_request}")
+            self.logger.debug(f"✅ [CONFIRMATION] Integrated (proceed): {integrated_request}")
             return integrated_request
         
         # パターン2: 食材名が含まれている
@@ -337,7 +337,7 @@ class ConfirmationHandler:
             else:
                 integrated_request = f"{ingredient}を使って{original_request}"
             
-            self.logger.info(f"✅ [CONFIRMATION] Integrated (ingredient): {integrated_request}")
+            self.logger.debug(f"✅ [CONFIRMATION] Integrated (ingredient): {integrated_request}")
             return integrated_request
         
         # パターン3: 統合できない場合は元のリクエストを返す

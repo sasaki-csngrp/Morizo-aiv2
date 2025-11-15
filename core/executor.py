@@ -64,10 +64,10 @@ class TaskExecutor:
                 self.logger.info(f"✅ [EXECUTOR] No ambiguity detected, proceeding with execution")
             
             # Log task dependency graph
-            self.logger.info(f"📊 [EXECUTOR] Task dependency graph:")
+            self.logger.debug(f"📊 [EXECUTOR] Task dependency graph:")
             for task in tasks:
                 deps_str = f"deps: {task.dependencies}" if task.dependencies else "no dependencies"
-                self.logger.info(f"  - {task.id}: {task.service}.{task.method} ({deps_str})")
+                self.logger.debug(f"  - {task.id}: {task.service}.{task.method} ({deps_str})")
             
             remaining_tasks = tasks.copy()
             all_results = {}
@@ -75,7 +75,7 @@ class TaskExecutor:
             
             while remaining_tasks:
                 iteration += 1
-                self.logger.info(f"🔄 [EXECUTOR] ReAct iteration {iteration}: {len(remaining_tasks)} tasks remaining")
+                self.logger.debug(f"🔄 [EXECUTOR] ReAct iteration {iteration}: {len(remaining_tasks)} tasks remaining")
                 # Find executable group (tasks with resolved dependencies)
                 executable_group = self._find_executable_group(remaining_tasks, all_results)
                 
@@ -89,9 +89,9 @@ class TaskExecutor:
                 
                 # Log executable group
                 group_task_ids = [task.id for task in executable_group]
-                self.logger.info(f"⚡ [EXECUTOR] Executing group {iteration}: {group_task_ids}")
+                self.logger.debug(f"⚡ [EXECUTOR] Executing group {iteration}: {group_task_ids}")
                 for task in executable_group:
-                    self.logger.info(f"  - {task.id}: {task.service}.{task.method}")
+                    self.logger.debug(f"  - {task.id}: {task.service}.{task.method}")
                 
                 # Execute tasks in parallel
                 group_results = await self._execute_group(executable_group, user_id, all_results, task_chain_manager, token)
@@ -114,7 +114,7 @@ class TaskExecutor:
                         task.error = str(result)
                         task_chain_manager.update_task_status(task.id, TaskStatus.FAILED, error=str(result))
                     else:
-                        self.logger.info(f"✅ [EXECUTOR] Task {task.id} completed successfully")
+                        self.logger.debug(f"✅ [EXECUTOR] Task {task.id} completed successfully")
                         task.status = TaskStatus.COMPLETED
                         task.result = result
                         all_results[task.id] = result
@@ -137,7 +137,7 @@ class TaskExecutor:
                 # Remove completed tasks from remaining
                 completed_ids = [task.id for task in executable_group]
                 remaining_tasks = [t for t in remaining_tasks if t.id not in completed_ids]
-                self.logger.info(f"📊 [EXECUTOR] Completed {len(completed_ids)} tasks, {len(remaining_tasks)} remaining")
+                self.logger.debug(f"📊 [EXECUTOR] Completed {len(completed_ids)} tasks, {len(remaining_tasks)} remaining")
             
             self.logger.info("✅ [EXECUTOR] ReAct loop completed successfully")
             return ExecutionResult(status="success", outputs=all_results)
@@ -204,7 +204,7 @@ class TaskExecutor:
                     injected_params["sse_session_id"] = task_chain_manager.sse_session_id
                     self.logger.info(f"🔄 [EXECUTOR] Replaced sse_session_id: '{old_value}' → '{task_chain_manager.sse_session_id}'")
             
-            self.logger.info(f"📥 [EXECUTOR] Task {task.id} input parameters: {injected_params}")
+            self.logger.debug(f"📥 [EXECUTOR] Task {task.id} input parameters: {injected_params}")
             
             # Execute service method with token
             # Phase 3A: sse_session_idをparametersに追加（generate_proposalsのみ）
@@ -215,8 +215,8 @@ class TaskExecutor:
                 task.service, task.method, injected_params, token
             )
             
-            self.logger.info(f"📤 [EXECUTOR] Task {task.id} output result: {result}")
-            self.logger.info(f"✅ [EXECUTOR] Task {task.id} completed successfully")
+            self.logger.debug(f"📤 [EXECUTOR] Task {task.id} output result: {result}")
+            self.logger.debug(f"✅ [EXECUTOR] Task {task.id} completed successfully")
             return result
             
         except Exception as e:
@@ -229,11 +229,11 @@ class TaskExecutor:
         
         
         for key, value in parameters.items():
-            self.logger.info(f"🔍 [EXECUTOR] Processing parameter: key={key}, value={value}, type={type(value)}")
+            self.logger.debug(f"🔍 [EXECUTOR] Processing parameter: key={key}, value={value}, type={type(value)}")
             
             # Phase 1F: セッションコンテキスト参照の処理（"session.context.xxx"形式）
             if isinstance(value, str) and value.startswith("session.context."):
-                self.logger.info(f"🔍 [EXECUTOR] Detected session context reference: {value}")
+                self.logger.debug(f"🔍 [EXECUTOR] Detected session context reference: {value}")
                 # この時点では文字列のまま保持（エージェントで実際にセッションから取得する）
                 # injected[key] = value  # 既にvalueが設定されているため変更不要
                 continue
@@ -241,37 +241,37 @@ class TaskExecutor:
             if isinstance(value, str):
                 # 結合演算: "task1.result.data + task2.result.data"
                 if " + " in value and ".result." in value:
-                    self.logger.info(f"🔍 [EXECUTOR] Match: concatenation operation ({value})")
+                    self.logger.debug(f"🔍 [EXECUTOR] Match: concatenation operation ({value})")
                     resolved_value = self._resolve_concatenation(value, previous_results)
                     if resolved_value is not None:
                         injected[key] = resolved_value
-                        self.logger.info(f"🔗 [EXECUTOR] Resolved concatenation '{value}' = {len(resolved_value)} items")
+                        self.logger.debug(f"🔗 [EXECUTOR] Resolved concatenation '{value}' = {len(resolved_value)} items")
                 
                 # 辞書フィールド参照: "task2.result.main_dish"
                 elif ".result." in value and value.endswith((".main_dish", ".side_dish", ".soup")):
-                    self.logger.info(f"🔍 [EXECUTOR] Match: dict field reference ({value})")
+                    self.logger.debug(f"🔍 [EXECUTOR] Match: dict field reference ({value})")
                     field_value = self._extract_field_from_result(value, previous_results)
                     injected[key] = field_value
-                    self.logger.info(f"🔗 [EXECUTOR] Extracted field '{value}' = '{field_value}'")
+                    self.logger.debug(f"🔗 [EXECUTOR] Extracted field '{value}' = '{field_value}'")
                 
                 # 複数フィールド参照: "task2.result.main_dish,task3.result.main_dish"
                 elif "," in value and ".result." in value:
-                    self.logger.info(f"🔍 [EXECUTOR] Match: multiple fields reference ({value})")
+                    self.logger.debug(f"🔍 [EXECUTOR] Match: multiple fields reference ({value})")
                     field_values = self._extract_multiple_fields(value, previous_results)
                     injected[key] = field_values
-                    self.logger.info(f"🔗 [EXECUTOR] Extracted multiple fields '{value}' = {field_values}")
+                    self.logger.debug(f"🔗 [EXECUTOR] Extracted multiple fields '{value}' = {field_values}")
                 
                 # ネストパス参照: "task2.result.data", "task1.result.success" など
                 elif ".result." in value:
-                    self.logger.info(f"🔍 [EXECUTOR] Match: nested path reference ({value})")
+                    self.logger.debug(f"🔍 [EXECUTOR] Match: nested path reference ({value})")
                     resolved_value = self._extract_nested_path(value, previous_results)
                     if resolved_value is not None:
                         injected[key] = resolved_value
-                        self.logger.info(f"🔗 [EXECUTOR] Injected nested path '{value}' = {resolved_value}")
+                        self.logger.debug(f"🔗 [EXECUTOR] Injected nested path '{value}' = {resolved_value}")
                 
                 # 単一タスク結果参照: "task1.result"
                 elif value.endswith(".result"):
-                    self.logger.info(f"🔍 [EXECUTOR] Match: single task result reference ({value})")
+                    self.logger.debug(f"🔍 [EXECUTOR] Match: single task result reference ({value})")
                     task_ref = value[:-7]  # "task1.result" -> "task1"
                     
                     if task_ref in previous_results:
@@ -282,13 +282,13 @@ class TaskExecutor:
                             items = inventory_data.get("result", {}).get("data", [])
                             item_names = [item.get("item_name") for item in items if item.get("item_name")]
                             injected[key] = item_names
-                            self.logger.info(f"🔗 [EXECUTOR] Injected {len(item_names)} items from {task_ref} to {key}")
+                            self.logger.debug(f"🔗 [EXECUTOR] Injected {len(item_names)} items from {task_ref} to {key}")
                         else:
                             self.logger.warning(f"⚠️ [EXECUTOR] Inventory data is not successful: {inventory_data}")
                     else:
                         self.logger.warning(f"⚠️ [EXECUTOR] Task reference not found in previous_results: {task_ref}")
                 else:
-                    self.logger.info(f"🔍 [EXECUTOR] No match: keeping original value ({value})")
+                    self.logger.debug(f"🔍 [EXECUTOR] No match: keeping original value ({value})")
                     # その他の文字列はそのまま保持
                     pass
             
@@ -307,12 +307,12 @@ class TaskExecutor:
                                 # ネストされたパスの場合
                                 field_value = self._extract_nested_path(item, previous_results)
                                 resolved_list.append(field_value if field_value is not None else "")
-                                self.logger.info(f"🔗 [EXECUTOR] Resolved nested path list item '{item}' = '{field_value}'")
+                                self.logger.debug(f"🔗 [EXECUTOR] Resolved nested path list item '{item}' = '{field_value}'")
                             elif item.endswith((".main_dish", ".side_dish", ".soup")):
                                 # シンプルなパスの場合
                                 field_value = self._extract_field_from_result(item, previous_results)
                                 resolved_list.append(field_value)
-                                self.logger.info(f"🔗 [EXECUTOR] Resolved list item '{item}' = '{field_value}'")
+                                self.logger.debug(f"🔗 [EXECUTOR] Resolved list item '{item}' = '{field_value}'")
                             elif item.endswith(".result"):
                                 # 単一タスク結果参照
                                 task_ref = item[:-7]
@@ -320,14 +320,14 @@ class TaskExecutor:
                                     task_result = previous_results[task_ref]
                                     if isinstance(task_result, dict) and task_result.get("success"):
                                         resolved_list.append(task_result.get("result", {}))
-                                        self.logger.info(f"🔗 [EXECUTOR] Resolved list item '{item}' = task result")
+                                        self.logger.debug(f"🔗 [EXECUTOR] Resolved list item '{item}' = task result")
                                 else:
                                     resolved_list.append(item)
                             else:
                                 # その他の.result.を含む文字列はネストパスとして処理
                                 resolved_value = self._extract_nested_path(item, previous_results)
                                 resolved_list.append(resolved_value if resolved_value is not None else item)
-                                self.logger.info(f"🔗 [EXECUTOR] Resolved nested path list item '{item}' = '{resolved_value}'")
+                                self.logger.debug(f"🔗 [EXECUTOR] Resolved nested path list item '{item}' = '{resolved_value}'")
                         else:
                             # その他の文字列はそのまま
                             resolved_list.append(item)
@@ -336,7 +336,7 @@ class TaskExecutor:
                         resolved_list.append(item)
                 
                 injected[key] = resolved_list
-                self.logger.info(f"🔗 [EXECUTOR] Resolved list parameter '{key}' = {resolved_list}")
+                self.logger.debug(f"🔗 [EXECUTOR] Resolved list parameter '{key}' = {resolved_list}")
             
             else:
                 # その他の型はそのまま保持
@@ -358,7 +358,7 @@ class TaskExecutor:
             if isinstance(task_result, dict) and task_result.get("success"):
                 data = task_result.get("result", {}).get("data", {})
                 field_value = data.get(field_name, "")
-                self.logger.info(f"🔗 [EXECUTOR] Extracted '{field_name}' = '{field_value}'")
+                self.logger.debug(f"🔗 [EXECUTOR] Extracted '{field_name}' = '{field_value}'")
                 return field_value
             else:
                 self.logger.warning(f"⚠️ [EXECUTOR] Task result is not successful: {task_result}")
@@ -378,12 +378,12 @@ class TaskExecutor:
                 field_value = self._extract_field_from_result(field_ref, previous_results)
                 if field_value:  # 空文字列は除外
                     results.append(field_value)
-                    self.logger.info(f"🔗 [EXECUTOR] Added field value: '{field_value}'")
+                    self.logger.debug(f"🔗 [EXECUTOR] Added field value: '{field_value}'")
                 else:
                     # 空文字列の場合はスキップ
                     pass
         
-        self.logger.info(f"🔗 [EXECUTOR] Final extracted values: {results}")
+        self.logger.debug(f"🔗 [EXECUTOR] Final extracted values: {results}")
         return results
     
     def _extract_nested_path(self, path: str, previous_results: Dict[str, Any]) -> Any:
@@ -396,8 +396,8 @@ class TaskExecutor:
         task_id = parts[0]  # "task2"
         path_after_task = parts[1:]  # ["result", "data", "candidates"]
         
-        self.logger.info(f"🔍 [EXECUTOR] Extracting nested path: {path}")
-        self.logger.info(f"🔍 [EXECUTOR] task_id={task_id}, nested_path={'.'.join(path_after_task)}")
+        self.logger.debug(f"🔍 [EXECUTOR] Extracting nested path: {path}")
+        self.logger.debug(f"🔍 [EXECUTOR] task_id={task_id}, nested_path={'.'.join(path_after_task)}")
         
         if task_id not in previous_results:
             self.logger.warning(f"⚠️ [EXECUTOR] Task '{task_id}' not found")
@@ -412,7 +412,7 @@ class TaskExecutor:
             if isinstance(current_value, dict):
                 if key in current_value:
                     current_value = current_value[key]
-                    self.logger.info(f"🔗 [EXECUTOR] Traversing to '{key}': found {type(current_value).__name__}")
+                    self.logger.debug(f"🔗 [EXECUTOR] Traversing to '{key}': found {type(current_value).__name__}")
                 else:
                     self.logger.warning(f"⚠️ [EXECUTOR] Key '{key}' not found in {list(current_value.keys())}")
                     return None
@@ -420,13 +420,13 @@ class TaskExecutor:
                 self.logger.warning(f"⚠️ [EXECUTOR] Cannot traverse '{key}' from {type(current_value).__name__}")
                 return None
         
-        self.logger.info(f"✅ [EXECUTOR] Successfully extracted: {type(current_value).__name__}")
+        self.logger.debug(f"✅ [EXECUTOR] Successfully extracted: {type(current_value).__name__}")
         
         # Phase 3A Fix: candidatesが辞書のリストの場合、titleのリストに変換
         if isinstance(current_value, list) and len(current_value) > 0 and isinstance(current_value[0], dict):
             if "title" in current_value[0]:
                 titles = [item["title"] for item in current_value if "title" in item]
-                self.logger.info(f"🔧 [EXECUTOR] Converted candidates list to title list: {len(titles)} titles")
+                self.logger.debug(f"🔧 [EXECUTOR] Converted candidates list to title list: {len(titles)} titles")
                 return titles
         
         return current_value
@@ -446,14 +446,14 @@ class TaskExecutor:
                     # リストの場合は拡張、それ以外は追加
                     if isinstance(resolved_value, list):
                         result_list.extend(resolved_value)
-                        self.logger.info(f"🔗 [EXECUTOR] Extended {len(resolved_value)} items from {part}")
+                        self.logger.debug(f"🔗 [EXECUTOR] Extended {len(resolved_value)} items from {part}")
                     else:
                         result_list.append(resolved_value)
-                        self.logger.info(f"🔗 [EXECUTOR] Added item from {part}")
+                        self.logger.debug(f"🔗 [EXECUTOR] Added item from {part}")
                 else:
                     self.logger.warning(f"⚠️ [EXECUTOR] Could not resolve part: {part}")
             
-            self.logger.info(f"✅ [EXECUTOR] Concatenation result: {len(result_list)} items")
+            self.logger.debug(f"✅ [EXECUTOR] Concatenation result: {len(result_list)} items")
             return result_list
             
         except Exception as e:

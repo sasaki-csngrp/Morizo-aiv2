@@ -43,7 +43,7 @@ class InventoryServiceHandler:
                     item_names = [item.get("item_name") for item in inventory_items if item.get("item_name")]
                     
                     await session_service.set_session_context(sse_session_id, "inventory_items", item_names)
-                    self.logger.info(f"💾 [InventoryServiceHandler] Saved {len(item_names)} inventory items to session")
+                    self.logger.debug(f"💾 [InventoryServiceHandler] Saved {len(item_names)} inventory items to session")
                 
             elif service_method == "inventory_service.add_inventory":
                 response_parts.extend(formatters.format_inventory_add(data))
@@ -113,7 +113,7 @@ class RecipeServiceHandler:
                 
             elif service_method == "recipe_service.search_recipes_from_web":
                 # task4完了時にtask3とtask4の結果を統合して選択UIを表示
-                self.logger.info(f"🔍 [RecipeServiceHandler] Task4 completed, integrating with task3 results")
+                self.logger.debug(f"🔍 [RecipeServiceHandler] Task4 completed, integrating with task3 results")
                 
                 # resultsからtask3の結果を直接取得
                 task3_result = None
@@ -134,7 +134,7 @@ class RecipeServiceHandler:
                         titles = [c.get("title") for c in candidates_with_urls if c.get("title")]
                         
                         await session_service.add_proposed_recipes(sse_session_id, "main", titles)
-                        self.logger.info(f"💾 [RecipeServiceHandler] Saved {len(titles)} proposed titles to session")
+                        self.logger.debug(f"💾 [RecipeServiceHandler] Saved {len(titles)} proposed titles to session")
                     
                     # Phase 3C-3: 候補情報をセッションに保存（詳細情報）
                     if sse_session_id and session_service:
@@ -148,10 +148,10 @@ class RecipeServiceHandler:
                                 ingredients = candidate.get('ingredients', [])
                                 has_ingredients = 'ingredients' in candidate and ingredients
                                 if has_ingredients:
-                                    self.logger.info(f"✅ [RecipeServiceHandler] Saving candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}', ingredients={ingredients} ({len(ingredients)} items)")
+                                    self.logger.debug(f"✅ [RecipeServiceHandler] Saving candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}', ingredients={ingredients} ({len(ingredients)} items)")
                                 else:
                                     self.logger.warning(f"⚠️ [RecipeServiceHandler] Saving candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}', ingredients missing or empty (ingredients={ingredients})")
-                            self.logger.info(f"💾 [RecipeServiceHandler] Saved {len(candidates_with_urls)} {category} candidates to session")
+                            self.logger.debug(f"💾 [RecipeServiceHandler] Saved {len(candidates_with_urls)} {category} candidates to session")
                     
                     # Phase 3D: セッションから段階情報を取得
                     stage_info = await stage_info_handler.get_stage_info(sse_session_id, session_service)
@@ -194,11 +194,11 @@ class RecipeServiceHandler:
                                         llm_side_dish_ingredients = task2_data.get("side_dish_ingredients", [])
                                         llm_soup_ingredients = task2_data.get("soup_ingredients", [])
                                         if llm_ingredients_used or llm_main_dish_ingredients or llm_side_dish_ingredients or llm_soup_ingredients:
-                                            self.logger.info(f"✅ [RecipeServiceHandler] Found ingredients from task2 (LLM):")
-                                            self.logger.info(f"   - ingredients_used: {llm_ingredients_used}")
-                                            self.logger.info(f"   - main_dish_ingredients: {llm_main_dish_ingredients}")
-                                            self.logger.info(f"   - side_dish_ingredients: {llm_side_dish_ingredients}")
-                                            self.logger.info(f"   - soup_ingredients: {llm_soup_ingredients}")
+                                            self.logger.debug(f"✅ [RecipeServiceHandler] Found ingredients from task2 (LLM):")
+                                            self.logger.debug(f"   - ingredients_used: {llm_ingredients_used}")
+                                            self.logger.debug(f"   - main_dish_ingredients: {llm_main_dish_ingredients}")
+                                            self.logger.debug(f"   - side_dish_ingredients: {llm_side_dish_ingredients}")
+                                            self.logger.debug(f"   - soup_ingredients: {llm_soup_ingredients}")
                                 
                                 elif task_key == "task3" and task_data.get("success"):
                                     task3_result = task_data.get("result", {})
@@ -209,11 +209,11 @@ class RecipeServiceHandler:
                                         rag_side_dish_ingredients = task3_data.get("side_dish_ingredients", [])
                                         rag_soup_ingredients = task3_data.get("soup_ingredients", [])
                                         if rag_ingredients_used or rag_main_dish_ingredients or rag_side_dish_ingredients or rag_soup_ingredients:
-                                            self.logger.info(f"✅ [RecipeServiceHandler] Found ingredients from task3 (RAG):")
-                                            self.logger.info(f"   - ingredients_used: {rag_ingredients_used}")
-                                            self.logger.info(f"   - main_dish_ingredients: {rag_main_dish_ingredients}")
-                                            self.logger.info(f"   - side_dish_ingredients: {rag_side_dish_ingredients}")
-                                            self.logger.info(f"   - soup_ingredients: {rag_soup_ingredients}")
+                                            self.logger.debug(f"✅ [RecipeServiceHandler] Found ingredients from task3 (RAG):")
+                                            self.logger.debug(f"   - ingredients_used: {rag_ingredients_used}")
+                                            self.logger.debug(f"   - main_dish_ingredients: {rag_main_dish_ingredients}")
+                                            self.logger.debug(f"   - side_dish_ingredients: {rag_side_dish_ingredients}")
+                                            self.logger.debug(f"   - soup_ingredients: {rag_soup_ingredients}")
                         
                         # 献立提案ではテキスト重複を避けるため、Web整形テキストは追加しない
                         # （generate_menu_plan/search_menu_from_rag で既に表示済み）
@@ -231,13 +231,13 @@ class RecipeServiceHandler:
                     else:
                         # デバッグ: results辞書の内容を確認
                         self.logger.error(f"❌ [RecipeServiceHandler] Task3 result not found")
-                        self.logger.error(f"🔍 [RecipeServiceHandler] Available task keys in results: {list(results.keys()) if results else 'results is None or empty'}")
+                        self.logger.debug(f"🔍 [RecipeServiceHandler] Available task keys in results: {list(results.keys()) if results else 'results is None or empty'}")
                         if results:
                             for task_key, task_data in results.items():
-                                self.logger.info(f"🔍 [RecipeServiceHandler] Task key: {task_key}, success: {task_data.get('success')}, has result: {'result' in task_data}")
+                                self.logger.debug(f"🔍 [RecipeServiceHandler] Task key: {task_key}, success: {task_data.get('success')}, has result: {'result' in task_data}")
                                 if task_key == "task3":
                                     task_data_result = task_data.get("result", {})
-                                    self.logger.info(f"🔍 [RecipeServiceHandler] Task3 result structure: success={task_data_result.get('success')}, has_data={'data' in task_data_result}, data_keys={list(task_data_result.get('data', {}).keys()) if isinstance(task_data_result.get('data'), dict) else 'data is not dict'}")
+                                    self.logger.debug(f"🔍 [RecipeServiceHandler] Task3 result structure: success={task_data_result.get('success')}, has_data={'data' in task_data_result}, data_keys={list(task_data_result.get('data', {}).keys()) if isinstance(task_data_result.get('data'), dict) else 'data is not dict'}")
                         # 副菜・汁物提案では致命的
                         self.logger.error(f"❌ [RecipeServiceHandler] FATAL: Task3 result not found for category proposal")
                         response_parts.append("レシピ提案の結果を取得できませんでした。")
@@ -245,7 +245,7 @@ class RecipeServiceHandler:
             elif service_method == "recipe_service.generate_proposals":
                 # task3完了時は進捗のみ（選択UIは表示しない）
                 # task4完了後に統合処理を行う
-                self.logger.info(f"🔍 [RecipeServiceHandler] Task3 completed, waiting for task4 integration")
+                self.logger.debug(f"🔍 [RecipeServiceHandler] Task3 completed, waiting for task4 integration")
                 
                 # Phase 1F: 提案済みタイトルをセッションに保存
                 if data.get("success") and sse_session_id and session_service:
@@ -257,7 +257,7 @@ class RecipeServiceHandler:
                     category = data_obj.get("category", "main")
                     
                     await session_service.add_proposed_recipes(sse_session_id, category, titles)
-                    self.logger.info(f"💾 [RecipeServiceHandler] Saved {len(titles)} proposed titles to session (category: {category})")
+                    self.logger.debug(f"💾 [RecipeServiceHandler] Saved {len(titles)} proposed titles to session (category: {category})")
                 
                 # 何も返さない（進捗状態のみ）
                 pass

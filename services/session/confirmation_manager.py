@@ -43,7 +43,7 @@ class ConfirmationManager:
             }
         """
         try:
-            self.session_service.logger.info(f"💾 [SessionService] Saving confirmation state for session: {sse_session_id}")
+            self.session_service.logger.debug(f"💾 [SessionService] Saving confirmation state for session: {sse_session_id}")
             
             # セッションを取得または作成
             session = await self.session_service.get_session(sse_session_id)
@@ -61,9 +61,9 @@ class ConfirmationManager:
             session.last_accessed = datetime.now()
             
             # デバッグログ: 保存された状態の詳細
-            self.session_service.logger.info(f"🔍 [SessionService] Saved state keys: {list(state_data.keys())}")
-            self.session_service.logger.info(f"🔍 [SessionService] Session data keys: {list(session.data.keys())}")
-            self.session_service.logger.info(f"✅ [SessionService] Confirmation state saved successfully")
+            self.session_service.logger.debug(f"🔍 [SessionService] Saved state keys: {list(state_data.keys())}")
+            self.session_service.logger.debug(f"🔍 [SessionService] Session data keys: {list(session.data.keys())}")
+            self.session_service.logger.debug(f"✅ [SessionService] Confirmation state saved successfully")
             
         except Exception as e:
             self.session_service.logger.error(f"❌ [SessionService] Error in save_confirmation_state: {e}")
@@ -83,7 +83,7 @@ class ConfirmationManager:
             保存された状態データ（存在しない場合はNone）
         """
         try:
-            self.session_service.logger.info(f"🔍 [SessionService] Getting confirmation state for session: {sse_session_id}")
+            self.session_service.logger.debug(f"🔍 [SessionService] Getting confirmation state for session: {sse_session_id}")
             
             session = await self.session_service.get_session(sse_session_id)
             if not session:
@@ -92,12 +92,12 @@ class ConfirmationManager:
             
             if 'confirmation_state' not in session.data:
                 self.session_service.logger.warning(f"⚠️ [SessionService] No confirmation_state in session data for: {sse_session_id}")
-                self.session_service.logger.info(f"🔍 [SessionService] Available session data keys: {list(session.data.keys())}")
+                self.session_service.logger.debug(f"🔍 [SessionService] Available session data keys: {list(session.data.keys())}")
                 return None
             
             state_data = session.data.get('confirmation_state')
-            self.session_service.logger.info(f"🔍 [SessionService] Retrieved state keys: {list(state_data.keys()) if state_data else 'None'}")
-            self.session_service.logger.info(f"✅ [SessionService] Confirmation state retrieved successfully")
+            self.session_service.logger.debug(f"🔍 [SessionService] Retrieved state keys: {list(state_data.keys()) if state_data else 'None'}")
+            self.session_service.logger.debug(f"✅ [SessionService] Confirmation state retrieved successfully")
             
             return state_data
             
@@ -116,7 +116,7 @@ class ConfirmationManager:
             sse_session_id: SSEセッションID
         """
         try:
-            self.session_service.logger.info(f"🧹 [SessionService] Clearing confirmation state for session: {sse_session_id}")
+            self.session_service.logger.debug(f"🧹 [SessionService] Clearing confirmation state for session: {sse_session_id}")
             
             session = await self.session_service.get_session(sse_session_id)
             if session and 'confirmation_state' in session.data:

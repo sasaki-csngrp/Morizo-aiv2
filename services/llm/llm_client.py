@@ -33,7 +33,7 @@ class LLMClient:
         # OpenAIクライアントを初期化
         if self.openai_api_key:
             self.openai_client = AsyncOpenAI(api_key=self.openai_api_key)
-            self.logger.info(f"✅ [LLMClient] OpenAI client initialized with model: {self.openai_model}")
+            self.logger.debug(f"✅ [LLMClient] OpenAI client initialized with model: {self.openai_model}")
         else:
             self.openai_client = None
             self.logger.warning("⚠️ [LLMClient] OPENAI_API_KEY not found, LLM calls will be disabled")
@@ -52,7 +52,7 @@ class LLMClient:
             if not self.openai_client:
                 raise Exception("OpenAI client not initialized")
             
-            self.logger.info(f"🔧 [LLMClient] Calling OpenAI API with model: {self.openai_model}")
+            self.logger.debug(f"🔧 [LLMClient] Calling OpenAI API with model: {self.openai_model}")
             
             # プロンプトとトークン数をログ出力（5行省略表示）
             log_prompt_with_tokens(prompt, max_tokens=self.MAX_TOKENS, logger_name="service.llm")
@@ -68,10 +68,10 @@ class LLMClient:
             )
             
             content = response.choices[0].message.content
-            self.logger.info(f"✅ [LLMClient] OpenAI API response received: {len(content)} characters")
+            self.logger.debug(f"✅ [LLMClient] OpenAI API response received: {len(content)} characters")
             
             # LLMレスポンスを改行付きでログ出力
-            self.logger.info(f"📄 [LLMClient] LLM Response:\n{content}")
+            self.logger.debug(f"📄 [LLMClient] LLM Response:\n{content}")
             
             return content
             
@@ -89,7 +89,7 @@ class LLMClient:
         Returns:
             フォールバックタスクリスト
         """
-        self.logger.info(f"🔄 [LLMClient] Using fallback tasks for user: {user_id}")
+        self.logger.debug(f"🔄 [LLMClient] Using fallback tasks for user: {user_id}")
         
         return [
             {

@@ -29,7 +29,8 @@ class InventoryCRUD:
     ) -> Dict[str, Any]:
         """在庫にアイテムを1件追加"""
         try:
-            self.logger.info(f"📦 [CRUD] Adding item: {item_name} ({quantity}{unit})")
+            self.logger.info(f"📦 [CRUD] Adding item")
+            self.logger.debug(f"🔍 [CRUD] Item: {item_name} ({quantity}{unit})")
             
             # データ準備
             data = {
@@ -47,7 +48,8 @@ class InventoryCRUD:
             result = client.table("inventory").insert(data).execute()
             
             if result.data:
-                self.logger.info(f"✅ [CRUD] Item added successfully: {result.data[0]['id']}")
+                self.logger.info(f"✅ [CRUD] Item added successfully")
+                self.logger.debug(f"🔍 [CRUD] Item ID: {result.data[0]['id']}")
                 return {"success": True, "data": result.data[0]}
             else:
                 raise Exception("No data returned from insert")
@@ -88,7 +90,8 @@ class InventoryCRUD:
             }
         """
         try:
-            self.logger.info(f"📦 [CRUD] Adding {len(items)} items in bulk")
+            self.logger.info(f"📦 [CRUD] Adding items in bulk")
+            self.logger.debug(f"🔍 [CRUD] Item count: {len(items)}")
             
             if not items:
                 # 空のリストは正常なケース（登録するデータがないだけ）
@@ -122,7 +125,8 @@ class InventoryCRUD:
                 
                 if result.data:
                     success_count = len(result.data)
-                    self.logger.info(f"✅ [CRUD] {success_count} items added successfully")
+                    self.logger.info(f"✅ [CRUD] Items added successfully")
+                    self.logger.debug(f"📊 [CRUD] Added {success_count} items")
                     return {
                         "success": True,
                         "total": len(items),
@@ -209,7 +213,8 @@ class InventoryCRUD:
             sort_order: ソート順序 (asc, desc)
         """
         try:
-            self.logger.info(f"📋 [CRUD] Getting all items for user: {user_id}, sort_by={sort_by}, sort_order={sort_order}")
+            self.logger.debug(f"📋 [CRUD] Getting all items")
+            self.logger.debug(f"🔍 [CRUD] User ID: {user_id}, sort_by={sort_by}, sort_order={sort_order}")
             
             # ソート対象カラムの検証
             valid_sort_columns = ["item_name", "quantity", "created_at", "storage_location", "expiry_date"]
@@ -233,7 +238,8 @@ class InventoryCRUD:
             
             result = query.execute()
             
-            self.logger.info(f"✅ [CRUD] Retrieved {len(result.data)} items")
+            self.logger.debug(f"✅ [CRUD] Retrieved items successfully")
+            self.logger.debug(f"📊 [CRUD] Retrieved {len(result.data)} items")
             return {"success": True, "data": result.data}
             
         except Exception as e:
@@ -243,11 +249,13 @@ class InventoryCRUD:
     async def get_items_by_name(self, client: Client, user_id: str, item_name: str) -> Dict[str, Any]:
         """指定されたアイテム名の在庫一覧を取得"""
         try:
-            self.logger.info(f"🔍 [CRUD] Getting items by name: {item_name}")
+            self.logger.info(f"🔍 [CRUD] Getting items by name")
+            self.logger.debug(f"🔍 [CRUD] Item name: {item_name}")
             
             result = client.table("inventory").select("*").eq("user_id", user_id).eq("item_name", item_name).execute()
             
-            self.logger.info(f"✅ [CRUD] Retrieved {len(result.data)} items")
+            self.logger.debug(f"✅ [CRUD] Retrieved items successfully")
+            self.logger.debug(f"📊 [CRUD] Retrieved {len(result.data)} items")
             return {"success": True, "data": result.data}
             
         except Exception as e:
@@ -257,7 +265,8 @@ class InventoryCRUD:
     async def get_item_by_id(self, client: Client, user_id: str, item_id: str) -> Dict[str, Any]:
         """特定の在庫アイテムを1件取得"""
         try:
-            self.logger.info(f"🔍 [CRUD] Getting item by ID: {item_id}")
+            self.logger.info(f"🔍 [CRUD] Getting item by ID")
+            self.logger.debug(f"🔍 [CRUD] Item ID: {item_id}")
             
             result = client.table("inventory").select("*").eq("user_id", user_id).eq("id", item_id).execute()
             
@@ -284,7 +293,8 @@ class InventoryCRUD:
     ) -> Dict[str, Any]:
         """ID指定での在庫アイテム1件更新"""
         try:
-            self.logger.info(f"✏️ [CRUD] Updating item by ID: {item_id}")
+            self.logger.debug(f"✏️ [CRUD] Updating item by ID")
+            self.logger.debug(f"🔍 [CRUD] Item ID: {item_id}")
             
             # 更新データの準備
             update_data = {}
@@ -306,7 +316,7 @@ class InventoryCRUD:
             result = client.table("inventory").update(update_data).eq("user_id", user_id).eq("id", item_id).execute()
             
             if result.data:
-                self.logger.info(f"✅ [CRUD] Item updated successfully")
+                self.logger.debug(f"✅ [CRUD] Item updated successfully")
                 return {"success": True, "data": result.data[0]}
             else:
                 return {"success": False, "error": "Item not found"}
@@ -318,12 +328,13 @@ class InventoryCRUD:
     async def delete_item_by_id(self, client: Client, user_id: str, item_id: str) -> Dict[str, Any]:
         """ID指定での在庫アイテム1件削除"""
         try:
-            self.logger.info(f"🗑️ [CRUD] Deleting item by ID: {item_id}")
+            self.logger.debug(f"🗑️ [CRUD] Deleting item by ID")
+            self.logger.debug(f"🔍 [CRUD] Item ID: {item_id}")
             
             result = client.table("inventory").delete().eq("user_id", user_id).eq("id", item_id).execute()
             
             if result.data:
-                self.logger.info(f"✅ [CRUD] Item deleted successfully")
+                self.logger.debug(f"✅ [CRUD] Item deleted successfully")
                 return {"success": True, "data": result.data[0]}
             else:
                 return {"success": False, "error": "Item not found"}
@@ -344,7 +355,8 @@ class InventoryCRUD:
     ) -> Dict[str, Any]:
         """名前指定での在庫アイテム更新（曖昧性チェック付き）"""
         try:
-            self.logger.info(f"🔍 [CRUD] Searching items by name for ambiguity check: {item_name}")
+            self.logger.info(f"🔍 [CRUD] Searching items by name for ambiguity check")
+            self.logger.debug(f"🔍 [CRUD] Item name: {item_name}")
             
             # 1. 名前でアイテムを検索
             result = client.table("inventory").select("*").eq("user_id", user_id).eq("item_name", item_name).execute()
@@ -358,7 +370,8 @@ class InventoryCRUD:
             if len(items) == 1:
                 # 1件の場合は直接更新
                 item_id = items[0]["id"]
-                self.logger.info(f"✅ [CRUD] Single item found, updating directly: {item_id}")
+                self.logger.info(f"✅ [CRUD] Single item found, updating directly")
+                self.logger.debug(f"🔍 [CRUD] Item ID: {item_id}")
                 
                 # 更新データを準備
                 update_data = {}
@@ -375,7 +388,7 @@ class InventoryCRUD:
                 update_result = client.table("inventory").update(update_data).eq("user_id", user_id).eq("id", item_id).execute()
                 
                 if update_result.data:
-                    self.logger.info(f"✅ [CRUD] Item updated successfully")
+                    self.logger.debug(f"✅ [CRUD] Item updated successfully")
                     return {"success": True, "data": update_result.data[0]}
                 else:
                     return {"success": False, "error": "Update failed"}
@@ -416,7 +429,8 @@ class InventoryCRUD:
     ) -> Dict[str, Any]:
         """名前指定での在庫アイテム削除（曖昧性チェック付き）"""
         try:
-            self.logger.info(f"🔍 [CRUD] Searching items by name for ambiguity check: {item_name}")
+            self.logger.info(f"🔍 [CRUD] Searching items by name for ambiguity check")
+            self.logger.debug(f"🔍 [CRUD] Item name: {item_name}")
             
             # 1. 名前でアイテムを検索
             result = client.table("inventory").select("*").eq("user_id", user_id).eq("item_name", item_name).execute()
@@ -431,7 +445,8 @@ class InventoryCRUD:
                 item_id = items[0]["id"]
                 delete_result = client.table("inventory").delete().eq("user_id", user_id).eq("id", item_id).execute()
                 
-                self.logger.info(f"✅ [CRUD] Single item deleted: {item_id}")
+                self.logger.info(f"✅ [CRUD] Single item deleted")
+                self.logger.debug(f"🔍 [CRUD] Item ID: {item_id}")
                 return {"success": True, "data": delete_result.data[0]}
             else:
                 # 3. 複数件の場合は曖昧性エラー

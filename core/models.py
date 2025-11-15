@@ -148,8 +148,8 @@ class TaskChainManager:
                 }
                 
                 # デバッグ用ログ
-                self.logger.info(f"📊 [TaskChainManager] Sending progress: {task_display_name}: {status}")
-                self.logger.info(f"📊 [TaskChainManager] Progress data: {progress_data}")
+                self.logger.debug(f"📊 [TaskChainManager] Sending progress: {task_display_name}: {status}")
+                self.logger.debug(f"📊 [TaskChainManager] Progress data: {progress_data}")
                 
                 # 進捗メッセージを送信
                 import asyncio
@@ -174,12 +174,12 @@ class TaskChainManager:
     
     def send_complete(self, final_response: str, menu_data: Optional[Dict[str, Any]] = None, confirmation_data: Optional[Dict[str, Any]] = None) -> None:
         """Send completion notification via SSE."""
-        self.logger.info(f"🔍 [TaskChainManager] send_complete method called")
-        self.logger.info(f"🔍 [TaskChainManager] Menu data received: {menu_data is not None}")
+        self.logger.debug(f"🔍 [TaskChainManager] send_complete method called")
+        self.logger.debug(f"🔍 [TaskChainManager] Menu data received: {menu_data is not None}")
         if menu_data:
-            self.logger.info(f"📊 [TaskChainManager] Menu data size: {len(str(menu_data))} characters")
+            self.logger.debug(f"📊 [TaskChainManager] Menu data size: {len(str(menu_data))} characters")
         
-        self.logger.info(f"🔍 [TaskChainManager] sse_session_id: {self.sse_session_id}")
+        self.logger.debug(f"🔍 [TaskChainManager] sse_session_id: {self.sse_session_id}")
         
         if self.sse_session_id:
             try:
@@ -191,14 +191,14 @@ class TaskChainManager:
                 loop = asyncio.get_event_loop()
                 
                 # デバッグログ: SSEマネージャーに渡すmenu_dataの値を確認
-                self.logger.info(f"🔍 [TaskChainManager] About to call SSE send_complete with menu_data: {menu_data is not None}")
+                self.logger.debug(f"🔍 [TaskChainManager] About to call SSE send_complete with menu_data: {menu_data is not None}")
                 if menu_data:
-                    self.logger.info(f"📊 [TaskChainManager] Menu data content preview: {str(menu_data)[:200]}...")
+                    self.logger.debug(f"📊 [TaskChainManager] Menu data content preview: {str(menu_data)[:200]}...")
                 
                 # デバッグログ: confirmation_dataの値を確認
-                self.logger.info(f"🔍 [TaskChainManager] About to call SSE send_complete with confirmation_data: {confirmation_data is not None}")
+                self.logger.debug(f"🔍 [TaskChainManager] About to call SSE send_complete with confirmation_data: {confirmation_data is not None}")
                 if confirmation_data:
-                    self.logger.info(f"🔍 [TaskChainManager] Confirmation data: {confirmation_data}")
+                    self.logger.debug(f"🔍 [TaskChainManager] Confirmation data: {confirmation_data}")
                 
                 # SSE送信を同期的に実行（イベントループの状態に関係なく）
                 try:

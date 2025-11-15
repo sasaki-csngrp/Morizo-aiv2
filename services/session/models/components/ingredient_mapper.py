@@ -116,8 +116,8 @@ class IngredientMapperComponent:
         
         recipe_ingredients = recipe["ingredients"]
         
-        self.logger.info(f"🔍 [SESSION] Mapping recipe ingredients: {recipe_ingredients}")
-        self.logger.info(f"🔍 [SESSION] Available inventory items: {inventory_items}")
+        self.logger.debug(f"🔍 [SESSION] Mapping recipe ingredients: {recipe_ingredients}")
+        self.logger.debug(f"🔍 [SESSION] Available inventory items: {inventory_items}")
         
         # レシピ材料を在庫名にマッピング
         mapped_ingredients = self.map_recipe_ingredients_to_inventory(
@@ -125,7 +125,7 @@ class IngredientMapperComponent:
         )
         
         updated_ingredients = used_ingredients + mapped_ingredients
-        self.logger.info(f"📝 [SESSION] Mapped recipe ingredients to inventory: {recipe_ingredients} -> {mapped_ingredients}")
+        self.logger.debug(f"📝 [SESSION] Mapped recipe ingredients to inventory: {recipe_ingredients} -> {mapped_ingredients}")
         
         return updated_ingredients
 

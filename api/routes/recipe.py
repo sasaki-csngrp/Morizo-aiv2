@@ -38,7 +38,7 @@ async def adopt_recipe(request: RecipeAdoptionRequest, http_request: Request):
         if request.token:
             token = request.token
             
-        logger.info(f"🔍 [API] Token: {'SET' if token else 'NOT SET'}")
+        logger.debug(f"🔍 [API] Token: {'SET' if token else 'NOT SET'}")
         
         # 2. ユーザー情報の取得（ミドルウェアから）
         user_info = getattr(http_request.state, 'user_info', None)
@@ -47,7 +47,7 @@ async def adopt_recipe(request: RecipeAdoptionRequest, http_request: Request):
             raise HTTPException(status_code=401, detail="認証が必要です")
             
         user_id = user_info['user_id']
-        logger.info(f"🔍 [API] User ID: {user_id}")
+        logger.debug(f"🔍 [API] User ID: {user_id}")
         
         # 3. menu_source → source のマッピング変換
         db_source_mapping = {
@@ -59,7 +59,7 @@ async def adopt_recipe(request: RecipeAdoptionRequest, http_request: Request):
         # 4. 認証済みSupabaseクライアントの作成
         try:
             client = get_authenticated_client(user_id, token)
-            logger.info(f"🔍 [API] Authenticated client created for user: {user_id}")
+            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
         except Exception as e:
             logger.error(f"❌ [API] Failed to create authenticated client: {e}")
             raise HTTPException(status_code=401, detail="認証に失敗しました")
@@ -71,12 +71,12 @@ async def adopt_recipe(request: RecipeAdoptionRequest, http_request: Request):
         
         for i, recipe in enumerate(request.recipes):
             try:
-                logger.info(f"🔍 [API] Processing recipe {i+1}/{len(request.recipes)}: {recipe.title}")
+                logger.debug(f"🔍 [API] Processing recipe {i+1}/{len(request.recipes)}: {recipe.title}")
                 
                 # デバッグログ: フロントエンドから送信されたレシピデータの内容を確認
                 ingredients = recipe.ingredients if recipe.ingredients else None
                 has_ingredients = recipe.ingredients is not None and len(recipe.ingredients) > 0 if recipe.ingredients else False
-                logger.info(f"🔍 [API] Recipe data from frontend ({i+1}): title='{recipe.title}', category='{recipe.category}', menu_source='{recipe.menu_source}', has_ingredients={has_ingredients}, ingredients={ingredients}")
+                logger.debug(f"🔍 [API] Recipe data from frontend ({i+1}): title='{recipe.title}', category='{recipe.category}', menu_source='{recipe.menu_source}', has_ingredients={has_ingredients}, ingredients={ingredients}")
                 
                 # menu_source → source のマッピング
                 db_source = db_source_mapping.get(recipe.menu_source)
@@ -85,11 +85,11 @@ async def adopt_recipe(request: RecipeAdoptionRequest, http_request: Request):
                     failed_recipes.append(f"Recipe {i+1}: Invalid menu_source '{recipe.menu_source}'")
                     continue
                 
-                logger.info(f"🔍 [API] Mapped source for recipe {i+1}: {recipe.menu_source} → {db_source}")
+                logger.debug(f"🔍 [API] Mapped source for recipe {i+1}: {recipe.menu_source} → {db_source}")
                 
                 # RecipeHistoryCRUD.add_history()を呼び出し
                 if has_ingredients:
-                    logger.info(f"✅ [API] Saving recipe {i+1} with {len(recipe.ingredients)} ingredients: {recipe.ingredients}")
+                    logger.debug(f"✅ [API] Saving recipe {i+1} with {len(recipe.ingredients)} ingredients: {recipe.ingredients}")
                 else:
                     logger.warning(f"⚠️ [API] Saving recipe {i+1} without ingredients (ingredients={ingredients})")
                 
@@ -172,7 +172,7 @@ async def get_ingredient_delete_candidates(
             raise HTTPException(status_code=401, detail="認証が必要です")
         
         user_id = user_info['user_id']
-        logger.info(f"🔍 [API] User ID: {user_id}")
+        logger.debug(f"🔍 [API] User ID: {user_id}")
         
         # 2. 認証済みSupabaseクライアントの作成
         try:
@@ -201,7 +201,7 @@ async def get_ingredient_delete_candidates(
             .or_("ingredients_deleted.is.null,ingredients_deleted.eq.false")\
             .execute()
         
-        logger.info(f"🔍 [API] Retrieved {len(result.data)} recipe histories for date: {date}")
+        logger.debug(f"🔍 [API] Retrieved {len(result.data)} recipe histories for date: {date}")
         
         # 5. 各レシピのingredientsを集約（重複除去）
         all_ingredients = []
@@ -221,8 +221,8 @@ async def get_ingredient_delete_candidates(
         
         # 重複除去（順序を保持）
         unique_ingredients = list(dict.fromkeys(all_ingredients))
-        logger.info(f"🔍 [API] Aggregated {len(unique_ingredients)} unique ingredients")
-        logger.info(f"🔍 [API] Unique ingredients list: {unique_ingredients}")
+        logger.debug(f"🔍 [API] Aggregated {len(unique_ingredients)} unique ingredients")
+        logger.debug(f"🔍 [API] Unique ingredients list: {unique_ingredients}")
         
         # 6. 在庫一覧を取得
         inventory_crud = InventoryCRUD()
@@ -233,7 +233,7 @@ async def get_ingredient_delete_candidates(
             raise HTTPException(status_code=500, detail="在庫情報の取得に失敗しました")
         
         inventory_items = inventory_result.get("data", [])
-        logger.info(f"🔍 [API] Retrieved {len(inventory_items)} inventory items")
+        logger.debug(f"🔍 [API] Retrieved {len(inventory_items)} inventory items")
         
         # 7. 食材名でマッチングして削除候補リストを作成
         # 食材名の正規化用（既存のIngredientMapperComponentを活用）
@@ -253,21 +253,21 @@ async def get_ingredient_delete_candidates(
         # デバッグログ: 在庫名の正規化結果を確認
         for normalized_name, items in inventory_normalized.items():
             if len(items) > 1:
-                logger.info(f"🔍 [API] Multiple inventory items for normalized name '{normalized_name}': {len(items)} items")
+                logger.debug(f"🔍 [API] Multiple inventory items for normalized name '{normalized_name}': {len(items)} items")
                 for item in items:
-                    logger.info(f"  - ID: {item.get('id')}, Name: {item.get('item_name')}, Quantity: {item.get('quantity')}")
+                    logger.debug(f"  - ID: {item.get('id')}, Name: {item.get('item_name')}, Quantity: {item.get('quantity')}")
         
         # レシピ食材を在庫名にマッピング
         for ingredient_name in unique_ingredients:
             normalized_ingredient = ingredient_mapper.normalize_ingredient_name(ingredient_name)
-            logger.info(f"🔍 [API] Processing ingredient '{ingredient_name}' (normalized: '{normalized_ingredient}')")
+            logger.debug(f"🔍 [API] Processing ingredient '{ingredient_name}' (normalized: '{normalized_ingredient}')")
             
             matched = False
             # 正規化された在庫名インデックスから検索
             if normalized_ingredient in inventory_normalized:
                 # 完全一致の場合：同じ食材名のすべての在庫レコードを候補に追加
                 matched_items = inventory_normalized[normalized_ingredient]
-                logger.info(f"🔍 [API] Found {len(matched_items)} inventory items for ingredient '{ingredient_name}' (normalized: '{normalized_ingredient}')")
+                logger.debug(f"🔍 [API] Found {len(matched_items)} inventory items for ingredient '{ingredient_name}' (normalized: '{normalized_ingredient}')")
                 for inv_item in matched_items:
                     inv_id = inv_item.get("id")
                     if inv_id not in matched_inventory_ids:
@@ -279,7 +279,7 @@ async def get_ingredient_delete_candidates(
                         ))
                         matched_inventory_ids.add(inv_id)
                         matched = True
-                        logger.info(f"✅ [API] Added candidate: {inv_item.get('item_name')} (ID: {inv_id}, Quantity: {inv_item.get('quantity')})")
+                        logger.debug(f"✅ [API] Added candidate: {inv_item.get('item_name')} (ID: {inv_id}, Quantity: {inv_item.get('quantity')})")
                     else:
                         logger.debug(f"⚠️ [API] Skipped duplicate inventory ID: {inv_id} for ingredient '{ingredient_name}'")
             else:
@@ -289,11 +289,11 @@ async def get_ingredient_delete_candidates(
                 # 末尾の英数字を除去（例：「卵l」→「卵」）
                 ingredient_base = re.sub(r'[a-z0-9]+$', '', normalized_ingredient)
                 if ingredient_base and ingredient_base != normalized_ingredient:
-                    logger.info(f"🔍 [API] Trying base match for '{ingredient_name}': base='{ingredient_base}' (original normalized='{normalized_ingredient}')")
+                    logger.debug(f"🔍 [API] Trying base match for '{ingredient_name}': base='{ingredient_base}' (original normalized='{normalized_ingredient}')")
                     if ingredient_base in inventory_normalized:
                         # ベース名で完全一致した場合：すべての在庫レコードを候補に追加
                         matched_items = inventory_normalized[ingredient_base]
-                        logger.info(f"🔍 [API] Found {len(matched_items)} inventory items for ingredient base '{ingredient_base}'")
+                        logger.debug(f"🔍 [API] Found {len(matched_items)} inventory items for ingredient base '{ingredient_base}'")
                         for inv_item in matched_items:
                             inv_id = inv_item.get("id")
                             if inv_id not in matched_inventory_ids:
@@ -305,7 +305,7 @@ async def get_ingredient_delete_candidates(
                                 ))
                                 matched_inventory_ids.add(inv_id)
                                 matched = True
-                                logger.info(f"✅ [API] Added candidate (base match): {inv_item.get('item_name')} (ID: {inv_id}, Quantity: {inv_item.get('quantity')})")
+                                logger.debug(f"✅ [API] Added candidate (base match): {inv_item.get('item_name')} (ID: {inv_id}, Quantity: {inv_item.get('quantity')})")
                 
                 # ベース名でマッチしなかった場合、通常の部分一致をチェック
                 if not matched:
@@ -323,14 +323,14 @@ async def get_ingredient_delete_candidates(
                                     ))
                                     matched_inventory_ids.add(inv_id)
                                     matched = True
-                                    logger.info(f"✅ [API] Added candidate (partial match): {inv_item.get('item_name')} (ID: {inv_id}, Quantity: {inv_item.get('quantity')})")
+                                    logger.debug(f"✅ [API] Added candidate (partial match): {inv_item.get('item_name')} (ID: {inv_id}, Quantity: {inv_item.get('quantity')})")
                                     break  # 部分一致が見つかったら次の食材へ
                             break  # 部分一致が見つかったら次の食材へ
             
             if not matched:
                 logger.debug(f"⚠️ [API] Ingredient '{ingredient_name}' not found in inventory")
         
-        logger.info(f"✅ [API] Created {len(candidates)} delete candidates")
+        logger.debug(f"✅ [API] Created {len(candidates)} delete candidates")
         
         return IngredientDeleteCandidatesResponse(
             success=True,
@@ -352,7 +352,7 @@ async def delete_ingredients(
 ):
     """指定された食材を在庫から削除（数量を0に設定）"""
     try:
-        logger.info(f"🔍 [API] Ingredient delete request received: date={request.date}, ingredients={len(request.ingredients)}")
+        logger.debug(f"🔍 [API] Ingredient delete request received: date={request.date}, ingredients={len(request.ingredients)}")
         
         # 1. 認証処理
         authorization = http_request.headers.get("Authorization")
@@ -364,7 +364,7 @@ async def delete_ingredients(
             raise HTTPException(status_code=401, detail="認証が必要です")
         
         user_id = user_info['user_id']
-        logger.info(f"🔍 [API] User ID: {user_id}")
+        logger.debug(f"🔍 [API] User ID: {user_id}")
         
         # 2. 認証済みSupabaseクライアントの作成
         try:
@@ -383,7 +383,7 @@ async def delete_ingredients(
             raise HTTPException(status_code=500, detail="在庫情報の取得に失敗しました")
         
         inventory_items = inventory_result.get("data", [])
-        logger.info(f"🔍 [API] Retrieved {len(inventory_items)} inventory items")
+        logger.debug(f"🔍 [API] Retrieved {len(inventory_items)} inventory items")
         
         # 4. 食材名の正規化用
         ingredient_mapper = IngredientMapperComponent(GenericLogger("api", "ingredient_mapper"))
@@ -411,7 +411,7 @@ async def delete_ingredients(
                         
                         if result.get("success"):
                             deleted_count += 1
-                            logger.info(f"✅ [API] Deleted inventory item: {inventory_id}")
+                            logger.debug(f"✅ [API] Deleted inventory item: {inventory_id}")
                         else:
                             failed_items.append(f"{item_name} (ID: {inventory_id})")
                             logger.error(f"❌ [API] Failed to delete inventory item: {inventory_id}")
@@ -426,7 +426,7 @@ async def delete_ingredients(
                         
                         if result.get("success"):
                             updated_count += 1
-                            logger.info(f"✅ [API] Updated inventory item: {inventory_id}, quantity={target_quantity}")
+                            logger.debug(f"✅ [API] Updated inventory item: {inventory_id}, quantity={target_quantity}")
                         else:
                             failed_items.append(f"{item_name} (ID: {inventory_id})")
                             logger.error(f"❌ [API] Failed to update inventory item: {inventory_id}")
@@ -496,7 +496,7 @@ async def delete_ingredients(
         if not update_result.get("success"):
             logger.warning(f"⚠️ [API] Failed to update ingredients_deleted flag: {update_result.get('error')}")
         
-        logger.info(f"✅ [API] Ingredient delete completed: deleted={deleted_count}, updated={updated_count}, failed={len(failed_items)}")
+        logger.debug(f"✅ [API] Ingredient delete completed: deleted={deleted_count}, updated={updated_count}, failed={len(failed_items)}")
         
         return IngredientDeleteResponse(
             success=True,

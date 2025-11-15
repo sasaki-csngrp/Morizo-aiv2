@@ -35,12 +35,12 @@ class HelpStateManager:
             help_state: "overview", "detail_1", "detail_2", "detail_3", "detail_4", または None
         """
         try:
-            self.session_service.logger.info(f"💾 [SessionService] Setting help state: {help_state} for session: {sse_session_id}")
+            self.session_service.logger.debug(f"💾 [SessionService] Setting help state: {help_state} for session: {sse_session_id}")
             
             session = await self.session_service.get_session(sse_session_id, user_id)
             if not session:
                 # セッションが存在しない場合は作成
-                self.session_service.logger.info(f"🔧 [SESSION] Creating session for help state: {sse_session_id}")
+                self.session_service.logger.debug(f"🔧 [SESSION] Creating session for help state: {sse_session_id}")
                 session = await self.session_service.create_session(user_id, sse_session_id)
             
             if session:
@@ -68,7 +68,7 @@ class HelpStateManager:
             ヘルプ状態（"overview", "detail_1-4", または None）
         """
         try:
-            self.session_service.logger.info(f"🔍 [SESSION] Getting help state: sse_session_id={sse_session_id}, user_id={user_id}")
+            self.session_service.logger.debug(f"🔍 [SESSION] Getting help state: sse_session_id={sse_session_id}, user_id={user_id}")
             
             # まず指定されたセッションIDで検索
             if sse_session_id:
@@ -76,7 +76,7 @@ class HelpStateManager:
                 if session:
                     help_state = session.get_context("help_state", None)
                     if help_state:
-                        self.session_service.logger.info(f"✅ [SESSION] Help state retrieved from session {sse_session_id}: {help_state}")
+                        self.session_service.logger.debug(f"✅ [SESSION] Help state retrieved from session {sse_session_id}: {help_state}")
                         return help_state
             
             # セッションIDで見つからない場合、またはセッションIDがNoneの場合
@@ -88,7 +88,7 @@ class HelpStateManager:
                     if session_id != sse_session_id:  # 既にチェックしたセッションはスキップ
                         help_state = session.get_context("help_state", None)
                         if help_state:
-                            self.session_service.logger.info(f"✅ [SESSION] Help state retrieved from user's other session {session_id}: {help_state}")
+                            self.session_service.logger.debug(f"✅ [SESSION] Help state retrieved from user's other session {session_id}: {help_state}")
                             return help_state
             
             if sse_session_id:

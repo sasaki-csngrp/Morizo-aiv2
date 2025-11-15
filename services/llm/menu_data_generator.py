@@ -50,8 +50,8 @@ class MenuDataGenerator:
         """
         try:
             # Web検索結果の詳細ログを追加
-            self.logger.info(f"🔍 [MenuDataGenerator] Web data type: {type(web_data)}")
-            self.logger.info(f"📊 [MenuDataGenerator] Web data content: {json.dumps(web_data, ensure_ascii=False, indent=2)}")
+            self.logger.debug(f"🔍 [MenuDataGenerator] Web data type: {type(web_data)}")
+            self.logger.debug(f"📊 [MenuDataGenerator] Web data content: {json.dumps(web_data, ensure_ascii=False, indent=2)}")
             
             # 修正: success判定を追加
             if not isinstance(web_data, dict) or not web_data.get("success"):
@@ -101,7 +101,7 @@ class MenuDataGenerator:
                 return None
             
             # 生成されたmenu_dataの全文ログを追加
-            self.logger.info(f"📋 [MenuDataGenerator] Generated menu_data: {json.dumps(menu_data, ensure_ascii=False, indent=2)}")
+            self.logger.debug(f"📋 [MenuDataGenerator] Generated menu_data: {json.dumps(menu_data, ensure_ascii=False, indent=2)}")
             self.logger.info(f"✅ [MenuDataGenerator] Menu data JSON generated successfully")
             return menu_data
             
@@ -240,7 +240,7 @@ class MenuDataGenerator:
         # category_ingredientsがある場合はingredientsフィールドを追加（llm_menuとrag_menuの両方）
         if category_ingredients:
             combined_recipe["ingredients"] = category_ingredients
-            self.logger.info(f"✅ [MenuDataGenerator] Added ingredients to recipe '{combined_title}' (category: {category}, menu_type: {menu_type}): {category_ingredients}")
+            self.logger.debug(f"✅ [MenuDataGenerator] Added ingredients to recipe '{combined_title}' (category: {category}, menu_type: {menu_type}): {category_ingredients}")
         
         # innovative または traditional に分類
         target_section = self.classify_recipe(combined_recipe, menu_type)

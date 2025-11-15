@@ -74,10 +74,10 @@ class RecipeRAGClient:
                         embedding_function=self.embeddings
                     )
                 }
-                logger.info(f"3つのベクトルストアを読み込みました:")
-                logger.info(f"  主菜: {self.vector_db_path_main}")
-                logger.info(f"  副菜: {self.vector_db_path_sub}")
-                logger.info(f"  汁物: {self.vector_db_path_soup}")
+                logger.debug(f"3つのベクトルストアを読み込みました")
+                logger.debug(f"🔍 [RAG] 主菜: {self.vector_db_path_main}")
+                logger.debug(f"🔍 [RAG] 副菜: {self.vector_db_path_sub}")
+                logger.debug(f"🔍 [RAG] 汁物: {self.vector_db_path_soup}")
             except Exception as e:
                 logger.error(f"ベクトルストア読み込みエラー: {e}")
                 raise
@@ -166,10 +166,10 @@ class RecipeRAGClient:
                     category, recipes = result
                     categorized_results[category] = recipes
             
-            logger.info(f"🔍 [RAG] カテゴリ別検索完了:")
-            logger.info(f"  主菜: {len(categorized_results['main'])}件")
-            logger.info(f"  副菜: {len(categorized_results['sub'])}件")
-            logger.info(f"  汁物: {len(categorized_results['soup'])}件")
+            logger.info(f"🔍 [RAG] カテゴリ別検索完了")
+            logger.debug(f"📊 [RAG] 主菜: {len(categorized_results['main'])}件")
+            logger.debug(f"📊 [RAG] 副菜: {len(categorized_results['sub'])}件")
+            logger.debug(f"📊 [RAG] 汁物: {len(categorized_results['soup'])}件")
             
             return categorized_results
             
@@ -288,7 +288,8 @@ class RecipeRAGClient:
             検索結果のリスト
         """
         try:
-            logger.info(f"🔍 [RAG] Searching {limit} {category} candidates")
+            logger.debug(f"🔍 [RAG] Searching {category} candidates")
+            logger.debug(f"🔍 [RAG] Limit: {limit}")
             
             # 適切なベクトルストアを選択
             search_engine = self._get_search_engines()[category]
@@ -299,7 +300,7 @@ class RecipeRAGClient:
             # 副菜・汁物の場合、主菜で使った食材を除外
             if category in ["sub", "soup"] and used_ingredients:
                 search_query = [ing for ing in search_query if ing not in used_ingredients]
-                logger.info(f"🔍 [RAG] Excluded {len(used_ingredients)} used ingredients from search query")
+                logger.debug(f"🔍 [RAG] Excluded {len(used_ingredients)} used ingredients from search query")
             
             # 主要食材の処理（主菜の場合のみ有効）
             rag_main_ingredient = None
@@ -324,7 +325,8 @@ class RecipeRAGClient:
                     ingredients = self._extract_ingredients_from_content(content)
                     result["ingredients"] = ingredients
             
-            logger.info(f"✅ [RAG] Found {len(results)} {category} candidates")
+            logger.debug(f"✅ [RAG] Found {category} candidates")
+            logger.debug(f"📊 [RAG] Found {len(results)} {category} candidates")
             return results
             
         except Exception as e:

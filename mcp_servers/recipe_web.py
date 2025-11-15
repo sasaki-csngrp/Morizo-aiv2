@@ -117,14 +117,16 @@ class _GoogleSearchClient:
     
     async def search_recipes(self, recipe_title: str, num_results: int = 5) -> List[Dict[str, Any]]:
         """レシピ検索を実行（複数サイト対応）"""
-        logger.info(f"🔍 [WEB] Searching recipes for: {recipe_title}")
+        logger.debug(f"🔍 [WEB] Searching recipes")
+        logger.debug(f"🔍 [WEB] Recipe title: {recipe_title}")
         
         # モック機能が有効な場合はモックデータを返す
         if self.USE_MOCK_SEARCH:
-            logger.info(f"🎭 [WEB] Using mock data (Google Search API disabled)")
+            logger.debug(f"🎭 [WEB] Using mock data (Google Search API disabled)")
             # 検索キーワードに基づいて関連するレシピをフィルタリング
             filtered_recipes = self._filter_mock_recipes(recipe_title, num_results)
-            logger.info(f"✅ [WEB] Found {len(filtered_recipes)} mock recipes")
+            logger.debug(f"✅ [WEB] Found mock recipes")
+            logger.debug(f"📊 [WEB] Found {len(filtered_recipes)} mock recipes")
             return filtered_recipes
         
         try:
@@ -141,7 +143,8 @@ class _GoogleSearchClient:
             # 結果を解析・整形
             recipes = self._parse_search_results(result.get('items', []))
             
-            logger.info(f"✅ [WEB] Found {len(recipes)} recipes")
+            logger.debug(f"✅ [WEB] Found recipes")
+            logger.debug(f"📊 [WEB] Found {len(recipes)} recipes")
             return recipes
             
         except Exception as e:

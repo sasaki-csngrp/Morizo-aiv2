@@ -32,7 +32,7 @@ class SessionInfoHandler:
             session = await session_service.get_session(sse_session_id, user_id=None)
             if session:
                 current_stage = session.get_current_stage()
-                self.logger.info(f"🔍 [SessionInfoHandler] Phase 3D: current_stage={current_stage}")
+                self.logger.debug(f"🔍 [SessionInfoHandler] Phase 3D: current_stage={current_stage}")
                 stage_info["current_stage"] = current_stage
                 
                 # 使い残し食材を計算（在庫食材 - 使用済み食材）
@@ -57,20 +57,20 @@ class SessionInfoHandler:
                             remaining_ingredients.append(item)  # 元の在庫名を保持
                             remaining_normalized.add(item_normalized)
                 
-                self.logger.info(f"🔍 [SessionInfoHandler] Phase 3D: used_ingredients={used_ingredients}")
-                self.logger.info(f"🔍 [SessionInfoHandler] Phase 3D: inventory_items={inventory_items}")
-                self.logger.info(f"🔍 [SessionInfoHandler] Phase 3D: remaining_ingredients={remaining_ingredients}")
+                self.logger.debug(f"🔍 [SessionInfoHandler] Phase 3D: used_ingredients={used_ingredients}")
+                self.logger.debug(f"🔍 [SessionInfoHandler] Phase 3D: inventory_items={inventory_items}")
+                self.logger.debug(f"🔍 [SessionInfoHandler] Phase 3D: remaining_ingredients={remaining_ingredients}")
                 
                 if remaining_ingredients:
                     stage_info["used_ingredients"] = remaining_ingredients  # 使い残し食材を返す（フィールド名は変更しない）
                 
                 # メニューカテゴリを取得
                 menu_category = session.get_menu_category()
-                self.logger.info(f"🔍 [SessionInfoHandler] Phase 3D: menu_category={menu_category}")
+                self.logger.debug(f"🔍 [SessionInfoHandler] Phase 3D: menu_category={menu_category}")
                 if menu_category:
                     stage_info["menu_category"] = menu_category
             
-            self.logger.info(f"🔍 [SessionInfoHandler] Phase 3D: stage_info={stage_info}")
+            self.logger.debug(f"🔍 [SessionInfoHandler] Phase 3D: stage_info={stage_info}")
         
         return stage_info
 

@@ -47,7 +47,7 @@ class ServiceCoordinator:
                         session.set_context("menu_type", menu_type)
                         if inventory_items:
                             session.set_context("inventory_items", inventory_items)
-                        self.logger.info(f"💾 [ServiceCoordinator] Saved main_ingredient='{main_ingredient}' and menu_type='{menu_type}' to session")
+                        self.logger.debug(f"💾 [ServiceCoordinator] Saved main_ingredient='{main_ingredient}' and menu_type='{menu_type}' to session")
                         
                         # Phase 3A: セッション内の提案済みレシピを取得してexcluded_recipesに追加
                         category = parameters.get("category", "main")
@@ -65,12 +65,12 @@ class ServiceCoordinator:
                                     all_excluded.append(title)
                             
                             parameters["excluded_recipes"] = all_excluded
-                            self.logger.info(f"📝 [ServiceCoordinator] Added {len(proposed_titles)} proposed {category} recipes to excluded list (total: {len(all_excluded)} recipes)")
+                            self.logger.debug(f"📝 [ServiceCoordinator] Added {len(proposed_titles)} proposed {category} recipes to excluded list (total: {len(all_excluded)} recipes)")
                         else:
-                            self.logger.info(f"📝 [ServiceCoordinator] No proposed {category} recipes found in session")
+                            self.logger.debug(f"📝 [ServiceCoordinator] No proposed {category} recipes found in session")
                 
                 # Phase 3A: sse_session_idはMCPツールに渡す必要があるため、削除しない
-                self.logger.info(f"🔧 [ServiceCoordinator] Passing sse_session_id to MCP tool for session-based exclusion")
+                self.logger.debug(f"🔧 [ServiceCoordinator] Passing sse_session_id to MCP tool for session-based exclusion")
             
             # ToolRouterのroute_service_methodを使用してサービス名・メソッド名からMCPツールをルーティング
             result = await self.tool_router.route_service_method(service, method, parameters, token)
@@ -92,9 +92,9 @@ class ServiceCoordinator:
     def get_tool_descriptions(self) -> Dict[str, str]:
         """利用可能なツールの説明を取得"""
         try:
-            self.logger.info(f"🔧 [ServiceCoordinator] Getting tool descriptions")
+            self.logger.debug(f"🔧 [ServiceCoordinator] Getting tool descriptions")
             descriptions = self.tool_router.get_tool_descriptions()
-            self.logger.info(f"✅ [ServiceCoordinator] Retrieved {len(descriptions)} tool descriptions")
+            self.logger.debug(f"✅ [ServiceCoordinator] Retrieved {len(descriptions)} tool descriptions")
             return descriptions
         except Exception as e:
             self.logger.error(f"❌ [ServiceCoordinator] Error getting tool descriptions: {e}")
@@ -103,7 +103,7 @@ class ServiceCoordinator:
     def get_available_tools_description(self) -> str:
         """利用可能なツールの説明を文字列形式で取得"""
         try:
-            self.logger.info(f"🔧 [ServiceCoordinator] Getting available tools description")
+            self.logger.debug(f"🔧 [ServiceCoordinator] Getting available tools description")
             
             tool_descriptions = self.get_tool_descriptions()
             
@@ -111,7 +111,7 @@ class ServiceCoordinator:
             for tool_name, description in tool_descriptions.items():
                 description_text += f"- {tool_name}: {description}\n"
             
-            self.logger.info(f"✅ [ServiceCoordinator] Tools description generated successfully")
+            self.logger.debug(f"✅ [ServiceCoordinator] Tools description generated successfully")
             return description_text
             
         except Exception as e:

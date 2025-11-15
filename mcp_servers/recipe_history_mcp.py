@@ -60,11 +60,12 @@ async def history_add(
     Returns:
         Dict[str, Any]: 保存結果
     """
-    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_add for user: {user_id}, title: {title}")
+    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_add")
+    logger.debug(f"🔍 [RECIPE_HISTORY] User ID: {user_id}, title: {title}")
     
     try:
         client = get_authenticated_client(user_id)
-        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.add_history(client, user_id, title, source, url)
         logger.info(f"✅ [RECIPE_HISTORY] history_add completed successfully")
@@ -88,11 +89,12 @@ async def history_list(user_id: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: レシピ履歴のリスト
     """
-    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_list for user: {user_id}")
+    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_list")
+    logger.debug(f"🔍 [RECIPE_HISTORY] User ID: {user_id}")
     
     try:
         client = get_authenticated_client(user_id)
-        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.list_history(client, user_id)
         logger.info(f"✅ [RECIPE_HISTORY] history_list completed successfully")
@@ -142,11 +144,12 @@ async def history_update_by_id(
     Returns:
         Dict[str, Any]: 更新結果
     """
-    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_update_by_id for user: {user_id}, history_id: {history_id}")
+    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_update_by_id")
+    logger.debug(f"🔍 [RECIPE_HISTORY] User ID: {user_id}, history_id: {history_id}")
     
     try:
         client = get_authenticated_client(user_id)
-        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.update_history_by_id(client, user_id, history_id, title, source, url)
         logger.info(f"✅ [RECIPE_HISTORY] history_update_by_id completed successfully")
@@ -171,11 +174,12 @@ async def history_delete_by_id(user_id: str, history_id: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: 削除結果
     """
-    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_delete_by_id for user: {user_id}, history_id: {history_id}")
+    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_delete_by_id")
+    logger.debug(f"🔍 [RECIPE_HISTORY] User ID: {user_id}, history_id: {history_id}")
     
     try:
         client = get_authenticated_client(user_id)
-        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.delete_history_by_id(client, user_id, history_id)
         logger.info(f"✅ [RECIPE_HISTORY] history_delete_by_id completed successfully")
@@ -207,14 +211,15 @@ async def history_get_recent_titles(
     Returns:
         Dict[str, Any]: レシピタイトルのリスト
     """
-    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_get_recent_titles for user: {user_id}, category: {category}, days: {days}")
+    logger.debug(f"🔧 [RECIPE_HISTORY] Starting history_get_recent_titles")
+    logger.debug(f"🔍 [RECIPE_HISTORY] User ID: {user_id}, category: {category}, days: {days}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.get_recent_recipe_titles(client, user_id, category, days)
-        logger.info(f"✅ [RECIPE_HISTORY] history_get_recent_titles completed successfully")
+        logger.debug(f"✅ [RECIPE_HISTORY] history_get_recent_titles completed successfully")
         logger.debug(f"📊 [RECIPE_HISTORY] Recent titles result: {result}")
         
         return result
@@ -225,5 +230,5 @@ async def history_get_recent_titles(
 
 
 if __name__ == "__main__":
-    logger.info("🚀 Starting Recipe History MCP Server")
+    logger.debug("🚀 Starting Recipe History MCP Server")
     mcp.run()

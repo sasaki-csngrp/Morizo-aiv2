@@ -41,42 +41,42 @@ async def chat(request: ChatRequest, http_request: Request):
     """AIエージェントとの対話"""
     try:
         # リクエストボディからconfirmを取得（プロキシ問題回避）
-        logger.info(f"🔍 [API] Raw headers: {dict(http_request.headers)}")
+        logger.debug(f"🔍 [API] Raw headers: {dict(http_request.headers)}")
         
         # リクエストボディを直接読み取り
         raw_body = await http_request.body()
-        logger.info(f"🔍 [API] Raw request body: {raw_body}")
+        logger.debug(f"🔍 [API] Raw request body: {raw_body}")
         
         try:
             import json
             raw_json = json.loads(raw_body)
-            logger.info(f"🔍 [API] Raw JSON: {raw_json}")
+            logger.debug(f"🔍 [API] Raw JSON: {raw_json}")
             confirm_from_body = raw_json.get("confirm", False)
-            logger.info(f"🔍 [API] Confirm from body: {confirm_from_body}")
+            logger.debug(f"🔍 [API] Confirm from body: {confirm_from_body}")
         except Exception as e:
             logger.error(f"❌ [API] Failed to parse body: {e}")
             confirm_from_body = False
         
         # Pydanticモデルの内容をログ出力
-        logger.info(f"🔍 [API] Parsed request model: {request.model_dump()}")
+        logger.debug(f"🔍 [API] Parsed request model: {request.model_dump()}")
         
         # Pydanticモデルのフィールドを直接確認
-        logger.info(f"🔍 [API] Pydantic model fields:")
-        logger.info(f"  message: {request.message}")
-        logger.info(f"  sse_session_id: {request.sse_session_id}")
-        logger.info(f"  confirm: {request.confirm}")
-        logger.info(f"🔍 [API] Confirm from body: {confirm_from_body}")
+        logger.debug(f"🔍 [API] Pydantic model fields:")
+        logger.debug(f"  message: {request.message}")
+        logger.debug(f"  sse_session_id: {request.sse_session_id}")
+        logger.debug(f"  confirm: {request.confirm}")
+        logger.debug(f"🔍 [API] Confirm from body: {confirm_from_body}")
         
         # 実際に使用する値（リクエストボディを優先）
         actual_confirm = confirm_from_body or request.confirm
-        logger.info(f"🔍 [API] Actual confirm value: {actual_confirm}")
+        logger.debug(f"🔍 [API] Actual confirm value: {actual_confirm}")
         
         # リクエストボディの詳細ログ
-        logger.info(f"🔍 [API] Chat request received:")
-        logger.info(f"  Message: {request.message[:100]}...")
-        logger.info(f"  Token: {'SET' if request.token else 'NOT SET'}")
-        logger.info(f"  SSE Session ID: {request.sse_session_id if request.sse_session_id else 'NOT SET'}")
-        logger.info(f"  Confirm: {request.confirm} (type: {type(request.confirm).__name__})")
+        logger.info(f"🔍 [API] Chat request received")
+        logger.debug(f"  Message: {request.message[:100]}...")
+        logger.debug(f"  Token: {'SET' if request.token else 'NOT SET'}")
+        logger.debug(f"  SSE Session ID: {request.sse_session_id if request.sse_session_id else 'NOT SET'}")
+        logger.debug(f"  Confirm: {request.confirm} (type: {type(request.confirm).__name__})")
         
         # ミドルウェアで認証済みのユーザー情報を取得
         user_info = getattr(http_request.state, 'user_info', None)
@@ -86,8 +86,8 @@ async def chat(request: ChatRequest, http_request: Request):
         authorization = http_request.headers.get("Authorization")
         token = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
         
-        logger.info(f"🔍 [API] User info from middleware: {user_id}")
-        logger.info(f"🔍 [API] Token from Authorization header: {'SET' if token else 'NOT SET'}")
+        logger.debug(f"🔍 [API] User info from middleware: {user_id}")
+        logger.debug(f"🔍 [API] Token from Authorization header: {'SET' if token else 'NOT SET'}")
         
         # メッセージの前処理（空白のみのメッセージを検知）
         message_stripped = request.message.strip() if request.message else ""
@@ -105,13 +105,13 @@ async def chat(request: ChatRequest, http_request: Request):
         
         # 空白のみのメッセージの場合、セッションが見つからなくてもユーザーの全セッションからnext_stage_requestを探す
         if is_whitespace_only and not session:
-            logger.info(f"🔍 [API] Whitespace-only message detected, searching for next_stage_request in user's sessions")
+            logger.debug(f"🔍 [API] Whitespace-only message detected, searching for next_stage_request in user's sessions")
             # ユーザーの全セッションからnext_stage_requestを持つセッションを探す
             user_sessions = session_service.user_sessions.get(user_id, {})
             for session_id, candidate_session in user_sessions.items():
                 next_stage_request = candidate_session.get_context("next_stage_request")
                 if next_stage_request:
-                    logger.info(f"🔄 [API] Next stage request found in session {session_id}: {next_stage_request}")
+                    logger.debug(f"🔄 [API] Next stage request found in session {session_id}: {next_stage_request}")
                     # セッションから削除して実行
                     candidate_session.set_context("next_stage_request", None)
                     # 見つかったセッションIDを使って次の段階のリクエストを実行
@@ -133,7 +133,7 @@ async def chat(request: ChatRequest, http_request: Request):
         elif session:
             next_stage_request = session.get_context("next_stage_request")
             if next_stage_request:
-                logger.info(f"🔄 [API] Next stage request found in session: {next_stage_request}")
+                logger.debug(f"🔄 [API] Next stage request found in session: {next_stage_request}")
                 # セッションから削除して実行
                 session.set_context("next_stage_request", None)
                 # 次の段階のリクエストを実行
@@ -180,7 +180,7 @@ async def chat(request: ChatRequest, http_request: Request):
         # レスポンスの生成
         if isinstance(response_data, dict) and response_data.get("requires_selection"):
             # ユーザー選択が必要な場合
-            logger.info(f"🔍 [API] Building selection response: requires_selection={response_data.get('requires_selection')}, candidates_count={len(response_data.get('candidates', []))}")
+            logger.debug(f"🔍 [API] Building selection response: requires_selection={response_data.get('requires_selection')}, candidates_count={len(response_data.get('candidates', []))}")
             response = ChatResponse(
                 response=response_data.get("message", "選択してください"),
                 success=True,
@@ -193,10 +193,10 @@ async def chat(request: ChatRequest, http_request: Request):
                 used_ingredients=response_data.get("used_ingredients"),
                 menu_category=response_data.get("menu_category")
             )
-            logger.info(f"🔍 [API] Selection response built: requires_selection={response.requires_selection}, candidates_count={len(response.candidates or [])}")
+            logger.debug(f"🔍 [API] Selection response built: requires_selection={response.requires_selection}, candidates_count={len(response.candidates or [])}")
         elif isinstance(response_data, dict) and "requires_confirmation" in response_data:
             # 曖昧性確認が必要な場合
-            logger.info(f"🔍 [API] Building confirmation response: requires_confirmation={response_data.get('requires_confirmation')}, session_id={response_data.get('confirmation_session_id')}")
+            logger.debug(f"🔍 [API] Building confirmation response: requires_confirmation={response_data.get('requires_confirmation')}, session_id={response_data.get('confirmation_session_id')}")
             response = ChatResponse(
                 response=response_data["response"],
                 success=True,
@@ -205,10 +205,10 @@ async def chat(request: ChatRequest, http_request: Request):
                 requires_confirmation=response_data.get("requires_confirmation", False),
                 confirmation_session_id=response_data.get("confirmation_session_id")
             )
-            logger.info(f"🔍 [API] Confirmation response built: requires_confirmation={response.requires_confirmation}, confirmation_session_id={response.confirmation_session_id}")
+            logger.debug(f"🔍 [API] Confirmation response built: requires_confirmation={response.requires_confirmation}, confirmation_session_id={response.confirmation_session_id}")
         elif isinstance(response_data, dict) and "requires_selection" in response_data:
             # ユーザー選択が必要な場合
-            logger.info(f"🔍 [API] Building selection response: requires_selection={response_data.get('requires_selection')}, candidates_count={len(response_data.get('candidates', []))}")
+            logger.debug(f"🔍 [API] Building selection response: requires_selection={response_data.get('requires_selection')}, candidates_count={len(response_data.get('candidates', []))}")
             response = ChatResponse(
                 response=response_data.get("message", "選択してください"),
                 success=True,
@@ -221,10 +221,10 @@ async def chat(request: ChatRequest, http_request: Request):
                 used_ingredients=response_data.get("used_ingredients"),
                 menu_category=response_data.get("menu_category")
             )
-            logger.info(f"🔍 [API] Selection response built: requires_selection={response.requires_selection}, candidates_count={len(response.candidates or [])}")
+            logger.debug(f"🔍 [API] Selection response built: requires_selection={response.requires_selection}, candidates_count={len(response.candidates or [])}")
         else:
             # 通常のレスポンス
-            logger.info(f"🔍 [API] Building normal response")
+            logger.debug(f"🔍 [API] Building normal response")
             if isinstance(response_data, dict):
                 response_text = response_data.get("response", str(response_data))
             else:
@@ -238,9 +238,9 @@ async def chat(request: ChatRequest, http_request: Request):
                 requires_confirmation=False,
                 confirmation_session_id=None
             )
-            logger.info(f"🔍 [API] Normal response built: requires_confirmation={response.requires_confirmation}, confirmation_session_id={response.confirmation_session_id}")
+            logger.debug(f"🔍 [API] Normal response built: requires_confirmation={response.requires_confirmation}, confirmation_session_id={response.confirmation_session_id}")
         
-        logger.info(f"🔍 [API] Final response object: {response.dict()}")
+        logger.debug(f"🔍 [API] Final response object: {response.dict()}")
         
         # 完了通知はTaskChainManagerで送信されるため、ここでは送信しない
         # await sse_sender.send_complete(sse_session_id, response_text)
@@ -314,7 +314,7 @@ async def stream_progress(sse_session_id: str, request: Request):
                     except asyncio.TimeoutError:
                         # タイムアウト時はハートビートを送信
                         heartbeat_counter += 1
-                        logger.info(f"💓 [API] Sending heartbeat #{heartbeat_counter} to session: {sse_session_id}")
+                        logger.debug(f"💓 [API] Sending heartbeat #{heartbeat_counter} to session: {sse_session_id}")
                         yield f"data: {_create_sse_event('heartbeat', {'message': 'ping', 'counter': heartbeat_counter})}\n\n"
                         
                         # 接続状態を確認
@@ -380,8 +380,8 @@ async def receive_user_selection(
         authorization = http_request.headers.get("Authorization")
         token = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
         
-        logger.info(f"🔍 [API] User info from middleware: {user_id}")
-        logger.info(f"🔍 [API] Token from Authorization header: {'SET' if token else 'NOT SET'}")
+        logger.debug(f"🔍 [API] User info from middleware: {user_id}")
+        logger.debug(f"🔍 [API] Token from Authorization header: {'SET' if token else 'NOT SET'}")
         
         # バリデーション（基本的な必須項目のみ）
         if not selection_request.task_id:
@@ -404,8 +404,8 @@ async def receive_user_selection(
         )
         
         # 選択処理の結果をログ出力
-        logger.info(f"📤 [API] Selection processing result: success={result.get('success')}, response_length={len(str(result.get('response', '')))}")
-        logger.info(f"📤 [API] Selection result preview: {str(result)[:200]}...")
+        logger.debug(f"📤 [API] Selection processing result: success={result.get('success')}, response_length={len(str(result.get('response', '')))}")
+        logger.debug(f"📤 [API] Selection result preview: {str(result)[:200]}...")
         
         # Phase 1F: 追加提案時はsuccessキーがない場合がある
         if result.get("success") is False:
@@ -414,7 +414,7 @@ async def receive_user_selection(
         
         # Phase 3C-3: 自動遷移の場合、responseキーがある場合は正常として処理
         if "response" in result and result.get("success") is None:
-            logger.info(f"🔄 [API] Auto-transition detected, returning requires_next_stage flag")
+            logger.debug(f"🔄 [API] Auto-transition detected, returning requires_next_stage flag")
             return {
                 "success": True,
                 "message": "選択を受け付けました。次段階に自動遷移します。",

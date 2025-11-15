@@ -88,7 +88,7 @@ class ToolRouter:
                 raise ToolNotFoundError(f"Unknown tool: {tool_name}")
             
             # 2. ログ出力
-            self.logger.info(f"🔧 [ToolRouter] Routing tool: {tool_name}")
+            self.logger.debug(f"🔧 [ToolRouter] Routing tool: {tool_name}")
             
             # 3. パラメータマッピング処理
             mapped_parameters = self._map_parameters(tool_name, parameters)
@@ -98,7 +98,7 @@ class ToolRouter:
             
             # 4. 結果の検証とログ
             if result.get("success"):
-                self.logger.info(f"✅ [ToolRouter] Tool {tool_name} completed successfully")
+                self.logger.debug(f"✅ [ToolRouter] Tool {tool_name} completed successfully")
             else:
                 self.logger.warning(f"⚠️ [ToolRouter] Tool {tool_name} failed: {result.get('error')}")
             
@@ -157,7 +157,7 @@ class ToolRouter:
                     tool_name = "inventory_update_by_name"
                 # by_idの場合は元のtool_name（inventory_update_by_id）を使用
                 
-                self.logger.info(f"🔧 [ToolRouter] Strategy '{strategy}' → tool: {tool_name}")
+                self.logger.debug(f"🔧 [ToolRouter] Strategy '{strategy}' → tool: {tool_name}")
             
             # 3. strategy判定ロジック（inventory_service.delete_inventoryの場合）
             if service == "inventory_service" and method == "delete_inventory":
@@ -173,10 +173,10 @@ class ToolRouter:
                     tool_name = "inventory_delete_by_name"
                 # by_idの場合は元のtool_name（inventory_delete_by_id）を使用
                 
-                self.logger.info(f"🔧 [ToolRouter] Strategy '{strategy}' → tool: {tool_name}")
+                self.logger.debug(f"🔧 [ToolRouter] Strategy '{strategy}' → tool: {tool_name}")
             
             # 4. ログ出力
-            self.logger.info(f"🔧 [ToolRouter] Routing service method: {service}.{method} → {tool_name}")
+            self.logger.debug(f"🔧 [ToolRouter] Routing service method: {service}.{method} → {tool_name}")
             
             # 5. 既存のroute_toolメソッドを使用してMCPツールを実行
             result = await self.route_tool(tool_name, parameters, token)
@@ -236,7 +236,7 @@ class ToolRouter:
             
             titles = await session_service.get_proposed_recipes(sse_session_id, category)
             
-            self.logger.info(f"✅ [ToolRouter] Retrieved {len(titles)} proposed titles from session")
+            self.logger.debug(f"✅ [ToolRouter] Retrieved {len(titles)} proposed titles from session")
             return {"success": True, "data": titles}
             
         except Exception as e:
@@ -329,19 +329,19 @@ class ToolRouter:
         if tool_name.startswith("inventory_"):
             if "item_identifier" in mapped:
                 mapped["item_name"] = mapped.pop("item_identifier")
-                self.logger.info(f"🔧 [ToolRouter] Mapped item_identifier to item_name: {mapped['item_name']}")
+                self.logger.debug(f"🔧 [ToolRouter] Mapped item_identifier to item_name: {mapped['item_name']}")
             
             # updatesパラメータを展開
             if "updates" in mapped:
                 updates = mapped.pop("updates")
                 if isinstance(updates, dict):
                     mapped.update(updates)
-                    self.logger.info(f"🔧 [ToolRouter] Expanded updates: {updates}")
+                    self.logger.debug(f"🔧 [ToolRouter] Expanded updates: {updates}")
             
             # strategyパラメータを削除（ツールには不要）
             if "strategy" in mapped:
                 mapped.pop("strategy")
-                self.logger.info(f"🔧 [ToolRouter] Removed strategy parameter")
+                self.logger.debug(f"🔧 [ToolRouter] Removed strategy parameter")
         
         # search_recipe_from_webツールの場合、recipe_titlesをそのまま渡す
         if tool_name == "search_recipe_from_web":
@@ -349,24 +349,24 @@ class ToolRouter:
             if "recipe_titles" in mapped:
                 recipe_titles = mapped["recipe_titles"]
                 if isinstance(recipe_titles, list):
-                    self.logger.info(f"🔧 [ToolRouter] Passing recipe_titles as-is: {len(recipe_titles)} titles")
+                    self.logger.debug(f"🔧 [ToolRouter] Passing recipe_titles as-is: {len(recipe_titles)} titles")
                 else:
                     # 単一の文字列が渡された場合はリストに変換
                     mapped["recipe_titles"] = [recipe_titles]
-                    self.logger.info(f"🔧 [ToolRouter] Converted single recipe_title to list: {recipe_titles}")
+                    self.logger.debug(f"🔧 [ToolRouter] Converted single recipe_title to list: {recipe_titles}")
             elif "recipe_title" in mapped:
                 # 後方互換性のため、recipe_titleをrecipe_titlesに変換
                 recipe_title = mapped.pop("recipe_title")
                 mapped["recipe_titles"] = [recipe_title] if recipe_title else []
-                self.logger.info(f"🔧 [ToolRouter] Converted recipe_title to recipe_titles: {recipe_title}")
+                self.logger.debug(f"🔧 [ToolRouter] Converted recipe_title to recipe_titles: {recipe_title}")
             elif "recipe_name" in mapped:
                 # Phase 3A: recipe_nameをrecipe_titlesに変換
                 recipe_name = mapped.pop("recipe_name")
                 if isinstance(recipe_name, list):
                     mapped["recipe_titles"] = recipe_name
-                    self.logger.info(f"🔧 [ToolRouter] Converted recipe_name to recipe_titles: {len(recipe_name)} titles")
+                    self.logger.debug(f"🔧 [ToolRouter] Converted recipe_name to recipe_titles: {len(recipe_name)} titles")
                 else:
                     mapped["recipe_titles"] = [recipe_name]
-                    self.logger.info(f"🔧 [ToolRouter] Converted recipe_name to recipe_titles: 1 title")
+                    self.logger.debug(f"🔧 [ToolRouter] Converted recipe_name to recipe_titles: 1 title")
         
         return mapped

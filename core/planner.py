@@ -105,31 +105,31 @@ class ActionPlanner:
             
             # Get available tools description
             tools_description = self.service_coordinator.get_available_tools_description()
-            self.logger.info(f"🔧 [PLANNER] Retrieved {len(tools_description)} available tools")
+            self.logger.debug(f"🔧 [PLANNER] Retrieved {len(tools_description)} available tools")
             
             # Use LLM to decompose the request into tasks
             # Phase 1F: sse_session_idを渡す（追加提案の場合）
             task_descriptions = await self.llm_service.decompose_tasks(
                 user_request, tools_description, user_id, sse_session_id
             )
-            self.logger.info(f"🤖 [PLANNER] LLM generated {len(task_descriptions)} task descriptions")
+            self.logger.debug(f"🤖 [PLANNER] LLM generated {len(task_descriptions)} task descriptions")
             
             # Convert descriptions to Task objects
             tasks = self._create_tasks_from_descriptions(task_descriptions, user_id)
-            self.logger.info(f"📋 [PLANNER] Created {len(tasks)} tasks from descriptions")
+            self.logger.debug(f"📋 [PLANNER] Created {len(tasks)} tasks from descriptions")
             
             # Log task details
             for i, task in enumerate(tasks, 1):
-                self.logger.info(f"  {i}. {task.service}.{task.method} (id: {task.id}, deps: {task.dependencies})")
-                self.logger.info(f"     Parameters: {task.parameters}")
+                self.logger.debug(f"  {i}. {task.service}.{task.method} (id: {task.id}, deps: {task.dependencies})")
+                self.logger.debug(f"     Parameters: {task.parameters}")
             
             # Resolve dependencies
             tasks = self._resolve_dependencies(tasks)
-            self.logger.info(f"🔗 [PLANNER] Dependencies resolved for {len(tasks)} tasks")
+            self.logger.debug(f"🔗 [PLANNER] Dependencies resolved for {len(tasks)} tasks")
             
             # Log final task structure
             for i, task in enumerate(tasks, 1):
-                self.logger.info(f"  {i}. {task.service}.{task.method} (id: {task.id}, resolved_deps: {task.dependencies})")
+                self.logger.debug(f"  {i}. {task.service}.{task.method} (id: {task.id}, resolved_deps: {task.dependencies})")
             
             self.logger.info(f"✅ [PLANNER] Task planning completed successfully")
             return tasks

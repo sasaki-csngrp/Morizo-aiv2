@@ -42,7 +42,7 @@ class RequestAnalyzer:
             }
         """
         try:
-            self.logger.info(f"🔍 [RequestAnalyzer] Analyzing request: '{request}'")
+            self.logger.debug(f"🔍 [RequestAnalyzer] Analyzing request: '{request}'")
             
             # セッションコンテキストのデフォルト値
             if session_context is None:
@@ -63,7 +63,7 @@ class RequestAnalyzer:
                 "ambiguities": ambiguities
             }
             
-            self.logger.info(f"✅ [RequestAnalyzer] Analysis result: pattern={pattern}, ambiguities={len(ambiguities)}")
+            self.logger.debug(f"✅ [RequestAnalyzer] Analysis result: pattern={pattern}, ambiguities={len(ambiguities)}")
             
             return result
             

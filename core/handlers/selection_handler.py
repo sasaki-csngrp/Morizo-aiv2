@@ -93,7 +93,7 @@ class SelectionHandler:
             if not self.stage_manager:
                 raise ValueError("stage_manager not set")
             current_stage = await self.stage_manager.get_current_stage(sse_session_id, user_id)
-            self.logger.info(f"🔍 [SELECTION] Current stage: {current_stage}")
+            self.logger.debug(f"🔍 [SELECTION] Current stage: {current_stage}")
             
             # セッションを取得
             session = await self.session_service.get_session(sse_session_id, user_id)
@@ -107,7 +107,7 @@ class SelectionHandler:
             has_ingredients = 'ingredients' in selected_recipe and ingredients
             self.logger.info(f"✅ [SELECTION] Selected recipe: {selected_recipe.get('title', 'Unknown')}")
             if has_ingredients:
-                self.logger.info(f"✅ [SELECTION] Selected recipe has {len(ingredients)} ingredients: {ingredients}")
+                self.logger.debug(f"✅ [SELECTION] Selected recipe has {len(ingredients)} ingredients: {ingredients}")
             else:
                 self.logger.warning(f"⚠️ [SELECTION] Selected recipe missing or empty 'ingredients' field (ingredients={ingredients})")
             
@@ -118,15 +118,15 @@ class SelectionHandler:
             # 次の段階に応じた処理
             if next_stage == "sub":
                 # 副菜提案のリクエストを生成（確認待ち状態）
-                self.logger.info(f"🔄 [SELECTION] Preparing sub dish proposal confirmation")
+                self.logger.debug(f"🔄 [SELECTION] Preparing sub dish proposal confirmation")
                 next_request = await self.stage_manager.generate_sub_dish_request(
                     selected_recipe, sse_session_id, user_id
                 )
-                self.logger.info(f"📝 [SELECTION] Generated sub dish request: {next_request}")
+                self.logger.debug(f"📝 [SELECTION] Generated sub dish request: {next_request}")
                 
                 # セッションに次の提案リクエストを保存（フロントエンドが読み取る）
                 session.set_context("next_stage_request", next_request)
-                self.logger.info(f"💾 [SELECTION] Saved next stage request to session")
+                self.logger.debug(f"💾 [SELECTION] Saved next stage request to session")
                 
                 # 確認待ちフラグを返してフロントエンドに確認を要求
                 return {
@@ -144,15 +144,15 @@ class SelectionHandler:
             
             elif next_stage == "soup":
                 # 汁物提案のリクエストを生成（確認待ち状態）
-                self.logger.info(f"🔄 [SELECTION] Preparing soup proposal confirmation")
+                self.logger.debug(f"🔄 [SELECTION] Preparing soup proposal confirmation")
                 next_request = await self.stage_manager.generate_soup_request(
                     selected_recipe, sse_session_id, user_id
                 )
-                self.logger.info(f"📝 [SELECTION] Generated soup request: {next_request}")
+                self.logger.debug(f"📝 [SELECTION] Generated soup request: {next_request}")
                 
                 # セッションに次の提案リクエストを保存（フロントエンドが読み取る）
                 session.set_context("next_stage_request", next_request)
-                self.logger.info(f"💾 [SELECTION] Saved next stage request to session")
+                self.logger.debug(f"💾 [SELECTION] Saved next stage request to session")
                 
                 # 確認待ちフラグを返してフロントエンドに確認を要求
                 return {
@@ -174,7 +174,7 @@ class SelectionHandler:
                 
                 # Phase 5B-3: すべての選択済みレシピを集約して取得（親セッションからも）
                 all_selected_recipes = await self.stage_manager.get_selected_recipes(sse_session_id)
-                self.logger.info(f"🔍 [SELECTION] All selected recipes (aggregated): main={all_selected_recipes.get('main') is not None}, sub={all_selected_recipes.get('sub') is not None}, soup={all_selected_recipes.get('soup') is not None}")
+                self.logger.debug(f"🔍 [SELECTION] All selected recipes (aggregated): main={all_selected_recipes.get('main') is not None}, sub={all_selected_recipes.get('sub') is not None}, soup={all_selected_recipes.get('soup') is not None}")
                 
                 # 集約された結果を使用（現在選択したレシピで上書き）
                 main_dish = all_selected_recipes.get("main")
@@ -239,8 +239,8 @@ class SelectionHandler:
         """
         try:
             self.logger.info(f"🔄 [SELECTION] Handling additional proposal request")
-            self.logger.info(f"🔍 [SELECTION] New SSE session ID: {sse_session_id}")
-            self.logger.info(f"🔍 [SELECTION] Old SSE session ID: {old_sse_session_id}")
+            self.logger.debug(f"🔍 [SELECTION] New SSE session ID: {sse_session_id}")
+            self.logger.debug(f"🔍 [SELECTION] Old SSE session ID: {old_sse_session_id}")
             
             # 旧セッションからコンテキストを取得（コンテキスト復元）
             main_ingredient = None
@@ -262,7 +262,7 @@ class SelectionHandler:
                     # 旧セッションから提案済みタイトルを取得（現在段階に合わせる）
                     stage_for_titles = current_stage if current_stage in ["main", "sub", "soup"] else "main"
                     proposed_titles = old_session.get_proposed_recipes(stage_for_titles)
-                    self.logger.info(f"🔍 [SELECTION] Retrieved from old session: main_ingredient={main_ingredient}, current_stage={current_stage}, proposed_titles[{stage_for_titles}] count={len(proposed_titles)}")
+                    self.logger.debug(f"🔍 [SELECTION] Retrieved from old session: main_ingredient={main_ingredient}, current_stage={current_stage}, proposed_titles[{stage_for_titles}] count={len(proposed_titles)}")
                     
                     # 新しいセッションにコンテキストをコピー
                     new_session = await self.session_service.get_session(sse_session_id, user_id)
@@ -274,7 +274,7 @@ class SelectionHandler:
                     new_session.set_context("menu_type", menu_type)
                     # Phase 5B-3: 親セッションIDを保存（選択済みレシピの集約に使用）
                     new_session.set_context("parent_session_id", old_sse_session_id)
-                    self.logger.info(f"✅ [SELECTION] Saved parent_session_id={old_sse_session_id} to new session")
+                    self.logger.debug(f"✅ [SELECTION] Saved parent_session_id={old_sse_session_id} to new session")
 
                     # 現在段階・使用済み食材・選択済みレシピを引き継ぐ
                     try:
@@ -282,7 +282,7 @@ class SelectionHandler:
                             new_session.current_stage = current_stage
                             # 設定後の確認（デバッグ用）
                             actual_stage = new_session.get_current_stage()
-                            self.logger.info(f"✅ [SELECTION] Copied current_stage='{current_stage}' to new session (verified: '{actual_stage}')")
+                            self.logger.debug(f"✅ [SELECTION] Copied current_stage='{current_stage}' to new session (verified: '{actual_stage}')")
                             if actual_stage != current_stage:
                                 self.logger.warning(f"⚠️ [SELECTION] current_stage mismatch: expected '{current_stage}', got '{actual_stage}'")
                     except Exception as e:
@@ -292,7 +292,7 @@ class SelectionHandler:
                         # used_ingredients（主菜→副菜、などの除外に必要）
                         if hasattr(old_session, 'used_ingredients'):
                             new_session.used_ingredients = list(old_session.used_ingredients or [])
-                            self.logger.info(f"✅ [SELECTION] Copied used_ingredients count={len(new_session.used_ingredients)}")
+                            self.logger.debug(f"✅ [SELECTION] Copied used_ingredients count={len(new_session.used_ingredients)}")
                     except Exception:
                         pass
                     try:
@@ -300,14 +300,14 @@ class SelectionHandler:
                         # StageManager経由で選択済みレシピを取得し、新しいセッションに設定
                         if self.stage_manager:
                             old_selected_recipes = await self.stage_manager.get_selected_recipes(old_sse_session_id)
-                            self.logger.info(f"🔍 [SELECTION] Retrieving selected recipes from old session: {old_selected_recipes}")
+                            self.logger.debug(f"🔍 [SELECTION] Retrieving selected recipes from old session: {old_selected_recipes}")
                             
                             # 各カテゴリの選択済みレシピを新しいセッションに設定
                             for category in ["main", "sub", "soup"]:
                                 recipe = old_selected_recipes.get(category)
                                 if recipe:
                                     await self.stage_manager.set_selected_recipe(sse_session_id, category, recipe)
-                                    self.logger.info(f"✅ [SELECTION] Copied selected {category} recipe to new session: {recipe.get('title', 'N/A')}")
+                                    self.logger.debug(f"✅ [SELECTION] Copied selected {category} recipe to new session: {recipe.get('title', 'N/A')}")
                         else:
                             self.logger.warning(f"⚠️ [SELECTION] stage_manager not available, skipping selected recipes copy")
                     except Exception as e:
@@ -317,9 +317,9 @@ class SelectionHandler:
                     # 提案済みタイトルも新しいセッションにコピー（カテゴリ別）
                     if proposed_titles:
                         new_session.add_proposed_recipes(stage_for_titles, proposed_titles)
-                        self.logger.info(f"✅ [SELECTION] Copied {len(proposed_titles)} proposed titles to new session under category '{stage_for_titles}'")
+                        self.logger.debug(f"✅ [SELECTION] Copied {len(proposed_titles)} proposed titles to new session under category '{stage_for_titles}'")
                     
-                    self.logger.info(f"✅ [SELECTION] Copied context from old session to new session")
+                    self.logger.debug(f"✅ [SELECTION] Copied context from old session to new session")
             
             # 現在の段階が未取得なら新しいセッションから補完
             if not current_stage:
@@ -363,12 +363,12 @@ class SelectionHandler:
                 # フォールバック
                 additional_request = "主菜をもう5件提案して"
             
-            self.logger.info(f"📝 [SELECTION] Final additional request: {additional_request}")
+            self.logger.debug(f"📝 [SELECTION] Final additional request: {additional_request}")
             
             # プランニングループを実行
             # 重要: 追加提案の場合は、新しいSSEセッションID（additional-*で始まる）を使用
             # これにより、新しいSSE接続が確立され、通常のタスク進捗（進捗バー等）がフロントエンドに表示される
-            self.logger.info(f"🔄 [SELECTION] Processing additional proposal with SSE session: {sse_session_id}")
+            self.logger.debug(f"🔄 [SELECTION] Processing additional proposal with SSE session: {sse_session_id}")
             
             if not self.process_request_callback:
                 raise ValueError("process_request_callback not set")

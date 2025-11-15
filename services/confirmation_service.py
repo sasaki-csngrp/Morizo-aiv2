@@ -65,7 +65,7 @@ class ConfirmationService:
             確認プロセス結果
         """
         try:
-            self.logger.info(f"🔧 [ConfirmationService] Processing confirmation for task: {ambiguity_info.task_id}")
+            self.logger.debug(f"🔧 [ConfirmationService] Processing confirmation for task: {ambiguity_info.task_id}")
             
             # ユーザー応答の解析
             parsed_response = self.response_parser.parse_response(user_response)
@@ -103,7 +103,7 @@ class ConfirmationService:
             更新されたタスクリスト（Taskオブジェクトのリスト）
         """
         try:
-            self.logger.info(f"🔧 [ConfirmationService] Maintaining task chain for {len(original_tasks)} tasks")
+            self.logger.debug(f"🔧 [ConfirmationService] Maintaining task chain for {len(original_tasks)} tasks")
             
             if confirmation_result.is_cancelled:
                 self.logger.info(f"⚠️ [ConfirmationService] Task chain cancelled by user")
@@ -149,7 +149,7 @@ class ConfirmationService:
                 
                 updated_tasks.append(updated_task)
             
-            self.logger.info(f"✅ [ConfirmationService] Task chain maintained successfully: {len(updated_tasks)} tasks")
+            self.logger.debug(f"✅ [ConfirmationService] Task chain maintained successfully: {len(updated_tasks)} tasks")
             
             return updated_tasks
             
@@ -223,7 +223,7 @@ class ConfirmationService:
                 )
                 updated_tasks.append(updated_task)
             
-            self.logger.info(f"✅ [ConfirmationService] Tasks updated successfully: {len(updated_tasks)} tasks")
+            self.logger.debug(f"✅ [ConfirmationService] Tasks updated successfully: {len(updated_tasks)} tasks")
             
             return updated_tasks
             

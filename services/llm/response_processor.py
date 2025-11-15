@@ -47,7 +47,7 @@ class ResponseProcessor:
             解析されたタスクリスト
         """
         try:
-            self.logger.info(f"🔧 [ResponseProcessor] Parsing LLM response")
+            self.logger.debug(f"🔧 [ResponseProcessor] Parsing LLM response")
             
             # JSON部分を抽出（```json```で囲まれている場合がある）
             if "```json" in response:
@@ -65,7 +65,7 @@ class ResponseProcessor:
             result = json.loads(json_str)
             tasks = result.get("tasks", [])
             
-            self.logger.info(f"✅ [ResponseProcessor] Parsed {len(tasks)} tasks from LLM response")
+            self.logger.debug(f"✅ [ResponseProcessor] Parsed {len(tasks)} tasks from LLM response")
             return tasks
             
         except json.JSONDecodeError as e:
@@ -88,7 +88,7 @@ class ResponseProcessor:
             変換されたタスクリスト
         """
         try:
-            self.logger.info(f"🔧 [ResponseProcessor] Converting {len(tasks)} tasks to ActionPlanner format")
+            self.logger.debug(f"🔧 [ResponseProcessor] Converting {len(tasks)} tasks to ActionPlanner format")
             
             converted_tasks = []
             for task in tasks:
@@ -105,7 +105,7 @@ class ResponseProcessor:
                 }
                 converted_tasks.append(converted_task)
             
-            self.logger.info(f"✅ [ResponseProcessor] Converted {len(converted_tasks)} tasks successfully")
+            self.logger.debug(f"✅ [ResponseProcessor] Converted {len(converted_tasks)} tasks successfully")
             return converted_tasks
             
         except Exception as e:
@@ -238,14 +238,14 @@ class ResponseProcessor:
             return "こんにちは！何かお手伝いできることはありますか？", None
         
         final_response = "\n".join(response_parts)
-        self.logger.info(f"🔧 [ResponseProcessor] Final response: {final_response}")
-        self.logger.info(f"✅ [ResponseProcessor] Response formatted successfully")
+        self.logger.debug(f"🔧 [ResponseProcessor] Final response: {final_response}")
+        self.logger.debug(f"✅ [ResponseProcessor] Response formatted successfully")
         
         # JSON形式のレシピデータがある場合は、レスポンスに含める
         if menu_data:
-            self.logger.info(f"📊 [ResponseProcessor] Menu data JSON generated: {len(str(menu_data))} characters")
-            self.logger.info(f"🔍 [ResponseProcessor] Menu data preview: {str(menu_data)[:200]}...")
+            self.logger.debug(f"📊 [ResponseProcessor] Menu data JSON generated: {len(str(menu_data))} characters")
+            self.logger.debug(f"🔍 [ResponseProcessor] Menu data preview: {str(menu_data)[:200]}...")
         else:
-            self.logger.info(f"⚠️ [ResponseProcessor] No menu data generated")
+            self.logger.debug(f"⚠️ [ResponseProcessor] No menu data generated")
         
         return final_response, menu_data

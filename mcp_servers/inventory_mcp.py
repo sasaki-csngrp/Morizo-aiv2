@@ -52,14 +52,15 @@ async def inventory_add(
     token: str = ""
 ) -> Dict[str, Any]:
     """在庫にアイテムを1件追加（個別在庫法）"""
-    logger.info(f"🔧 [INVENTORY] Starting inventory_add for user: {user_id}, item: {item_name}")
+    logger.debug(f"🔧 [INVENTORY] Starting inventory_add")
+    logger.debug(f"🔍 [INVENTORY] User ID: {user_id}, item: {item_name}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.add_item(client, user_id, item_name, quantity, unit, storage_location, expiry_date)
-        logger.info(f"✅ [INVENTORY] inventory_add completed successfully")
+        logger.debug(f"✅ [INVENTORY] inventory_add completed successfully")
         logger.debug(f"📊 [INVENTORY] Add result: {result}")
         
         return result
@@ -72,14 +73,15 @@ async def inventory_add(
 @mcp.tool()
 async def inventory_list(user_id: str, token: str = "") -> Dict[str, Any]:
     """ユーザーの全在庫アイテムを取得"""
-    logger.info(f"🔧 [INVENTORY] Starting inventory_list for user: {user_id}")
+    logger.debug(f"🔧 [INVENTORY] Starting inventory_list")
+    logger.debug(f"🔍 [INVENTORY] User ID: {user_id}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.get_all_items(client, user_id)
-        logger.info(f"✅ [INVENTORY] inventory_list completed successfully")
+        logger.debug(f"✅ [INVENTORY] inventory_list completed successfully")
         logger.debug(f"📊 [INVENTORY] List result: {result}")
         
         return result
@@ -92,14 +94,15 @@ async def inventory_list(user_id: str, token: str = "") -> Dict[str, Any]:
 @mcp.tool()
 async def inventory_list_by_name(user_id: str, item_name: str, token: str = "") -> Dict[str, Any]:
     """指定したアイテム名の在庫アイテムを取得"""
-    logger.info(f"🔧 [INVENTORY] Starting inventory_list_by_name for user: {user_id}, item: {item_name}")
+    logger.debug(f"🔧 [INVENTORY] Starting inventory_list_by_name")
+    logger.debug(f"🔍 [INVENTORY] User ID: {user_id}, item: {item_name}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.get_items_by_name(client, user_id, item_name)
-        logger.info(f"✅ [INVENTORY] inventory_list_by_name completed successfully")
+        logger.debug(f"✅ [INVENTORY] inventory_list_by_name completed successfully")
         logger.debug(f"📊 [INVENTORY] List by name result: {result}")
         
         return result
@@ -112,14 +115,15 @@ async def inventory_list_by_name(user_id: str, item_name: str, token: str = "") 
 @mcp.tool()
 async def inventory_get(user_id: str, item_id: str, token: str = "") -> Dict[str, Any]:
     """指定したIDの在庫アイテムを取得"""
-    logger.info(f"🔧 [INVENTORY] Starting inventory_get for user: {user_id}, item_id: {item_id}")
+    logger.debug(f"🔧 [INVENTORY] Starting inventory_get")
+    logger.debug(f"🔍 [INVENTORY] User ID: {user_id}, item_id: {item_id}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.get_item_by_id(client, user_id, item_id)
-        logger.info(f"✅ [INVENTORY] inventory_get completed successfully")
+        logger.debug(f"✅ [INVENTORY] inventory_get completed successfully")
         logger.debug(f"📊 [INVENTORY] Get result: {result}")
         
         return result
@@ -141,14 +145,15 @@ async def inventory_update_by_id(
     token: str = ""
 ) -> Dict[str, Any]:
     """指定したIDの在庫アイテムを更新"""
-    logger.info(f"🔧 [INVENTORY] Starting inventory_update_by_id for user: {user_id}, item_id: {item_id}")
+    logger.debug(f"🔧 [INVENTORY] Starting inventory_update_by_id")
+    logger.debug(f"🔍 [INVENTORY] User ID: {user_id}, item_id: {item_id}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.update_item_by_id(client, user_id, item_id, item_name, quantity, unit, storage_location, expiry_date)
-        logger.info(f"✅ [INVENTORY] inventory_update_by_id completed successfully")
+        logger.debug(f"✅ [INVENTORY] inventory_update_by_id completed successfully")
         logger.debug(f"📊 [INVENTORY] Update by id result: {result}")
         
         return result
@@ -161,14 +166,15 @@ async def inventory_update_by_id(
 @mcp.tool()
 async def inventory_delete_by_id(user_id: str, item_id: str, token: str = "") -> Dict[str, Any]:
     """指定したIDの在庫アイテムを削除"""
-    logger.info(f"🔧 [INVENTORY] Starting inventory_delete_by_id for user: {user_id}, item_id: {item_id}")
+    logger.debug(f"🔧 [INVENTORY] Starting inventory_delete_by_id")
+    logger.debug(f"🔍 [INVENTORY] User ID: {user_id}, item_id: {item_id}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.debug(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.delete_item_by_id(client, user_id, item_id)
-        logger.info(f"✅ [INVENTORY] inventory_delete_by_id completed successfully")
+        logger.debug(f"✅ [INVENTORY] inventory_delete_by_id completed successfully")
         logger.debug(f"📊 [INVENTORY] Delete by id result: {result}")
         
         return result
@@ -248,5 +254,5 @@ async def inventory_delete_by_name_latest(user_id: str, item_name: str, token: s
 
 
 if __name__ == "__main__":
-    logger.info("🚀 Starting Inventory MCP Server")
+    logger.debug("🚀 Starting Inventory MCP Server")
     mcp.run()

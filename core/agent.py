@@ -89,7 +89,7 @@ class TrueReactAgent:
         try:
             self.logger.info(f"🎯 [AGENT] Starting request processing for user {user_id}")
             self.logger.info(f"📝 [AGENT] User request: '{user_request}'")
-            self.logger.info(f"🔄 [AGENT] Is confirmation response: {is_confirmation_response}")
+            self.logger.debug(f"🔄 [AGENT] Is confirmation response: {is_confirmation_response}")
             
             # ============================================================
             # ヘルプ機能の処理（通常のタスク処理より優先）
@@ -153,7 +153,7 @@ class TrueReactAgent:
                                 sse_session_id, context_key, None
                             )
                             task.parameters[key] = context_value
-                            self.logger.info(f"💾 [AGENT] Injected session context: {context_key} = {context_value}")
+                            self.logger.debug(f"💾 [AGENT] Injected session context: {context_key} = {context_value}")
             task_chain_manager.set_tasks(tasks)
             self.logger.info(f"✅ [AGENT] Planning phase completed: {len(tasks)} tasks generated")
             
@@ -187,9 +187,9 @@ class TrueReactAgent:
             if execution_result.status == "success":
                 self.logger.info(f"📄 [AGENT] Starting response formatting...")
                 final_response, menu_data = await self.response_formatter.format(execution_result.outputs, sse_session_id)
-                self.logger.info(f"🔍 [AGENT] Menu data received: {menu_data is not None}")
+                self.logger.debug(f"🔍 [AGENT] Menu data received: {menu_data is not None}")
                 if menu_data:
-                    self.logger.info(f"📊 [AGENT] Menu data size: {len(str(menu_data))} characters")
+                    self.logger.debug(f"📊 [AGENT] Menu data size: {len(str(menu_data))} characters")
                 task_chain_manager.send_complete(final_response, menu_data)
                 self.logger.info(f"✅ [AGENT] Response formatting completed")
                 self.logger.info(f"🎉 [AGENT] Request processing completed successfully")
@@ -277,7 +277,7 @@ class TrueReactAgent:
             ヘルプ応答文字列（通常処理に進む場合はNone）
         """
         user_request_stripped = user_request.strip()
-        self.logger.info(f"🔍 [HELP] Processing help mode: request='{user_request}', state={help_state}")
+        self.logger.debug(f"🔍 [HELP] Processing help mode: request='{user_request}', state={help_state}")
         
         # 数字入力の検知（1-4）
         if user_request_stripped.isdigit():

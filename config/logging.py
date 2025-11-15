@@ -78,7 +78,7 @@ class LoggingConfig:
         # Prevent propagation to avoid duplicate logs
         root_logger.propagate = False
         
-        root_logger.info(f"🔧 [LOGGING] ロギング設定が完了しました (ログレベル: {log_level})")
+        root_logger.debug(f"🔧 [LOGGING] ロギング設定が完了しました (ログレベル: {log_level})")
         return root_logger
     
     def _setup_file_handler(self, logger: logging.Logger, log_level: str, initialize: bool = True) -> None:
@@ -105,7 +105,7 @@ class LoggingConfig:
             file_handler.setFormatter(formatter)
             
             logger.addHandler(file_handler)
-            logger.info(f"📁 [LOGGING] ファイルハンドラー設定完了: {self.log_file}")
+            logger.debug(f"📁 [LOGGING] ファイルハンドラー設定完了: {self.log_file}")
             
         except Exception as e:
             logger.error(f"❌ [LOGGING] ファイルハンドラー設定エラー: {e}")
@@ -124,7 +124,7 @@ class LoggingConfig:
             console_handler.setFormatter(formatter)
             
             logger.addHandler(console_handler)
-            logger.info("🖥️ [LOGGING] コンソールハンドラー設定完了")
+            logger.debug("🖥️ [LOGGING] コンソールハンドラー設定完了")
             
         except Exception as e:
             logger.error(f"❌ [LOGGING] コンソールハンドラー設定エラー: {e}")

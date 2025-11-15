@@ -85,7 +85,7 @@ class StageComponent:
             self.current_stage = "completed"
         
         # デバッグログ: 選択されたレシピのsourceを確認
-        self.logger.info(f"✅ [SESSION] Recipe selected for {category}: title='{recipe.get('title', 'N/A')}', source='{recipe.get('source', 'N/A')}'")
+        self.logger.debug(f"✅ [SESSION] Recipe selected for {category}: title='{recipe.get('title', 'N/A')}', source='{recipe.get('source', 'N/A')}'")
     
     def get_selected_recipes(self) -> Dict[str, Any]:
         """選択済みレシピを取得

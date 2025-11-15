@@ -36,10 +36,11 @@ class MenuFormatter:
             献立形式の辞書
         """
         try:
-            logger.info(f"🔄 [RAG] Converting {len(rag_results)} results to menu format")
-            logger.info(f"📊 [RAG] RAG results: {rag_results}")
-            logger.info(f"📊 [RAG] Inventory items: {inventory_items}")
-            logger.info(f"📊 [RAG] Menu type: {menu_type}")
+            logger.info(f"🔄 [RAG] Converting results to menu format")
+            logger.debug(f"📊 [RAG] Results count: {len(rag_results)}")
+            logger.debug(f"📊 [RAG] RAG results: {rag_results}")
+            logger.debug(f"📊 [RAG] Inventory items: {inventory_items}")
+            logger.debug(f"📊 [RAG] Menu type: {menu_type}")
             
             # レシピをカテゴリ別に分類
             categorized_recipes = self._categorize_recipes(rag_results)
@@ -290,11 +291,11 @@ class MenuFormatter:
         """
         try:
             logger.info(f"🔄 [RAG] Converting categorized results to menu format")
-            logger.info(f"📊 [RAG] Main dishes: {len(categorized_results.get('main', []))}")
-            logger.info(f"📊 [RAG] Side dishes: {len(categorized_results.get('sub', []))}")
-            logger.info(f"📊 [RAG] Soups: {len(categorized_results.get('soup', []))}")
-            logger.info(f"📊 [RAG] Inventory items: {inventory_items}")
-            logger.info(f"📊 [RAG] Menu type: {menu_type}")
+            logger.debug(f"📊 [RAG] Main dishes: {len(categorized_results.get('main', []))}")
+            logger.debug(f"📊 [RAG] Side dishes: {len(categorized_results.get('sub', []))}")
+            logger.debug(f"📊 [RAG] Soups: {len(categorized_results.get('soup', []))}")
+            logger.debug(f"📊 [RAG] Inventory items: {inventory_items}")
+            logger.debug(f"📊 [RAG] Menu type: {menu_type}")
             
             # カテゴリ別レシピを献立形式に変換
             categorized_recipes = {

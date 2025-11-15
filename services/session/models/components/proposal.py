@@ -30,7 +30,7 @@ class ProposalComponent:
         """
         if category in self.proposed_recipes:
             self.proposed_recipes[category].extend(titles)
-            self.logger.info(f"📝 [SESSION] Added {len(titles)} proposed {category} recipes")
+            self.logger.debug(f"📝 [SESSION] Added {len(titles)} proposed {category} recipes")
     
     def get(self, category: str) -> list:
         """提案済みレシピタイトルを取得

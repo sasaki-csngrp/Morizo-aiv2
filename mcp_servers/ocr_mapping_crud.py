@@ -39,7 +39,8 @@ class OCRMappingCRUD:
             }
         """
         try:
-            self.logger.info(f"📝 [CRUD] Adding OCR mapping: '{original_name}' -> '{normalized_name}'")
+            self.logger.info(f"📝 [CRUD] Adding OCR mapping")
+            self.logger.debug(f"🔍 [CRUD] Original: '{original_name}' -> Normalized: '{normalized_name}'")
             
             # データ準備
             data = {
@@ -56,7 +57,8 @@ class OCRMappingCRUD:
             ).execute()
             
             if result.data:
-                self.logger.info(f"✅ [CRUD] OCR mapping added/updated successfully: {result.data[0]['id']}")
+                self.logger.info(f"✅ [CRUD] OCR mapping added/updated successfully")
+                self.logger.debug(f"🔍 [CRUD] Mapping ID: {result.data[0]['id']}")
                 return {
                     "success": True,
                     "data": result.data[0]
@@ -141,14 +143,16 @@ class OCRMappingCRUD:
             }
         """
         try:
-            self.logger.info(f"🔍 [CRUD] Getting all OCR mappings for user: {user_id}")
+            self.logger.info(f"🔍 [CRUD] Getting all OCR mappings")
+            self.logger.debug(f"🔍 [CRUD] User ID: {user_id}")
             
             result = client.table("ocr_item_mappings").select("*").eq(
                 "user_id", user_id
             ).order("created_at", desc=True).execute()
             
             if result.data:
-                self.logger.info(f"✅ [CRUD] Retrieved {len(result.data)} OCR mappings")
+                self.logger.info(f"✅ [CRUD] Retrieved OCR mappings successfully")
+                self.logger.debug(f"📊 [CRUD] Retrieved {len(result.data)} OCR mappings")
                 return {
                     "success": True,
                     "data": result.data
@@ -191,7 +195,8 @@ class OCRMappingCRUD:
             }
         """
         try:
-            self.logger.info(f"📝 [CRUD] Updating OCR mapping: '{original_name}' -> '{normalized_name}'")
+            self.logger.info(f"📝 [CRUD] Updating OCR mapping")
+            self.logger.debug(f"🔍 [CRUD] Original: '{original_name}' -> Normalized: '{normalized_name}'")
             
             # 既存のマッピングを取得
             get_result = await self.get_mapping(client, user_id, original_name)
@@ -214,7 +219,8 @@ class OCRMappingCRUD:
             }).eq("id", mapping_id).execute()
             
             if result.data:
-                self.logger.info(f"✅ [CRUD] OCR mapping updated successfully: {mapping_id}")
+                self.logger.info(f"✅ [CRUD] OCR mapping updated successfully")
+                self.logger.debug(f"🔍 [CRUD] Mapping ID: {mapping_id}")
                 return {
                     "success": True,
                     "data": result.data[0]
@@ -250,7 +256,8 @@ class OCRMappingCRUD:
             }
         """
         try:
-            self.logger.info(f"🗑️ [CRUD] Deleting OCR mapping: '{original_name}'")
+            self.logger.info(f"🗑️ [CRUD] Deleting OCR mapping")
+            self.logger.debug(f"🔍 [CRUD] Original name: '{original_name}'")
             
             result = client.table("ocr_item_mappings").delete().eq(
                 "user_id", user_id

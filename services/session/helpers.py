@@ -34,9 +34,9 @@ async def call_session_method(
         if session:
             result = session_method(session)
             if log_success_message:
-                session_service.logger.info(log_success_message)
+                session_service.logger.debug(log_success_message)
             else:
-                session_service.logger.info(f"✅ [SessionService] {method_name} completed successfully")
+                session_service.logger.debug(f"✅ [SessionService] {method_name} completed successfully")
             return result
         return default_return
     except Exception as e:
@@ -65,9 +65,9 @@ async def call_session_void_method(
         if session:
             session_method(session)
             if log_success_message:
-                session_service.logger.info(log_success_message)
+                session_service.logger.debug(log_success_message)
             else:
-                session_service.logger.info(f"✅ [SessionService] {method_name} completed successfully")
+                session_service.logger.debug(f"✅ [SessionService] {method_name} completed successfully")
     except Exception as e:
         session_service.logger.error(f"❌ [SessionService] Error in {method_name}: {e}")
 

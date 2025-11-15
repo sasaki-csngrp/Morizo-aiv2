@@ -39,7 +39,7 @@ class AmbiguityDetector:
             曖昧性検出結果
         """
         try:
-            self.logger.info(f"🔧 [AmbiguityDetector] Detecting ambiguity for user: {user_id}")
+            self.logger.debug(f"🔧 [AmbiguityDetector] Detecting ambiguity for user: {user_id}")
             
             ambiguous_tasks = []
             
@@ -68,7 +68,7 @@ class AmbiguityDetector:
                 ambiguous_tasks=ambiguous_tasks
             )
             
-            self.logger.info(f"✅ [AmbiguityDetector] Ambiguity detection completed: {len(ambiguous_tasks)} ambiguous tasks")
+            self.logger.debug(f"✅ [AmbiguityDetector] Ambiguity detection completed: {len(ambiguous_tasks)} ambiguous tasks")
             
             return result
             
@@ -118,7 +118,7 @@ class AmbiguityDetector:
                         )
                         
                         # Service層で曖昧性を判定
-                        self.logger.info(f"🔍 [AmbiguityDetector] Checking ambiguity for {item_name}: result={result}")
+                        self.logger.debug(f"🔍 [AmbiguityDetector] Checking ambiguity for {item_name}: result={result}")
                         if result.get("success") and len(result.get("result", {}).get("data", [])) > 1:
                             items = result.get("result", {}).get("data", [])
                             self.logger.info(f"⚠️ [AmbiguityDetector] Ambiguity detected: {len(items)} items found")
@@ -135,7 +135,7 @@ class AmbiguityDetector:
                                 original_parameters=parameters  # user_idを含むパラメータ
                             )
                         else:
-                            self.logger.info(f"✅ [AmbiguityDetector] No ambiguity: success={result.get('success')}, data_count={len(result.get('result', {}).get('data', []))}")
+                            self.logger.debug(f"✅ [AmbiguityDetector] No ambiguity: success={result.get('success')}, data_count={len(result.get('result', {}).get('data', []))}")
                     elif item_name and strategy not in ["by_name"]:
                         # 明確な戦略の場合は曖昧性チェックをスキップ
                         self.logger.info(f"✅ [AmbiguityDetector] Skipping ambiguity check for strategy: {strategy}")

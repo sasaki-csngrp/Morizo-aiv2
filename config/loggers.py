@@ -101,7 +101,7 @@ def log_prompt_with_tokens(prompt: str, max_tokens: int = 4000, logger_name: str
     estimated_tokens = len(prompt) // 4
     token_usage_ratio = estimated_tokens / max_tokens
     
-    logger.info(f"🔤 [PROMPT] 予想トークン数: {estimated_tokens}/{max_tokens} ({token_usage_ratio:.1%})")
+    logger.debug(f"🔤 [PROMPT] 予想トークン数: {estimated_tokens}/{max_tokens} ({token_usage_ratio:.1%})")
     
     # トークン数超過警告
     if token_usage_ratio > 0.8:
@@ -112,7 +112,7 @@ def log_prompt_with_tokens(prompt: str, max_tokens: int = 4000, logger_name: str
     # プロンプト内容の表示制御
     if show_full_prompt:
         # 全文表示
-        logger.info(f"🔤 [PROMPT] プロンプト内容（全文）:\n{prompt}")
+        logger.debug(f"🔤 [PROMPT] プロンプト内容（全文）:\n{prompt}")
     else:
         # 5行で省略（現状通り）
         prompt_lines = prompt.split('\n')
@@ -121,7 +121,7 @@ def log_prompt_with_tokens(prompt: str, max_tokens: int = 4000, logger_name: str
         else:
             displayed_prompt = prompt
         
-        logger.info(f"🔤 [PROMPT] プロンプト内容:\n{displayed_prompt}")
+        logger.debug(f"🔤 [PROMPT] プロンプト内容:\n{displayed_prompt}")
 
 
 if __name__ == "__main__":

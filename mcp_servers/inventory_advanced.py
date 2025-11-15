@@ -28,7 +28,8 @@ class InventoryAdvanced:
     ) -> Dict[str, Any]:
         """名前指定での在庫アイテム一括更新"""
         try:
-            self.logger.info(f"✏️ [ADVANCED] Batch updating items by name: {item_name}")
+            self.logger.info(f"✏️ [ADVANCED] Batch updating items by name")
+            self.logger.debug(f"🔍 [ADVANCED] Item name: {item_name}")
             
             # 更新データの準備
             update_data = {}
@@ -47,7 +48,8 @@ class InventoryAdvanced:
             # データベース一括更新
             result = client.table("inventory").update(update_data).eq("user_id", user_id).eq("item_name", item_name).execute()
             
-            self.logger.info(f"✅ [ADVANCED] Updated {len(result.data)} items")
+            self.logger.info(f"✅ [ADVANCED] Updated items successfully")
+            self.logger.debug(f"📊 [ADVANCED] Updated {len(result.data)} items")
             return {"success": True, "data": result.data}
             
         except Exception as e:
@@ -66,7 +68,8 @@ class InventoryAdvanced:
     ) -> Dict[str, Any]:
         """名前指定での最古アイテム更新（FIFO原則）"""
         try:
-            self.logger.info(f"✏️ [ADVANCED] Updating oldest item by name: {item_name}")
+            self.logger.info(f"✏️ [ADVANCED] Updating oldest item by name")
+            self.logger.debug(f"🔍 [ADVANCED] Item name: {item_name}")
             
             # 最古のアイテムを取得
             result = client.table("inventory").select("*").eq("user_id", user_id).eq("item_name", item_name).order("created_at", desc=False).limit(1).execute()
@@ -94,7 +97,8 @@ class InventoryAdvanced:
             # 最古アイテムを更新
             update_result = client.table("inventory").update(update_data).eq("user_id", user_id).eq("id", item_id).execute()
             
-            self.logger.info(f"✅ [ADVANCED] Updated oldest item: {item_id}")
+            self.logger.info(f"✅ [ADVANCED] Updated oldest item")
+            self.logger.debug(f"🔍 [ADVANCED] Item ID: {item_id}")
             return {"success": True, "data": update_result.data[0]}
             
         except Exception as e:
@@ -113,7 +117,8 @@ class InventoryAdvanced:
     ) -> Dict[str, Any]:
         """名前指定での最新アイテム更新"""
         try:
-            self.logger.info(f"✏️ [ADVANCED] Updating latest item by name: {item_name}")
+            self.logger.info(f"✏️ [ADVANCED] Updating latest item by name")
+            self.logger.debug(f"🔍 [ADVANCED] Item name: {item_name}")
             
             # 最新のアイテムを取得
             result = client.table("inventory").select("*").eq("user_id", user_id).eq("item_name", item_name).order("created_at", desc=True).limit(1).execute()
@@ -141,7 +146,8 @@ class InventoryAdvanced:
             # 最新アイテムを更新
             update_result = client.table("inventory").update(update_data).eq("user_id", user_id).eq("id", item_id).execute()
             
-            self.logger.info(f"✅ [ADVANCED] Updated latest item: {item_id}")
+            self.logger.info(f"✅ [ADVANCED] Updated latest item")
+            self.logger.debug(f"🔍 [ADVANCED] Item ID: {item_id}")
             return {"success": True, "data": update_result.data[0]}
             
         except Exception as e:
@@ -151,7 +157,8 @@ class InventoryAdvanced:
     async def delete_by_name(self, client: Client, user_id: str, item_name: str) -> Dict[str, Any]:
         """名前指定での在庫アイテム一括削除"""
         try:
-            self.logger.info(f"🗑️ [ADVANCED] Batch deleting items by name: {item_name}")
+            self.logger.info(f"🗑️ [ADVANCED] Batch deleting items by name")
+            self.logger.debug(f"🔍 [ADVANCED] Item name: {item_name}")
             
             # 削除対象のアイテムを取得（削除前に確認）
             result = client.table("inventory").select("*").eq("user_id", user_id).eq("item_name", item_name).execute()
@@ -162,7 +169,8 @@ class InventoryAdvanced:
             # 一括削除実行
             delete_result = client.table("inventory").delete().eq("user_id", user_id).eq("item_name", item_name).execute()
             
-            self.logger.info(f"✅ [ADVANCED] Deleted {len(delete_result.data)} items")
+            self.logger.info(f"✅ [ADVANCED] Deleted items successfully")
+            self.logger.debug(f"📊 [ADVANCED] Deleted {len(delete_result.data)} items")
             return {"success": True, "data": delete_result.data}
             
         except Exception as e:
@@ -172,7 +180,8 @@ class InventoryAdvanced:
     async def delete_by_name_oldest(self, client: Client, user_id: str, item_name: str) -> Dict[str, Any]:
         """名前指定での最古アイテム削除（FIFO原則）"""
         try:
-            self.logger.info(f"🗑️ [ADVANCED] Deleting oldest item by name: {item_name}")
+            self.logger.info(f"🗑️ [ADVANCED] Deleting oldest item by name")
+            self.logger.debug(f"🔍 [ADVANCED] Item name: {item_name}")
             
             # 最古のアイテムを取得
             result = client.table("inventory").select("*").eq("user_id", user_id).eq("item_name", item_name).order("created_at", desc=False).limit(1).execute()
@@ -186,7 +195,8 @@ class InventoryAdvanced:
             # 最古アイテムを削除
             delete_result = client.table("inventory").delete().eq("user_id", user_id).eq("id", item_id).execute()
             
-            self.logger.info(f"✅ [ADVANCED] Deleted oldest item: {item_id}")
+            self.logger.info(f"✅ [ADVANCED] Deleted oldest item")
+            self.logger.debug(f"🔍 [ADVANCED] Item ID: {item_id}")
             return {"success": True, "data": delete_result.data[0]}
             
         except Exception as e:
@@ -196,7 +206,8 @@ class InventoryAdvanced:
     async def delete_by_name_latest(self, client: Client, user_id: str, item_name: str) -> Dict[str, Any]:
         """名前指定での最新アイテム削除"""
         try:
-            self.logger.info(f"🗑️ [ADVANCED] Deleting latest item by name: {item_name}")
+            self.logger.info(f"🗑️ [ADVANCED] Deleting latest item by name")
+            self.logger.debug(f"🔍 [ADVANCED] Item name: {item_name}")
             
             # 最新のアイテムを取得
             result = client.table("inventory").select("*").eq("user_id", user_id).eq("item_name", item_name).order("created_at", desc=True).limit(1).execute()
@@ -210,7 +221,8 @@ class InventoryAdvanced:
             # 最新アイテムを削除
             delete_result = client.table("inventory").delete().eq("user_id", user_id).eq("id", item_id).execute()
             
-            self.logger.info(f"✅ [ADVANCED] Deleted latest item: {item_id}")
+            self.logger.info(f"✅ [ADVANCED] Deleted latest item")
+            self.logger.debug(f"🔍 [ADVANCED] Item ID: {item_id}")
             return {"success": True, "data": delete_result.data[0]}
             
         except Exception as e:

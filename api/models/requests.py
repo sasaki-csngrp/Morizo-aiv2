@@ -27,7 +27,7 @@ class ChatRequest(BaseModel):
         """confirmのバリデーション（デバッグ用）"""
         from config.loggers import GenericLogger
         logger = GenericLogger("api", "pydantic")
-        logger.info(f"🔍 [Pydantic] confirm validator called with value: {v} (type: {type(v)})")
+        logger.debug(f"🔍 [Pydantic] confirm validator called with value: {v} (type: {type(v)})")
         return v
 
 

@@ -33,7 +33,7 @@ class ContextComponent:
             value: 値
         """
         self.context[key] = value
-        self.logger.info(f"💾 [SESSION] Context set: {key}")
+        self.logger.debug(f"💾 [SESSION] Context set: {key}")
     
     def get(self, key: str, default: Any = None) -> Any:
         """セッションコンテキストを取得
