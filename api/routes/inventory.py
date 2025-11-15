@@ -30,8 +30,7 @@ async def get_inventory_list(
         sort_order: ソート順序 (asc, desc)
     """
     try:
-        logger.info("🔍 [API] Inventory list request received")
-        logger.debug(f"🔍 [API] Sort parameters: sort_by={sort_by}, sort_order={sort_order}")
+        logger.info(f"🔍 [API] Inventory list request received: sort_by={sort_by}, sort_order={sort_order}")
         
         # 1. 認証処理
         authorization = http_request.headers.get("Authorization")
@@ -63,8 +62,7 @@ async def get_inventory_list(
             logger.error(f"❌ [API] Failed to get inventory list: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "在庫取得処理でエラーが発生しました"))
         
-        logger.info("✅ [API] Retrieved inventory items")
-        logger.debug(f"🔍 [API] Retrieved {len(result.get('data', []))} items")
+        logger.info(f"✅ [API] Retrieved {len(result.get('data', []))} inventory items")
         
         return {
             "success": True,
@@ -123,8 +121,7 @@ async def add_inventory_item(request: InventoryRequest, http_request: Request):
             logger.error(f"❌ [API] Failed to add inventory: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "在庫追加処理でエラーが発生しました"))
         
-        logger.info("✅ [API] Inventory item added")
-        logger.debug(f"🔍 [API] Added item ID: {result.get('data', {}).get('id')}")
+        logger.info(f"✅ [API] Inventory item added: {result.get('data', {}).get('id')}")
         
         return {
             "success": True,
@@ -187,8 +184,7 @@ async def update_inventory_item(
             logger.error(f"❌ [API] Failed to update inventory: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "在庫更新処理でエラーが発生しました"))
         
-        logger.info("✅ [API] Inventory item updated")
-        logger.debug(f"🔍 [API] Updated item ID: {item_id}")
+        logger.info(f"✅ [API] Inventory item updated: {item_id}")
         
         return {
             "success": True,
@@ -238,8 +234,7 @@ async def delete_inventory_item(item_id: str, http_request: Request):
             logger.error(f"❌ [API] Failed to delete inventory: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "在庫削除処理でエラーが発生しました"))
         
-        logger.info("✅ [API] Inventory item deleted")
-        logger.debug(f"🔍 [API] Deleted item ID: {item_id}")
+        logger.info(f"✅ [API] Inventory item deleted: {item_id}")
         
         return {
             "success": True,
@@ -642,8 +637,7 @@ async def add_ocr_mapping(
         
         mapping_id = result.get("data", {}).get("id") if result.get("data") else None
         
-        logger.info("✅ [API] OCR mapping added successfully")
-        logger.debug(f"🔍 [API] Mapping ID: {mapping_id}")
+        logger.info(f"✅ [API] OCR mapping added successfully: {mapping_id}")
         
         return {
             "success": True,

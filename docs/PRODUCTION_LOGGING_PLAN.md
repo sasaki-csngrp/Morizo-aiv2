@@ -666,16 +666,19 @@ grep "2024-01-01" /opt/morizo/Morizo-aiv2/morizo_ai.log
 #### INFOレベル（本番環境でも出力）
 
 **リクエスト受信・処理開始**
-- エンドポイントへのリクエスト受信（詳細パラメータは含めない）
-- 例: `logger.info("🔍 [API] Inventory list request received")`
+- エンドポイントへのリクエスト受信（詳細パラメータを含めても可）
+- 例: `logger.info(f"🔍 [API] Inventory list request received: sort_by={sort_by}")`
+- **注意**: 詳細パラメータを分離して2行にする必要はない（ログ行数が増えるだけ）
 
 **認証成功**
 - 認証成功メッセージ（user_idは含める）
 - 例: `logger.info(f"✅ [API] Authenticated client created for user: {user_id}")`
 
 **処理完了・成功**
-- 処理の成功メッセージ（IDや件数などの詳細は含めない）
-- 例: `logger.info("✅ [API] Inventory item added")`
+- 処理の成功メッセージ（IDや件数を含めても可）
+- 例: `logger.info(f"✅ [API] Inventory item added: {item_id}")`
+- 例: `logger.info(f"✅ [API] Retrieved {count} items")`
+- **注意**: IDや件数を分離して2行にする必要はない（ログ行数が増えるだけ）
 
 **重要な状態変化**
 - システムの重要な状態変化
@@ -707,56 +710,92 @@ grep "2024-01-01" /opt/morizo/Morizo-aiv2/morizo_ai.log
 
 ### 11.3 分類の具体例
 
-#### 例1: リクエスト受信ログ
+#### 例1: リクエスト受信ログ（修正しない）
 
-**修正前:**
+**現在:**
 ```python
 logger.info(f"🔍 [API] Inventory list request received: sort_by={sort_by}, sort_order={sort_order}")
 ```
 
 **修正後:**
 ```python
-logger.info("🔍 [API] Inventory list request received")
-logger.debug(f"🔍 [API] Sort parameters: sort_by={sort_by}, sort_order={sort_order}")
+# 変更なし（詳細パラメータを分離するとログ行数が増えるだけ）
+logger.info(f"🔍 [API] Inventory list request received: sort_by={sort_by}, sort_order={sort_order}")
 ```
 
-#### 例2: 認証成功ログ
+#### 例2: 認証成功ログ（修正しない）
 
-**修正前:**
+**現在:**
 ```python
 logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
 ```
 
 **修正後:**
 ```python
-# user_idは認証成功ログに重要なのでINFOに残す（変更なし）
+# 変更なし（user_idは認証成功ログに重要なのでINFOに残す）
 logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
 ```
 
-#### 例3: 処理完了ログ
+#### 例3: 処理完了ログ（修正しない）
 
-**修正前:**
+**現在:**
 ```python
-logger.info(f"✅ [API] Inventory item added: {result.get('data', {}).get('id')}")
+logger.info(f"✅ [API] Inventory item added: {item_id}")
 ```
 
 **修正後:**
 ```python
-logger.info("✅ [API] Inventory item added")
-logger.debug(f"🔍 [API] Added item ID: {result.get('data', {}).get('id')}")
+# 変更なし（IDを分離するとログ行数が増えるだけ）
+logger.info(f"✅ [API] Inventory item added: {item_id}")
 ```
 
-#### 例4: 件数ログ
+#### 例4: 件数ログ（修正しない）
 
-**修正前:**
+**現在:**
 ```python
 logger.info(f"✅ [API] Retrieved {len(result.get('data', []))} inventory items")
 ```
 
 **修正後:**
 ```python
-logger.info("✅ [API] Retrieved inventory items")
-logger.debug(f"🔍 [API] Retrieved {len(result.get('data', []))} items")
+# 変更なし（件数を分離するとログ行数が増えるだけ）
+logger.info(f"✅ [API] Retrieved {len(result.get('data', []))} inventory items")
+```
+
+#### 例5: user_idログ（修正する）
+
+**修正前:**
+```python
+logger.info(f"🔍 [API] User ID: {user_id}")
+```
+
+**修正後:**
+```python
+logger.debug(f"🔍 [API] User ID: {user_id}")
+```
+
+#### 例6: データ構造の詳細（修正する）
+
+**修正前:**
+```python
+logger.info(f"📊 [INVENTORY] List result: {result}")
+```
+
+**修正後:**
+```python
+logger.debug(f"📊 [INVENTORY] List result: {result}")
+```
+
+#### 例7: 中間処理の詳細（修正する）
+
+**修正前:**
+```python
+logger.info(f"✅ [API] Applied item mappings to {len(items)} items")
+```
+
+**修正後:**
+```python
+logger.debug(f"✅ [API] Applied item mappings to {len(items)} items")
 ```
 
 ### 11.4 分類作業の進め方
@@ -784,6 +823,7 @@ logger.debug(f"🔍 [API] Retrieved {len(result.get('data', []))} items")
 - **エラーログ**: ERRORレベルは変更しない
 - **警告ログ**: WARNINGレベルは変更しない
 - **後方互換性**: 既存の動作に影響を与えないよう注意
+- **ログ行数の増加を避ける**: 詳細パラメータ、ID、件数を分離して2行にする必要はない（ログ行数が増えるだけ）
 
 ### 11.6 サンプルファイル
 
