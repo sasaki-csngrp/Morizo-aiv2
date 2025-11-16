@@ -56,6 +56,18 @@ class LoggingConfig:
         else:
             self.log_file = log_file
         
+        # エラーログファイルパスを生成（通常ログファイル名から生成）
+        log_file_base = os.path.basename(log_file)
+        if log_file_base.endswith('.log'):
+            error_log_file = log_file_base.replace('.log', '_error.log')
+        else:
+            error_log_file = f"{log_file_base}_error.log"
+        
+        if log_dir != '.':
+            self.error_log_file = os.path.join(log_dir, error_log_file)
+        else:
+            self.error_log_file = error_log_file
+        
         # バックアップファイル名を生成
         self.backup_file = f"{self.log_file}.1"
         
@@ -85,6 +97,9 @@ class LoggingConfig:
         # Setup file handler with rotation
         self._setup_file_handler(root_logger, log_level, initialize)
         
+        # Setup error file handler for ERROR/CRITICAL logs
+        self._setup_error_file_handler(root_logger, initialize)
+        
         # Setup console handler for development
         self._setup_console_handler(root_logger, log_level)
         
@@ -98,16 +113,33 @@ class LoggingConfig:
         """Setup file handler with rotation"""
         try:
             # Create backup if log file exists and initialization is requested
+            # 環境変数LOG_INITIALIZE_BACKUPで制御可能（デフォルト: true）
             if initialize:
-                self._create_log_backup()
+                should_backup = os.getenv('LOG_INITIALIZE_BACKUP', 'true').lower() == 'true'
+                if should_backup:
+                    self._create_log_backup()
             
-            # Create rotating file handler
-            file_handler = logging.handlers.RotatingFileHandler(
-                filename=self.log_file,
-                maxBytes=self.max_file_size,
-                backupCount=self.backup_count,
-                encoding='utf-8'
-            )
+            # Pythonのローテーションを使用するかどうか（環境変数で制御）
+            # 本番環境でlogrotateを使用する場合はfalseに設定
+            use_python_rotation = os.getenv('LOG_USE_PYTHON_ROTATION', 'true').lower() == 'true'
+            
+            if use_python_rotation:
+                # Create rotating file handler (Python側でローテーション)
+                file_handler = logging.handlers.RotatingFileHandler(
+                    filename=self.log_file,
+                    maxBytes=self.max_file_size,
+                    backupCount=self.backup_count,
+                    encoding='utf-8'
+                )
+                logger.debug(f"📁 [LOGGING] Pythonローテーション有効: {self.log_file}")
+            else:
+                # Create simple file handler (logrotateを使用する場合)
+                file_handler = logging.FileHandler(
+                    filename=self.log_file,
+                    encoding='utf-8'
+                )
+                logger.debug(f"📁 [LOGGING] logrotate使用（Pythonローテーション無効）: {self.log_file}")
+            
             file_handler.setLevel(getattr(logging, log_level.upper()))
             
             # Set aligned formatter
@@ -141,6 +173,46 @@ class LoggingConfig:
             
         except Exception as e:
             logger.error(f"❌ [LOGGING] コンソールハンドラー設定エラー: {e}")
+    
+    def _setup_error_file_handler(self, logger: logging.Logger, initialize: bool = True) -> None:
+        """Setup error file handler for ERROR/CRITICAL logs"""
+        try:
+            # Pythonのローテーションを使用するかどうか（環境変数で制御）
+            # 本番環境でlogrotateを使用する場合はfalseに設定
+            use_python_rotation = os.getenv('LOG_USE_PYTHON_ROTATION', 'true').lower() == 'true'
+            
+            if use_python_rotation:
+                # Create rotating file handler for errors (Python側でローテーション)
+                error_file_handler = logging.handlers.RotatingFileHandler(
+                    filename=self.error_log_file,
+                    maxBytes=self.max_file_size,
+                    backupCount=self.backup_count,
+                    encoding='utf-8'
+                )
+                logger.debug(f"📁 [LOGGING] エラーログ: Pythonローテーション有効: {self.error_log_file}")
+            else:
+                # Create simple file handler for errors (logrotateを使用する場合)
+                error_file_handler = logging.FileHandler(
+                    filename=self.error_log_file,
+                    encoding='utf-8'
+                )
+                logger.debug(f"📁 [LOGGING] エラーログ: logrotate使用（Pythonローテーション無効）: {self.error_log_file}")
+            
+            # Only capture ERROR and CRITICAL logs
+            error_file_handler.setLevel(logging.ERROR)
+            
+            # Set aligned formatter
+            formatter = AlignedFormatter(
+                fmt=self.log_format,
+                datefmt=self.date_format
+            )
+            error_file_handler.setFormatter(formatter)
+            
+            logger.addHandler(error_file_handler)
+            logger.debug(f"📁 [LOGGING] エラーログファイルハンドラー設定完了: {self.error_log_file}")
+            
+        except Exception as e:
+            logger.error(f"❌ [LOGGING] エラーログファイルハンドラー設定エラー: {e}")
     
     def _create_log_backup(self) -> None:
         """Create backup of existing log file"""
@@ -182,8 +254,40 @@ def get_logger(name: str) -> logging.Logger:
 
 # Environment-based log level
 def get_log_level() -> str:
-    """Get log level from environment variable"""
-    return os.getenv('LOG_LEVEL', 'INFO').upper()
+    """
+    Get log level from environment variable with environment-based defaults
+    
+    Priority:
+    1. LOG_LEVEL environment variable (if explicitly set)
+    2. ENVIRONMENT-based default (if LOG_LEVEL not set)
+    3. Default to INFO
+    
+    Environment defaults:
+    - production: INFO (suppress DEBUG logs)
+    - development: DEBUG (output all logs)
+    - staging: WARNING (suppress INFO logs)
+    """
+    environment = os.getenv('ENVIRONMENT', 'development').lower()
+    log_level = os.getenv('LOG_LEVEL', '').upper()
+    
+    # デバッグ用: 環境変数の値を確認（printで出力）
+    print(f"🔍 [LOGGING] ENVIRONMENT={environment}, LOG_LEVEL={log_level if log_level else '(not set)'}")
+    
+    # 環境変数LOG_LEVELが明示的に設定されている場合はそれを使用
+    if log_level:
+        print(f"🔍 [LOGGING] Using explicit LOG_LEVEL: {log_level}")
+        return log_level
+    
+    # 環境に基づくデフォルト値
+    environment_defaults = {
+        'production': 'INFO',
+        'development': 'DEBUG',
+        'staging': 'WARNING'
+    }
+    
+    result = environment_defaults.get(environment, 'INFO')
+    print(f"🔍 [LOGGING] Using ENVIRONMENT-based default: {environment} -> {result}")
+    return result
 
 
 if __name__ == "__main__":

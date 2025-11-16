@@ -26,6 +26,7 @@ load_dotenv()
 log_level = get_log_level()
 print(f"🔍 [DEBUG] 取得したログレベル: {log_level}")
 print(f"🔍 [DEBUG] 環境変数LOG_LEVEL: {os.getenv('LOG_LEVEL', 'NOT SET')}")
+print(f"🔍 [DEBUG] 環境変数ENVIRONMENT: {os.getenv('ENVIRONMENT', 'NOT SET')}")
 
 # ログ設定の初期化とローテーション
 setup_logging(log_level=log_level, initialize=True)

@@ -420,6 +420,15 @@ def _setup_console_handler(self, logger: logging.Logger, log_level: str) -> None
 
 ## 3. 実装優先順位
 
+### 進捗サマリー
+
+- ✅ **Phase 0（緊急対応）**: 完了
+- ✅ **Phase 1（MVP必須）**: 完了
+- ✅ **Phase 2（運用改善）**: 完了
+- ⏳ **Phase 3（高度な機能）**: 未実装
+
+---
+
 ### Phase 0（緊急対応・最優先）
 
 開発環境でのデバッグを可能にするための緊急修正：
@@ -463,15 +472,22 @@ def _setup_console_handler(self, logger: logging.Logger, log_level: str) -> None
 
 本番環境運用開始後の改善機能：
 
-3. **エラーログの分離（2.2）** ⏳ **未実装**
+3. **エラーログの分離（2.2）** ✅ **完了**
    - エラー分析の効率化
    - 実装工数: 中（2-3時間）
+   - **実装状況**: ✅ 完了（`config/logging.py`で`_setup_error_file_handler`メソッドを追加、ERROR/CRITICALログを`morizo_ai_error.log`に分離）
 
-4. **ログレベルの環境別設定（2.7）** ⏳ **未実装**
+4. **ログレベルの環境別設定（2.7）** ✅ **完了**
    - 環境に応じた適切なログ出力
    - 実装工数: 小（1時間）
+   - **実装状況**: ✅ 完了（`config/logging.py`の`get_log_level()`関数を環境別設定に対応、`ENVIRONMENT`に基づくデフォルトログレベル設定）
 
 **Phase 2の合計工数**: 約3-4時間
+
+**補足: ローテーション競合回避機能** ✅ **完了**
+- `LOG_USE_PYTHON_ROTATION`環境変数を追加（本番環境でlogrotate使用時は`false`に設定）
+- `LOG_INITIALIZE_BACKUP`環境変数を追加（起動時バックアップを制御可能に）
+- 本番環境でlogrotate使用時はPythonローテーションを無効化可能に
 
 ---
 
@@ -534,13 +550,15 @@ def _setup_console_handler(self, logger: logging.Logger, log_level: str) -> None
 
 ```bash
 # ログ設定
-LOG_LEVEL=INFO                    # ログレベル（DEBUG, INFO, WARNING, ERROR）
+LOG_LEVEL=INFO                    # ログレベル（DEBUG, INFO, WARNING, ERROR）。未設定時はENVIRONMENTに基づくデフォルト値を使用
 LOG_FILE=morizo_ai.log           # ログファイル名
 LOG_DIR=.                        # ログディレクトリ（本番環境では /opt/morizo/Morizo-aiv2）
-LOG_FORMAT=text                  # ログ形式（text または json）
-LOG_TO_JOURNAL=false             # systemdジャーナルへの出力（true/false）
-ENVIRONMENT=production           # 環境（production, development, staging）
-SLOW_REQUEST_THRESHOLD=1.0       # スロークエリの閾値（秒）
+ENVIRONMENT=production           # 環境（production, development, staging）。LOG_LEVEL未設定時に使用
+LOG_INITIALIZE_BACKUP=true       # 起動時のログファイルバックアップ（true/false）。本番環境でlogrotate使用時はfalse推奨
+LOG_USE_PYTHON_ROTATION=true     # Pythonのローテーション使用（true/false）。本番環境でlogrotate使用時はfalse推奨
+LOG_FORMAT=text                  # ログ形式（text または json）（Phase 3で実装予定）
+LOG_TO_JOURNAL=false             # systemdジャーナルへの出力（true/false）（Phase 3で実装予定）
+SLOW_REQUEST_THRESHOLD=1.0       # スロークエリの閾値（秒）（Phase 3で実装予定）
 ```
 
 ---
@@ -629,6 +647,11 @@ grep "2024-01-01" /opt/morizo/Morizo-aiv2/morizo_ai.log
   - 環境変数対応の強化: `config/logging.py`で`LOG_FILE`、`LOG_DIR`に対応
   - logrotate設定ファイル作成: `deploy/logrotate/morizo-aiv2`を作成
   - 環境変数定義追加: `env.example`にログ設定用環境変数を追加
+- 2025-11-16: Phase 2（エラーログ分離、ログレベル環境別設定）完了
+  - エラーログの分離: ERROR/CRITICALログを`morizo_ai_error.log`に分離
+  - ログレベルの環境別設定: `ENVIRONMENT`に基づくデフォルトログレベル設定
+  - ローテーション競合回避: `LOG_USE_PYTHON_ROTATION`と`LOG_INITIALIZE_BACKUP`環境変数を追加
+  - 本番環境でlogrotate使用時はPythonローテーションを無効化可能に
 
 ---
 
@@ -637,16 +660,25 @@ grep "2024-01-01" /opt/morizo/Morizo-aiv2/morizo_ai.log
 ### 10.1 ログローテーションについて
 
 **アプリケーションレベルのローテーション**:
-- Pythonの`RotatingFileHandler`を使用
+- Pythonの`RotatingFileHandler`を使用（環境変数`LOG_USE_PYTHON_ROTATION=true`の場合）
 - ファイルサイズが10MBを超えると自動ローテーション
 - 最大5つのバックアップファイルを保持
+- 開発環境ではデフォルトで有効
 
 **OSレベルのローテーション**:
 - `logrotate`を使用（Phase 1で実装）
 - 日次でローテーション
 - 30日間保持、圧縮、古いログの自動削除
+- 本番環境では`logrotate`を使用することを推奨
 
-両方のローテーションが動作する場合、`logrotate`が優先されます。
+**ローテーションの競合回避**:
+- 本番環境で`logrotate`を使用する場合、環境変数`LOG_USE_PYTHON_ROTATION=false`を設定
+- これにより、Pythonの`RotatingFileHandler`は無効化され、通常の`FileHandler`が使用される
+- 起動時のバックアップも無効化する場合は、`LOG_INITIALIZE_BACKUP=false`を設定
+
+**推奨設定**:
+- **開発環境**: `LOG_USE_PYTHON_ROTATION=true`, `LOG_INITIALIZE_BACKUP=true`（デフォルト）
+- **本番環境**: `LOG_USE_PYTHON_ROTATION=false`, `LOG_INITIALIZE_BACKUP=false`（logrotateを使用）
 
 ### 10.2 ログ形式について
 
