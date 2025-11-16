@@ -1,0 +1,16 @@
+# Morizo AI v2 ログローテーション設定
+# 本番環境では /etc/logrotate.d/morizo-aiv2 に配置してください
+
+/opt/morizo/Morizo-aiv2/morizo_ai*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    missingok
+    create 0644 ubuntu ubuntu
+    postrotate
+        systemctl reload morizo-aiv2 > /dev/null 2>&1 || true
+    endscript
+}
+

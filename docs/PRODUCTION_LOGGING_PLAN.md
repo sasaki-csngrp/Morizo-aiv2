@@ -439,13 +439,15 @@ def _setup_console_handler(self, logger: logging.Logger, log_level: str) -> None
 
 本番環境デプロイに最低限必要な機能：
 
-1. **環境変数対応の強化（2.1）** ⏳ **未実装**
+1. **環境変数対応の強化（2.1）** ✅ **完了**
    - 本番環境でログパスを環境変数で制御可能にする
    - 実装工数: 小（1-2時間）
+   - **実装状況**: ✅ 完了（`config/logging.py`で環境変数`LOG_FILE`、`LOG_DIR`に対応）
 
-2. **logrotate設定ファイルの作成（2.6）** ⏳ **未実装**
+2. **logrotate設定ファイルの作成（2.6）** ✅ **完了**
    - ディスク容量管理のため必須
    - 実装工数: 小（30分）
+   - **実装状況**: ✅ 完了（`deploy/logrotate/morizo-aiv2`を作成）
 
 **Phase 1の合計工数**: 約2-3時間
 
@@ -623,6 +625,10 @@ grep "2024-01-01" /opt/morizo/Morizo-aiv2/morizo_ai.log
   - 優先度3（Service層）: 完了（`services/session/help_state_manager.py`等）
   - 優先度4（Core層）: 完了（`core/executor.py`、`core/agent.py`、`core/planner.py`等）
   - 修正ファイル数: 10ファイル、修正箇所数: 約25箇所
+- 2025-11-15: Phase 1（環境変数対応、logrotate設定）完了
+  - 環境変数対応の強化: `config/logging.py`で`LOG_FILE`、`LOG_DIR`に対応
+  - logrotate設定ファイル作成: `deploy/logrotate/morizo-aiv2`を作成
+  - 環境変数定義追加: `env.example`にログ設定用環境変数を追加
 
 ---
 

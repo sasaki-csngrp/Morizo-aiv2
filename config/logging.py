@@ -44,8 +44,21 @@ class LoggingConfig:
     """Centralized logging configuration for Morizo AI v2"""
     
     def __init__(self):
-        self.log_file = "morizo_ai.log"
-        self.backup_file = "morizo_ai.log.1"
+        # 環境変数からログファイルパスを取得
+        log_file = os.getenv('LOG_FILE', 'morizo_ai.log')
+        log_dir = os.getenv('LOG_DIR', '.')
+        
+        # ディレクトリが指定されている場合は結合
+        if log_dir != '.':
+            # ディレクトリが存在しない場合は作成
+            os.makedirs(log_dir, exist_ok=True)
+            self.log_file = os.path.join(log_dir, os.path.basename(log_file))
+        else:
+            self.log_file = log_file
+        
+        # バックアップファイル名を生成
+        self.backup_file = f"{self.log_file}.1"
+        
         self.max_file_size = 10 * 1024 * 1024  # 10MB
         self.backup_count = 5
         self.log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
