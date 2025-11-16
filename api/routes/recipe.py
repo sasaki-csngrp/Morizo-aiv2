@@ -24,11 +24,11 @@ logger = GenericLogger("api", "recipe")
 async def adopt_recipe(request: RecipeAdoptionRequest, http_request: Request):
     """レシピ採用通知エンドポイント（複数対応）"""
     try:
-        logger.info(f"🔍 [API] Recipe adoption request received:")
-        logger.info(f"  Number of recipes: {len(request.recipes)}")
+        logger.info(f"🔍 [API] Recipe adoption request received")
+        logger.debug(f"  Number of recipes: {len(request.recipes)}")
         
         for i, recipe in enumerate(request.recipes):
-            logger.info(f"  Recipe {i+1}: {recipe.title} ({recipe.category}, {recipe.menu_source})")
+            logger.debug(f"  Recipe {i+1}: {recipe.title} ({recipe.category}, {recipe.menu_source})")
         
         # 1. 認証トークンの取得（ヘッダーまたはリクエストボディ）
         authorization = http_request.headers.get("Authorization")

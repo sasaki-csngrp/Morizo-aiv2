@@ -69,6 +69,7 @@ async def detailed_health_check(request: HealthRequest):
 async def _check_services_status() -> Dict[str, Any]:
     """各サービスの状態を確認"""
     try:
+        logger.debug("🔍 [API] Checking services status")
         services_status = {}
         
         # Core層の状態確認
@@ -76,25 +77,32 @@ async def _check_services_status() -> Dict[str, Any]:
             from core.agent import TrueReactAgent
             agent = TrueReactAgent()
             services_status["core"] = {"status": "healthy", "message": "Core layer is operational"}
+            logger.debug("✅ [API] Core layer status: healthy")
         except Exception as e:
             services_status["core"] = {"status": "unhealthy", "message": str(e)}
+            logger.debug(f"❌ [API] Core layer status: unhealthy - {e}")
         
         # Service層の状態確認
         try:
             from services.tool_router import ToolRouter
             tool_router = ToolRouter()
             services_status["services"] = {"status": "healthy", "message": "Service layer is operational"}
+            logger.debug("✅ [API] Service layer status: healthy")
         except Exception as e:
             services_status["services"] = {"status": "unhealthy", "message": str(e)}
+            logger.debug(f"❌ [API] Service layer status: unhealthy - {e}")
         
         # MCP層の状態確認
         try:
             from mcp_servers.client import MCPClient
             mcp_client = MCPClient()
             services_status["mcp"] = {"status": "healthy", "message": "MCP layer is operational"}
+            logger.debug("✅ [API] MCP layer status: healthy")
         except Exception as e:
             services_status["mcp"] = {"status": "unhealthy", "message": str(e)}
+            logger.debug(f"❌ [API] MCP layer status: unhealthy - {e}")
         
+        logger.debug(f"📊 [API] Services status check completed: {len(services_status)} services checked")
         return services_status
         
     except Exception as e:

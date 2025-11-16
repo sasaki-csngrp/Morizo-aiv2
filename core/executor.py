@@ -35,7 +35,8 @@ class TaskExecutor:
             ExecutionResult with status and outputs
         """
         try:
-            self.logger.info(f"🔄 [EXECUTOR] Starting ReAct loop with {len(tasks)} tasks for user {user_id}")
+            self.logger.info(f"🔄 [EXECUTOR] Starting ReAct loop with {len(tasks)} tasks")
+            self.logger.debug(f"🔍 [EXECUTOR] User ID: {user_id}")
             
             # 【新規追加】実行前に曖昧性チェック
             if self.confirmation_service:

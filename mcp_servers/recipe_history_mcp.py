@@ -65,7 +65,7 @@ async def history_add(
     
     try:
         client = get_authenticated_client(user_id)
-        logger.debug(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.add_history(client, user_id, title, source, url)
         logger.info(f"✅ [RECIPE_HISTORY] history_add completed successfully")
@@ -94,7 +94,7 @@ async def history_list(user_id: str) -> Dict[str, Any]:
     
     try:
         client = get_authenticated_client(user_id)
-        logger.debug(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.list_history(client, user_id)
         logger.info(f"✅ [RECIPE_HISTORY] history_list completed successfully")
@@ -149,7 +149,7 @@ async def history_update_by_id(
     
     try:
         client = get_authenticated_client(user_id)
-        logger.debug(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.update_history_by_id(client, user_id, history_id, title, source, url)
         logger.info(f"✅ [RECIPE_HISTORY] history_update_by_id completed successfully")
@@ -179,7 +179,7 @@ async def history_delete_by_id(user_id: str, history_id: str) -> Dict[str, Any]:
     
     try:
         client = get_authenticated_client(user_id)
-        logger.debug(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.delete_history_by_id(client, user_id, history_id)
         logger.info(f"✅ [RECIPE_HISTORY] history_delete_by_id completed successfully")
@@ -216,7 +216,7 @@ async def history_get_recent_titles(
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.debug(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.get_recent_recipe_titles(client, user_id, category, days)
         logger.debug(f"✅ [RECIPE_HISTORY] history_get_recent_titles completed successfully")

@@ -87,7 +87,8 @@ class TrueReactAgent:
             self._set_selection_handler_callbacks()
         
         try:
-            self.logger.info(f"🎯 [AGENT] Starting request processing for user {user_id}")
+            self.logger.info(f"🎯 [AGENT] Starting request processing")
+            self.logger.debug(f"🔍 [AGENT] User ID: {user_id}")
             self.logger.info(f"📝 [AGENT] User request: '{user_request}'")
             self.logger.debug(f"🔄 [AGENT] Is confirmation response: {is_confirmation_response}")
             

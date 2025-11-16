@@ -60,7 +60,7 @@ async def get_recipe_history_for_user(user_id: str, token: str = None) -> Dict[s
     
     try:
         client = get_authenticated_client(user_id)
-        logger.debug(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
         
         result = await llm_client.get_recipe_history(client, user_id)
         logger.info(f"✅ [RECIPE] get_recipe_history_for_user completed successfully")
@@ -99,7 +99,7 @@ async def generate_menu_plan_with_history(
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.debug(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
         
         result = await llm_client.generate_menu_titles(inventory_items, menu_type, excluded_recipes)
         logger.info(f"✅ [RECIPE] generate_menu_plan_with_history completed successfully")
@@ -151,7 +151,7 @@ async def search_menu_from_rag_with_history(
     try:
         # 認証済みクライアントを取得（一貫性のため）
         client = get_authenticated_client(user_id, token)
-        logger.debug(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
         
         # RAG検索を実行（3ベクトルDB対応）
         categorized_results = await rag_client.search_recipes_by_category(
@@ -441,7 +441,7 @@ async def generate_proposals(
     try:
         # 認証済みクライアントを取得
         client = get_authenticated_client(user_id, token)
-        logger.debug(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
         
         # Phase 3A: セッション内の提案済みレシピは、呼び出し元でexcluded_recipesとして渡されるため
         # MCPサーバー内では追加処理は不要（プロセス分離のため）

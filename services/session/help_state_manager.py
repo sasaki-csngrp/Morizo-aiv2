@@ -94,7 +94,8 @@ class HelpStateManager:
             if sse_session_id:
                 self.session_service.logger.warning(f"⚠️ [SESSION] Session not found for help state retrieval: {sse_session_id}")
             else:
-                self.session_service.logger.info(f"ℹ️ [SESSION] No help state found for user: {user_id}")
+                self.session_service.logger.info(f"ℹ️ [SESSION] No help state found")
+                self.session_service.logger.debug(f"🔍 [SESSION] User ID: {user_id}")
             return None
             
         except Exception as e:

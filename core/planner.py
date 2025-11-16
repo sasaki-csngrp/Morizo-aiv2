@@ -100,7 +100,8 @@ class ActionPlanner:
             List of tasks with dependencies resolved
         """
         try:
-            self.logger.info(f"🎯 [PLANNER] Starting task planning for user {user_id}")
+            self.logger.info(f"🎯 [PLANNER] Starting task planning")
+            self.logger.debug(f"🔍 [PLANNER] User ID: {user_id}")
             self.logger.info(f"📝 [PLANNER] User request: '{user_request}'")
             
             # Get available tools description

@@ -57,7 +57,7 @@ async def inventory_add(
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.debug(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.add_item(client, user_id, item_name, quantity, unit, storage_location, expiry_date)
         logger.debug(f"✅ [INVENTORY] inventory_add completed successfully")
@@ -78,7 +78,7 @@ async def inventory_list(user_id: str, token: str = "") -> Dict[str, Any]:
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.debug(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.get_all_items(client, user_id)
         logger.debug(f"✅ [INVENTORY] inventory_list completed successfully")
@@ -99,7 +99,7 @@ async def inventory_list_by_name(user_id: str, item_name: str, token: str = "") 
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.debug(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.get_items_by_name(client, user_id, item_name)
         logger.debug(f"✅ [INVENTORY] inventory_list_by_name completed successfully")
@@ -120,7 +120,7 @@ async def inventory_get(user_id: str, item_id: str, token: str = "") -> Dict[str
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.debug(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.get_item_by_id(client, user_id, item_id)
         logger.debug(f"✅ [INVENTORY] inventory_get completed successfully")
@@ -150,7 +150,7 @@ async def inventory_update_by_id(
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.debug(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.update_item_by_id(client, user_id, item_id, item_name, quantity, unit, storage_location, expiry_date)
         logger.debug(f"✅ [INVENTORY] inventory_update_by_id completed successfully")
@@ -171,7 +171,7 @@ async def inventory_delete_by_id(user_id: str, item_id: str, token: str = "") ->
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.debug(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
         
         result = await crud.delete_item_by_id(client, user_id, item_id)
         logger.debug(f"✅ [INVENTORY] inventory_delete_by_id completed successfully")

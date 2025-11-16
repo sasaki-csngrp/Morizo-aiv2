@@ -46,7 +46,8 @@ class ConfirmationHandler:
     ) -> dict:
         """Handle confirmation process when ambiguity is detected."""
         try:
-            self.logger.info(f"🤝 [CONFIRMATION] Starting confirmation handling for user {user_id}")
+            self.logger.info(f"🤝 [CONFIRMATION] Starting confirmation handling")
+            self.logger.debug(f"🔍 [CONFIRMATION] User ID: {user_id}")
             
             # Pause execution for confirmation
             task_chain_manager.pause_for_confirmation()

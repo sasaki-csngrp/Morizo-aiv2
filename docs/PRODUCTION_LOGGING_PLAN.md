@@ -424,11 +424,12 @@ def _setup_console_handler(self, logger: logging.Logger, log_level: str) -> None
 
 開発環境でのデバッグを可能にするための緊急修正：
 
-0. **DEBUGログ出力の修正（2.9）** ⚠️ **最優先**
+0. **DEBUGログ出力の修正（2.9）** ⚠️ **最優先** ✅ **完了**
    - 開発環境でDEBUGログを出力できるようにする
    - 環境変数`LOG_LEVEL`が機能するようにする
    - 実装工数: 小（30分-1時間）
    - **影響**: 開発効率に直結するため、最優先で実装すべき
+   - **実装状況**: ✅ 完了（`main.py`、`config/logging.py`で環境変数`LOG_LEVEL`に対応）
 
 **Phase 0の合計工数**: 約30分-1時間
 
@@ -438,15 +439,21 @@ def _setup_console_handler(self, logger: logging.Logger, log_level: str) -> None
 
 本番環境デプロイに最低限必要な機能：
 
-1. **環境変数対応の強化（2.1）**
+1. **環境変数対応の強化（2.1）** ⏳ **未実装**
    - 本番環境でログパスを環境変数で制御可能にする
    - 実装工数: 小（1-2時間）
 
-2. **logrotate設定ファイルの作成（2.6）**
+2. **logrotate設定ファイルの作成（2.6）** ⏳ **未実装**
    - ディスク容量管理のため必須
    - 実装工数: 小（30分）
 
 **Phase 1の合計工数**: 約2-3時間
+
+**補足: ログレベル分類作業** ✅ **完了**
+- 全ソースコードのログレベルをINFO/DEBUGに分類
+- 約10ファイル、約25箇所を修正
+- 認証成功ログをINFOに統一、user_idをDEBUGに分離
+- 詳細パラメータをDEBUGに分離
 
 ---
 
@@ -454,11 +461,11 @@ def _setup_console_handler(self, logger: logging.Logger, log_level: str) -> None
 
 本番環境運用開始後の改善機能：
 
-3. **エラーログの分離（2.2）**
+3. **エラーログの分離（2.2）** ⏳ **未実装**
    - エラー分析の効率化
    - 実装工数: 中（2-3時間）
 
-4. **ログレベルの環境別設定（2.7）**
+4. **ログレベルの環境別設定（2.7）** ⏳ **未実装**
    - 環境に応じた適切なログ出力
    - 実装工数: 小（1時間）
 
@@ -470,19 +477,19 @@ def _setup_console_handler(self, logger: logging.Logger, log_level: str) -> None
 
 将来的な拡張機能：
 
-5. **構造化ログ（JSON形式）のオプション追加（2.3）**
+5. **構造化ログ（JSON形式）のオプション追加（2.3）** ⏳ **未実装**
    - ログ分析ツールとの連携
    - 実装工数: 中（3-4時間）
 
-6. **セキュリティログの強化（2.4）**
+6. **セキュリティログの強化（2.4）** ⏳ **未実装**
    - セキュリティインシデントの検知
    - 実装工数: 中（2-3時間）
 
-7. **パフォーマンスログの追加（2.5）**
+7. **パフォーマンスログの追加（2.5）** ⏳ **未実装**
    - パフォーマンスボトルネックの特定
    - 実装工数: 中（2-3時間）
 
-8. **systemdログとの統合強化（2.8）**
+8. **systemdログとの統合強化（2.8）** ⏳ **未実装**
    - systemdログの利点を活用
    - 実装工数: 小（1-2時間）
 
@@ -609,6 +616,13 @@ grep "2024-01-01" /opt/morizo/Morizo-aiv2/morizo_ai.log
 ## 9. 更新履歴
 
 - 2024-XX-XX: 初版作成
+- 2025-11-15: Phase 0（DEBUGログ出力修正）完了
+- 2025-11-15: ログレベル分類作業完了
+  - 優先度1（API層）: 完了（`api/routes/recipe.py`、`api/routes/health.py`等）
+  - 優先度2（MCP層）: 完了（`mcp_servers/inventory_mcp.py`、`recipe_mcp.py`、`recipe_history_mcp.py`等）
+  - 優先度3（Service層）: 完了（`services/session/help_state_manager.py`等）
+  - 優先度4（Core層）: 完了（`core/executor.py`、`core/agent.py`、`core/planner.py`等）
+  - 修正ファイル数: 10ファイル、修正箇所数: 約25箇所
 
 ---
 
