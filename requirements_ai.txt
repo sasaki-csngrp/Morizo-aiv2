@@ -1,0 +1,22 @@
+# AI/ML関連パッケージ（2番目にインストール）
+# OpenAI関連
+openai>=1.50.0
+
+# LangChain関連
+langchain>=0.1.0
+langchain-openai>=0.1.0
+langchain-core>=0.1.0
+langchain-community>=0.0.20
+
+# ベクトルデータベース（重いパッケージ）
+chromadb>=0.4.0
+
+# データベース・認証
+supabase>=2.19.0
+
+# MCP関連
+fastmcp>=0.1.0
+
+# Google Search API用
+google-api-python-client==2.108.0
+
