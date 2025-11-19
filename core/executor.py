@@ -212,6 +212,30 @@ class TaskExecutor:
             if task_chain_manager and task_chain_manager.sse_session_id and task.method == "generate_proposals":
                 injected_params["sse_session_id"] = task_chain_manager.sse_session_id
             
+            # RAG検索結果のURLを利用してWeb検索をスキップする処理
+            # search_recipes_from_webの場合、task3の結果からrag_resultsを構築
+            if task.method == "search_recipes_from_web" and "task3" in previous_results:
+                task3_result = previous_results["task3"]
+                if isinstance(task3_result, dict) and task3_result.get("success"):
+                    task3_data = task3_result.get("result", {}).get("data", {})
+                    candidates = task3_data.get("candidates", [])
+                    
+                    # RAG検索結果（source='rag'でurlが含まれている候補）からrag_resultsを構築
+                    rag_results = {}
+                    for candidate in candidates:
+                        if candidate.get("source") == "rag" and candidate.get("url"):
+                            title = candidate.get("title", "")
+                            if title:
+                                rag_results[title] = {
+                                    "url": candidate.get("url"),
+                                    "category_detail": candidate.get("category_detail", ""),
+                                    "category": candidate.get("category", "")
+                                }
+                    
+                    if rag_results:
+                        injected_params["rag_results"] = rag_results
+                        self.logger.debug(f"🔍 [EXECUTOR] Added rag_results for {len(rag_results)} RAG candidates with URLs")
+            
             result = await self.service_coordinator.execute_service(
                 task.service, task.method, injected_params, token
             )

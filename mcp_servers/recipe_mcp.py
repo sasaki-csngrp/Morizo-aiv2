@@ -17,7 +17,7 @@ from fastmcp import FastMCP
 
 from mcp_servers.recipe_llm import RecipeLLM
 from mcp_servers.recipe_rag import RecipeRAGClient
-from mcp_servers.recipe_web import search_client, prioritize_recipes, filter_recipe_results
+from mcp_servers.recipe_web import search_client, get_search_client, prioritize_recipes, filter_recipe_results
 from mcp_servers.utils import get_authenticated_client
 from config.loggers import GenericLogger
 
@@ -247,7 +247,8 @@ async def search_recipe_from_web(
     user_id: str = "", 
     token: str = None,
     menu_categories: List[str] = None,
-    menu_source: str = "mixed"
+    menu_source: str = "mixed",
+    rag_results: Dict[str, Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Web検索によるレシピ検索（主菜提案対応・複数料理名対応・並列実行・詳細分類）
@@ -259,6 +260,7 @@ async def search_recipe_from_web(
         token: 認証トークン
         menu_categories: 料理名の分類リスト（main_dish, side_dish, soup）
         menu_source: 検索元（llm, rag, mixed）
+        rag_results: RAG検索結果の辞書（タイトルをキーとしてURLを含む） - オプション
     
     Returns:
         Dict[str, Any]: 分類された検索結果のレシピリスト（画像URL含む）
@@ -270,11 +272,50 @@ async def search_recipe_from_web(
     try:
         import asyncio
         
-        async def search_single_recipe(title: str) -> Dict[str, Any]:
-            """単一の料理名でレシピ検索"""
+        async def search_single_recipe(title: str, index: int) -> Dict[str, Any]:
+            """単一の料理名でレシピ検索（RAG検索結果のURLを優先）"""
             try:
-                # Web検索クライアントを使用
-                recipes = await search_client.search_recipes(title, num_results)
+                # RAG検索結果からURLを取得（既に取得済みの場合）
+                rag_url = None
+                if rag_results and title in rag_results:
+                    rag_result = rag_results[title]
+                    rag_url = rag_result.get('url', '')
+                    if rag_url:
+                        logger.debug(f"🔍 [RECIPE] Found URL from RAG search for '{title}': {rag_url}")
+                        # URLが既にある場合はWeb検索をスキップ
+                        return {
+                            "success": True,
+                            "data": [{
+                                "title": title,
+                                "url": rag_url,
+                                "source": "vector_db",  # ベクトルDBから取得
+                                "description": rag_result.get('category_detail', ''),
+                                "site": "cookpad.com" if "cookpad.com" in rag_url else "other"
+                            }],
+                            "title": title,
+                            "count": 1
+                        }
+                
+                # URLがない場合のみWeb検索APIを呼び出す（menu_sourceに基づいて検索エンジンを選択）
+                # menu_sourceが"mixed"の場合、インデックスに基づいてLLM提案分を識別
+                # 前半（index < len(recipe_titles) / 2）がLLM提案、後半がRAG提案
+                effective_source = menu_source
+                if menu_source == "mixed":
+                    # recipe_titlesの順序: [task2.main_dish, task2.side_dish, task2.soup, task3.main_dish, task3.side_dish, task3.soup]
+                    # 前半がLLM提案（task2）、後半がRAG提案（task3）
+                    total_count = len(recipe_titles)
+                    if index < total_count / 2:
+                        effective_source = "llm"
+                        logger.debug(f"🔍 [RECIPE] Index {index} < {total_count}/2, treating as LLM proposal")
+                    else:
+                        effective_source = "rag"
+                        logger.debug(f"🔍 [RECIPE] Index {index} >= {total_count}/2, treating as RAG proposal")
+                
+                logger.debug(f"🔍 [RECIPE] Getting search client for menu_source='{menu_source}' (effective: '{effective_source}')")
+                client = get_search_client(menu_source=effective_source)
+                client_type = type(client).__name__
+                logger.debug(f"🔍 [RECIPE] Using search client: {client_type}")
+                recipes = await client.search_recipes(title, num_results)
                 logger.debug(f"🔍 [RECIPE] Web search completed")
                 logger.debug(f"📊 [RECIPE] Title: '{title}', found {len(recipes)} recipes")
                 
@@ -302,8 +343,8 @@ async def search_recipe_from_web(
                     "count": 0
                 }
         
-        # 並列実行
-        tasks = [search_single_recipe(title) for title in recipe_titles]
+        # 並列実行（インデックスを渡す）
+        tasks = [search_single_recipe(title, index) for index, title in enumerate(recipe_titles)]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # 単一カテゴリ提案かどうかを判定（主菜・副菜・汁物のいずれか1つのみ）
@@ -481,8 +522,18 @@ async def generate_proposals(
                     candidate["source"] = "llm"
             candidates.extend(llm_candidates)
         if rag_result:
-            # RAG候補にsourceフィールドを追加
-            rag_candidates = [{"title": r["title"], "ingredients": r.get("ingredients", []), "source": "rag"} for r in rag_result]
+            # RAG候補にsourceフィールドとURLを追加
+            rag_candidates = []
+            for r in rag_result:
+                candidate = {
+                    "title": r["title"],
+                    "ingredients": r.get("ingredients", []),
+                    "source": "rag"
+                }
+                # URLが含まれている場合は追加（ベクトルDBから取得）
+                if "url" in r and r["url"]:
+                    candidate["url"] = r["url"]
+                rag_candidates.append(candidate)
             candidates.extend(rag_candidates)
         
         # デバッグログ: 各候補のsourceを確認

@@ -1,12 +1,13 @@
 """
 Morizo AI v2 - Recipe Web Search Module
 
-This module provides web search functionality for recipe retrieval using Google Search API.
+This module provides web search functionality for recipe retrieval using Google Search API and Perplexity API.
 """
 
 import os
 import re
 from typing import List, Dict, Any
+import requests
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
 from config.loggers import GenericLogger
@@ -197,6 +198,142 @@ class _GoogleSearchClient:
         return 'other'
 
 
+class _PerplexitySearchClient:
+    """Perplexity APIを使用したレシピ検索クライアント"""
+    
+    def __init__(self):
+        self.api_key = os.getenv('PERPLEXITY_API_KEY')
+        
+        if not self.api_key:
+            raise ValueError("PERPLEXITY_API_KEY is required")
+        
+        self.api_url = "https://api.perplexity.ai/chat/completions"
+        
+        # 対応サイトの定義
+        self.recipe_sites = {
+            'cookpad.com': 'Cookpad',
+            'kurashiru.com': 'クラシル',
+            'recipe.rakuten.co.jp': '楽天レシピ',
+            'delishkitchen.tv': 'デリッシュキッチン'
+        }
+    
+    async def search_recipes(self, recipe_title: str, num_results: int = 5) -> List[Dict[str, Any]]:
+        """レシピ検索を実行（Perplexity API使用）"""
+        logger.debug(f"🔍 [PERPLEXITY] Searching recipes")
+        logger.debug(f"🔍 [PERPLEXITY] Recipe title: {recipe_title}")
+        
+        try:
+            # 検索クエリを構築
+            query = self._build_recipe_query(recipe_title)
+            
+            # Perplexity APIを呼び出し
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": "sonar",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "あなたはレシピ検索アシスタントです。レシピのURLを提供してください。"
+                    },
+                    {
+                        "role": "user",
+                        "content": query
+                    }
+                ],
+                "max_tokens": 1000,
+                "temperature": 0.2
+            }
+            
+            response = requests.post(
+                self.api_url,
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            # エラーレスポンスの詳細を取得
+            if response.status_code != 200:
+                error_detail = response.text
+                logger.error(f"❌ [PERPLEXITY] API Error {response.status_code}: {error_detail}")
+                logger.error(f"❌ [PERPLEXITY] Request payload: {payload}")
+                response.raise_for_status()
+            
+            result = response.json()
+            
+            # レスポンスからURLを抽出
+            recipes = self._parse_perplexity_response(result, recipe_title, num_results)
+            
+            logger.debug(f"✅ [PERPLEXITY] Found recipes")
+            logger.debug(f"📊 [PERPLEXITY] Found {len(recipes)} recipes")
+            return recipes
+            
+        except Exception as e:
+            logger.error(f"❌ [PERPLEXITY] Search error: {e}")
+            return []
+    
+    def _build_recipe_query(self, recipe_title: str) -> str:
+        """レシピ検索用のクエリを構築"""
+        # 複数サイトを対象とした検索クエリ
+        sites = "または".join(self.recipe_sites.keys())
+        return f"{recipe_title} レシピ {sites} のURLを教えてください。URLのみを返してください。"
+    
+    def _parse_perplexity_response(self, response: Dict, recipe_title: str, num_results: int) -> List[Dict[str, Any]]:
+        """Perplexity APIのレスポンスを解析・整形"""
+        recipes = []
+        
+        try:
+            # レスポンスからメッセージを取得
+            choices = response.get('choices', [])
+            if not choices:
+                logger.warning(f"⚠️ [PERPLEXITY] No choices in response")
+                return recipes
+            
+            content = choices[0].get('message', {}).get('content', '')
+            
+            # URLを抽出（正規表現でURLを検索）
+            url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
+            urls = re.findall(url_pattern, content)
+            
+            # レシピサイトのURLのみをフィルタリング
+            recipe_urls = []
+            for url in urls:
+                for site in self.recipe_sites.keys():
+                    if site in url:
+                        recipe_urls.append(url)
+                        break
+            
+            # 重複を除去
+            recipe_urls = list(dict.fromkeys(recipe_urls))
+            
+            # 要求された数だけ返す
+            for url in recipe_urls[:num_results]:
+                site_name = self._identify_site(url)
+                recipe = {
+                    'title': recipe_title,
+                    'url': url,
+                    'description': f'{recipe_title}のレシピ（Perplexity検索）',
+                    'site': site_name,
+                    'source': self.recipe_sites.get(site_name, 'Unknown')
+                }
+                recipes.append(recipe)
+            
+        except Exception as e:
+            logger.error(f"❌ [PERPLEXITY] Error parsing response: {e}")
+        
+        return recipes
+    
+    def _identify_site(self, url: str) -> str:
+        """URLからサイト名を特定"""
+        for site in self.recipe_sites.keys():
+            if site in url:
+                return site
+        return 'other'
+
+
 def prioritize_recipes(recipes: List[Dict]) -> List[Dict]:
     """レシピを優先順位でソート"""
     priority_order = ['cookpad.com', 'kurashiru.com', 'recipe.rakuten.co.jp', 'delishkitchen.tv']
@@ -225,5 +362,87 @@ def filter_recipe_results(recipes: List[Dict]) -> List[Dict]:
     return filtered
 
 
-# グローバルインスタンス
-search_client = _GoogleSearchClient()
+# グローバルインスタンス（デフォルトはGoogle Search）
+# 環境変数 USE_PERPLEXITY_SEARCH でPerplexityに切り替え可能
+USE_PERPLEXITY_SEARCH = os.getenv('USE_PERPLEXITY_SEARCH', 'False').lower() in ('true', '1', 'yes')
+
+# グローバルインスタンス（後方互換性のため）
+try:
+    if USE_PERPLEXITY_SEARCH:
+        search_client = _PerplexitySearchClient()
+        logger.info("🔍 [WEB] Using Perplexity Search (global)")
+    else:
+        search_client = _GoogleSearchClient()
+        logger.info("🔍 [WEB] Using Google Search (global)")
+except Exception as e:
+    logger.warning(f"⚠️ [WEB] Failed to initialize search client: {e}, falling back to Google Search")
+    search_client = _GoogleSearchClient()
+
+# 検索クライアントのインスタンス（再利用のため）
+_google_search_client = None
+_perplexity_search_client = None
+
+
+def get_search_client(menu_source: str = "mixed", use_perplexity: bool = None) -> Any:
+    """
+    検索クライアントを取得（menu_sourceに基づいて動的に選択）
+    
+    Args:
+        menu_source: メニューのソース（"llm", "rag", "mixed"）
+        use_perplexity: 強制的にPerplexityを使用するか（Noneの場合はmenu_sourceに基づいて決定）
+    
+    Returns:
+        検索クライアントインスタンス
+    """
+    global _google_search_client, _perplexity_search_client
+    
+    # 環境変数で全体を切り替える場合
+    if USE_PERPLEXITY_SEARCH:
+        if _perplexity_search_client is None:
+            try:
+                _perplexity_search_client = _PerplexitySearchClient()
+            except Exception as e:
+                logger.warning(f"⚠️ [WEB] Failed to initialize Perplexity client: {e}, falling back to Google Search")
+                if _google_search_client is None:
+                    _google_search_client = _GoogleSearchClient()
+                return _google_search_client
+        return _perplexity_search_client
+    
+    # use_perplexityが明示的に指定されている場合
+    if use_perplexity is True:
+        if _perplexity_search_client is None:
+            try:
+                _perplexity_search_client = _PerplexitySearchClient()
+            except Exception as e:
+                logger.warning(f"⚠️ [WEB] Failed to initialize Perplexity client: {e}, falling back to Google Search")
+                if _google_search_client is None:
+                    _google_search_client = _GoogleSearchClient()
+                return _google_search_client
+        return _perplexity_search_client
+    
+    # menu_sourceが"llm"の場合はPerplexityを使用
+    if menu_source == "llm":
+        logger.debug(f"🔍 [WEB] menu_source='llm' detected, attempting to use Perplexity Search")
+        if _perplexity_search_client is None:
+            try:
+                _perplexity_search_client = _PerplexitySearchClient()
+                logger.info("✅ [WEB] Perplexity Search client initialized successfully for LLM proposals")
+            except ValueError as e:
+                logger.error(f"❌ [WEB] Perplexity API key not configured: {e}")
+                logger.warning(f"⚠️ [WEB] Falling back to Google Search (may use mock data)")
+                if _google_search_client is None:
+                    _google_search_client = _GoogleSearchClient()
+                return _google_search_client
+            except Exception as e:
+                logger.error(f"❌ [WEB] Failed to initialize Perplexity client: {e}")
+                logger.warning(f"⚠️ [WEB] Falling back to Google Search (may use mock data)")
+                if _google_search_client is None:
+                    _google_search_client = _GoogleSearchClient()
+                return _google_search_client
+        logger.debug(f"🔍 [WEB] Returning Perplexity Search client for LLM proposals")
+        return _perplexity_search_client
+    
+    # デフォルトはGoogle Search
+    if _google_search_client is None:
+        _google_search_client = _GoogleSearchClient()
+    return _google_search_client

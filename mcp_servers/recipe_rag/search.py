@@ -79,7 +79,8 @@ class RecipeSearchEngine:
                     "category_detail": result.get("category_detail", ""),
                     "main_ingredients": result["main_ingredients"],
                     "original_index": result["original_index"],
-                    "content": result["content"]
+                    "content": result["content"],
+                    "url": result.get("url", "")  # メタデータからURLを取得（Google Search削減のため）
                 }
                 formatted_results.append(formatted_result)
             
@@ -194,6 +195,7 @@ class RecipeSearchEngine:
                             "main_ingredients": metadata.get('main_ingredients', ''),
                             "original_index": metadata.get('original_index', 0),
                             "content": content,
+                            "url": metadata.get('url', ''),  # メタデータからURLを取得（Google Search削減のため）
                             "match_score": match_score,
                             "matched_ingredients": matched_ingredients,
                             "recipe_ingredients": recipe_ingredients
