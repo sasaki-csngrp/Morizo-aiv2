@@ -22,7 +22,8 @@ class _GoogleSearchClient:
     """Google Search APIを使用したレシピ検索クライアント"""
     
     # モック機能の切り替えフラグ（課金回避用）
-    USE_MOCK_SEARCH = True
+    # 環境変数 USE_MOCK_SEARCH で制御（デフォルト: True）
+    USE_MOCK_SEARCH = os.getenv('USE_MOCK_SEARCH', 'True').lower() in ('true', '1', 'yes')
     
     def __init__(self):
         self.api_key = os.getenv('GOOGLE_SEARCH_API_KEY')
