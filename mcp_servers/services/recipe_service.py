@@ -150,7 +150,6 @@ class RecipeService:
             rag_result = rag_results[title]
             rag_url = rag_result.get('url', '')
             if rag_url:
-                self.logger.debug(f"🔍 [RECIPE] Found URL from RAG search for '{title}': {rag_url}")
                 web_search_result = WebSearchResult(
                     title=title,
                     url=rag_url,
@@ -164,7 +163,6 @@ class RecipeService:
                 # num_resultsが1より大きい場合のみ追加検索を実行
                 if num_results > 1:
                     remaining_count = num_results - 1
-                    self.logger.debug(f"🔍 [RECIPE] RAG URL found, searching for {remaining_count} additional results with Perplexity")
                     
                     # use_perplexityがTrueの場合、またはmenu_source="rag"でuse_perplexityがNoneの場合、Perplexityを使用
                     should_use_perplexity = use_perplexity is True or (use_perplexity is None and menu_source == "rag")
@@ -183,10 +181,7 @@ class RecipeService:
                                 effective_source = "rag"
                         client = get_search_client(menu_source=effective_source, use_perplexity=use_perplexity)
                     
-                    client_type = type(client).__name__
-                    self.logger.debug(f"🔍 [RECIPE] Using search client: {client_type} for additional search")
                     additional_recipes = await client.search_recipes(title, remaining_count)
-                    self.logger.debug(f"🔍 [RECIPE] Additional web search completed, found {len(additional_recipes)} recipes")
                     
                     # レシピを優先順位でソート
                     prioritized_recipes = prioritize_recipes(additional_recipes)
@@ -203,10 +198,6 @@ class RecipeService:
                             site=recipe.get("site")
                         )
                         web_search_results.append(web_search_result.to_dict())
-                    
-                    self.logger.debug(f"📊 [RECIPE] Total results after additional search: {len(web_search_results)}")
-                else:
-                    self.logger.debug(f"🔍 [RECIPE] num_results={num_results}, skipping additional search")
                 
                 return {
                     "success": True,
@@ -221,26 +212,17 @@ class RecipeService:
             total_count = len(recipe_titles)
             if index < total_count / 2:
                 effective_source = "llm"
-                self.logger.debug(f"🔍 [RECIPE] Index {index} < {total_count}/2, treating as LLM proposal")
             else:
                 effective_source = "rag"
-                self.logger.debug(f"🔍 [RECIPE] Index {index} >= {total_count}/2, treating as RAG proposal")
         
-        self.logger.debug(f"🔍 [RECIPE] Getting search client for menu_source='{menu_source}' (effective: '{effective_source}'), use_perplexity={use_perplexity}")
         client = get_search_client(menu_source=effective_source, use_perplexity=use_perplexity)
-        client_type = type(client).__name__
-        self.logger.debug(f"🔍 [RECIPE] Using search client: {client_type}")
         recipes = await client.search_recipes(title, num_results)
-        self.logger.debug(f"🔍 [RECIPE] Web search completed")
-        self.logger.debug(f"📊 [RECIPE] Title: '{title}', found {len(recipes)} recipes")
         
         # レシピを優先順位でソート
         prioritized_recipes = prioritize_recipes(recipes)
-        self.logger.debug(f"📊 [RECIPE] Recipes prioritized for '{title}'")
         
         # 結果をフィルタリング
         filtered_recipes = filter_recipe_results(prioritized_recipes)
-        self.logger.debug(f"📊 [RECIPE] Recipes filtered for '{title}', final count: {len(filtered_recipes)}")
         
         # WebSearchResultに変換
         for recipe in filtered_recipes:
@@ -291,48 +273,16 @@ class RecipeService:
         Returns:
             Dict[str, Any]: 提案結果
         """
-        self.logger.debug(f"🔐 [RECIPE] Client type: {type(client).__name__ if client else 'None'}")
-        
         # Phase 3A: セッション内の提案済みレシピは、呼び出し元でexcluded_recipesとして渡されるため
         # MCPサーバー内では追加処理は不要（プロセス分離のため）
-        self.logger.debug(f"📊 [RECIPE] Step 2: Processing excluded recipes")
         all_excluded = (excluded_recipes or []).copy()
-        self.logger.debug(f"📊 [RECIPE] Total excluded: {len(all_excluded)} recipes")
-        if all_excluded:
-            self.logger.debug(f"📊 [RECIPE] Excluded recipe titles (first 5): {all_excluded[:5]}")
         
         # otherカテゴリの場合はused_ingredientsを使用しない（単体動作のため）
-        self.logger.debug(f"📊 [RECIPE] Step 3: Processing category-specific logic")
         if category == "other":
-            self.logger.debug(f"📊 [RECIPE] Category is 'other', setting used_ingredients to None")
             used_ingredients = None
-        else:
-            self.logger.debug(f"📊 [RECIPE] Category is '{category}', keeping used_ingredients: {used_ingredients}")
         
         # LLMとRAGを並列実行（汎用メソッドを使用）
-        self.logger.debug(f"📊 [RECIPE] Step 4: Creating LLM and RAG tasks")
-        self.logger.debug(f"📊 [RECIPE] LLM task parameters:")
-        self.logger.debug(f"  - inventory_items: {inventory_items}")
-        self.logger.debug(f"  - menu_type: {menu_type}")
-        self.logger.debug(f"  - category: {category}")
-        self.logger.debug(f"  - main_ingredient: {main_ingredient}")
-        self.logger.debug(f"  - used_ingredients: {used_ingredients}")
-        self.logger.debug(f"  - excluded_recipes count: {len(all_excluded)}")
-        self.logger.debug(f"  - count: 2")
-        self.logger.debug(f"  - category_detail_keyword: {category_detail_keyword}")
-        
-        self.logger.debug(f"📊 [RECIPE] RAG task parameters:")
-        self.logger.debug(f"  - ingredients: {inventory_items}")
-        self.logger.debug(f"  - menu_type: {menu_type}")
-        self.logger.debug(f"  - category: {category}")
-        self.logger.debug(f"  - main_ingredient: {main_ingredient}")
-        self.logger.debug(f"  - used_ingredients: {used_ingredients}")
-        self.logger.debug(f"  - excluded_recipes count: {len(all_excluded)}")
-        self.logger.debug(f"  - limit: 3")
-        self.logger.debug(f"  - category_detail_keyword: {category_detail_keyword}")
-        
         try:
-            self.logger.debug(f"📊 [RECIPE] Creating LLM task...")
             llm_task = self.llm_client.generate_candidates(
                 inventory_items=inventory_items,
                 menu_type=menu_type,
@@ -343,7 +293,6 @@ class RecipeService:
                 count=2,
                 category_detail_keyword=category_detail_keyword
             )
-            self.logger.debug(f"✅ [RECIPE] LLM task created successfully (type: {type(llm_task).__name__})")
         except Exception as e:
             self.logger.error(f"❌ [RECIPE] Failed to create LLM task: {e}")
             self.logger.error(f"❌ [RECIPE] LLM task creation error type: {type(e).__name__}")
@@ -351,7 +300,6 @@ class RecipeService:
             raise
         
         try:
-            self.logger.debug(f"📊 [RECIPE] Creating RAG task...")
             rag_task = self.rag_client.search_candidates(
                 ingredients=inventory_items,
                 menu_type=menu_type,
@@ -362,7 +310,6 @@ class RecipeService:
                 limit=3,
                 category_detail_keyword=category_detail_keyword
             )
-            self.logger.debug(f"✅ [RECIPE] RAG task created successfully (type: {type(rag_task).__name__})")
         except Exception as e:
             self.logger.error(f"❌ [RECIPE] Failed to create RAG task: {e}")
             self.logger.error(f"❌ [RECIPE] RAG task creation error type: {type(e).__name__}")
@@ -370,16 +317,8 @@ class RecipeService:
             raise
         
         # 両方の結果を待つ（並列実行）
-        self.logger.debug(f"📊 [RECIPE] Step 5: Executing asyncio.gather for LLM and RAG tasks")
-        self.logger.debug(f"📊 [RECIPE] LLM task type: {type(llm_task).__name__}")
-        self.logger.debug(f"📊 [RECIPE] RAG task type: {type(rag_task).__name__}")
-        
         try:
-            self.logger.debug(f"📊 [RECIPE] Awaiting asyncio.gather...")
             llm_result, rag_result = await asyncio.gather(llm_task, rag_task)
-            self.logger.debug(f"✅ [RECIPE] asyncio.gather completed successfully")
-            self.logger.debug(f"📊 [RECIPE] LLM result type: {type(llm_result).__name__}")
-            self.logger.debug(f"📊 [RECIPE] RAG result type: {type(rag_result).__name__}")
         except Exception as e:
             self.logger.error(f"❌ [RECIPE] asyncio.gather failed: {e}")
             self.logger.error(f"❌ [RECIPE] asyncio.gather error type: {type(e).__name__}")
@@ -387,37 +326,14 @@ class RecipeService:
             raise
         
         # 統合（sourceフィールドを追加）
-        self.logger.debug(f"📊 [RECIPE] Step 6: Processing and integrating results")
-        self.logger.debug(f"📊 [RECIPE] LLM result structure:")
-        self.logger.debug(f"  - Type: {type(llm_result).__name__}")
-        self.logger.debug(f"  - Keys: {list(llm_result.keys()) if isinstance(llm_result, dict) else 'N/A'}")
-        self.logger.debug(f"  - Success: {llm_result.get('success') if isinstance(llm_result, dict) else 'N/A'}")
-        if isinstance(llm_result, dict) and llm_result.get("success"):
-            llm_data = llm_result.get("data", {})
-            self.logger.debug(f"  - Data keys: {list(llm_data.keys()) if isinstance(llm_data, dict) else 'N/A'}")
-            llm_candidates_list = llm_data.get("candidates", [])
-            self.logger.debug(f"  - Candidates count: {len(llm_candidates_list)}")
-            self.logger.debug(f"  - Candidates type: {type(llm_candidates_list).__name__}")
-        
-        self.logger.debug(f"📊 [RECIPE] RAG result structure:")
-        self.logger.debug(f"  - Type: {type(rag_result).__name__}")
-        if isinstance(rag_result, list):
-            self.logger.debug(f"  - List length: {len(rag_result)}")
-            if rag_result:
-                self.logger.debug(f"  - First item keys: {list(rag_result[0].keys()) if isinstance(rag_result[0], dict) else 'N/A'}")
-        elif isinstance(rag_result, dict):
-            self.logger.debug(f"  - Dict keys: {list(rag_result.keys())}")
-        
         recipe_proposals = []
         
         # LLM結果の処理
-        self.logger.debug(f"📊 [RECIPE] Processing LLM results...")
         if llm_result.get("success"):
             try:
                 llm_candidates = llm_result["data"]["candidates"]
-                self.logger.debug(f"📊 [RECIPE] LLM candidates extracted: {len(llm_candidates)} items")
                 # LLM候補をRecipeProposalに変換
-                for i, candidate in enumerate(llm_candidates):
+                for candidate in llm_candidates:
                     proposal = RecipeProposal(
                         title=candidate.get("title", ""),
                         ingredients=candidate.get("ingredients", []),
@@ -426,8 +342,6 @@ class RecipeService:
                         description=candidate.get("description")
                     )
                     recipe_proposals.append(proposal)
-                    self.logger.debug(f"📊 [RECIPE] LLM candidate {i+1}: title='{proposal.title}', source='{proposal.source}'")
-                self.logger.debug(f"✅ [RECIPE] Added {len(llm_candidates)} LLM candidates")
             except Exception as e:
                 self.logger.error(f"❌ [RECIPE] Error processing LLM results: {e}")
                 self.logger.error(f"❌ [RECIPE] LLM result processing error type: {type(e).__name__}")
@@ -436,13 +350,10 @@ class RecipeService:
             self.logger.warning(f"⚠️ [RECIPE] LLM result indicates failure: {llm_result.get('error', 'Unknown error')}")
         
         # RAG結果の処理
-        self.logger.debug(f"📊 [RECIPE] Processing RAG results...")
         if rag_result:
             try:
-                self.logger.debug(f"📊 [RECIPE] RAG result is truthy, processing...")
                 # RAG候補をRecipeProposalに変換
-                for i, r in enumerate(rag_result):
-                    self.logger.debug(f"📊 [RECIPE] Processing RAG result {i+1}: type={type(r).__name__}, keys={list(r.keys()) if isinstance(r, dict) else 'N/A'}")
+                for r in rag_result:
                     proposal = RecipeProposal(
                         title=r.get("title", ""),
                         ingredients=r.get("ingredients", []),
@@ -451,8 +362,6 @@ class RecipeService:
                         description=r.get("description")
                     )
                     recipe_proposals.append(proposal)
-                    self.logger.debug(f"📊 [RECIPE] RAG candidate {i+1}: title='{proposal.title}', source='{proposal.source}', has_url={bool(proposal.url)}")
-                self.logger.debug(f"✅ [RECIPE] Added {len(rag_result)} RAG candidates")
             except Exception as e:
                 self.logger.error(f"❌ [RECIPE] Error processing RAG results: {e}")
                 self.logger.error(f"❌ [RECIPE] RAG result processing error type: {type(e).__name__}")
@@ -460,22 +369,12 @@ class RecipeService:
         else:
             self.logger.warning(f"⚠️ [RECIPE] RAG result is empty or falsy")
         
-        # デバッグログ: 各候補のsourceを確認
-        self.logger.debug(f"📊 [RECIPE] Final candidates summary:")
-        self.logger.debug(f"  - Total candidates: {len(recipe_proposals)}")
-        for i, proposal in enumerate(recipe_proposals):
-            self.logger.debug(f"🔍 [RECIPE] Candidate {i+1}: title='{proposal.title}', source='{proposal.source}', has_url={bool(proposal.url)}")
-        
         # RecipeProposalを辞書に変換
         candidates = [proposal.to_dict() for proposal in recipe_proposals]
         
         self.logger.info(f"✅ [RECIPE] generate_proposals completed")
-        llm_count = len(llm_result.get('data', {}).get('candidates', [])) if llm_result.get('success') else 0
-        rag_count = len(rag_result) if rag_result else 0
-        self.logger.debug(f"📊 [RECIPE] Final counts - Total: {len(candidates)}, LLM: {llm_count}, RAG: {rag_count}")
         
-        self.logger.debug(f"📊 [RECIPE] Step 7: Building return value")
-        return_value = {
+        return {
             "success": True,
             "data": {
                 "candidates": candidates,
@@ -487,11 +386,6 @@ class RecipeService:
                 "rag_count": len(rag_result) if rag_result else 0
             }
         }
-        self.logger.debug(f"📊 [RECIPE] Return value structure:")
-        self.logger.debug(f"  - success: {return_value['success']}")
-        self.logger.debug(f"  - data keys: {list(return_value['data'].keys())}")
-        self.logger.debug(f"  - candidates count: {len(return_value['data']['candidates'])}")
-        return return_value
     
     async def search_recipes_from_web(
         self,
@@ -516,9 +410,6 @@ class RecipeService:
         Returns:
             Dict[str, Any]: 分類された検索結果
         """
-        self.logger.debug(f"🔍 [RECIPE] Titles count: {len(recipe_titles)}, titles: {recipe_titles}, num_results: {num_results}")
-        self.logger.debug(f"📊 [RECIPE] Menu categories: {menu_categories}, source: {menu_source}, use_perplexity: {use_perplexity}")
-        
         async def search_single_recipe(title: str, index: int) -> Dict[str, Any]:
             """単一の料理名でレシピ検索（RAG検索結果のURLを優先）"""
             try:
@@ -567,8 +458,6 @@ class RecipeService:
             elif result.get("success"):
                 recipes = result.get("data", [])
                 successful_searches += 1
-                self.logger.debug(f"✅ [RECIPE] Found recipes")
-                self.logger.debug(f"📊 [RECIPE] Found {len(recipes)} recipes for '{recipe_titles[i]}'")
                 # 単一カテゴリ提案の場合は、各レシピタイトルに対応する最初のレシピを取得
                 # （候補リストの順序と一致させるため）
                 if is_single_category:
@@ -576,8 +465,6 @@ class RecipeService:
                         single_category_recipes.append(recipes[0])
             else:
                 self.logger.error(f"❌ [RECIPE] Search failed for '{recipe_titles[i]}': {result.get('error')}")
-        
-        self.logger.debug(f"📊 [RECIPE] Successful searches: {successful_searches}/{len(recipe_titles)}")
         
         # 単一カテゴリ提案の場合はシンプルな構造を返す
         if is_single_category:
@@ -610,8 +497,6 @@ class RecipeService:
                 "total_searches": len(recipe_titles)
             }
         
-        self.logger.debug(f"📊 [RECIPE] Web search result: {result}")
-        
         return result
     
     async def search_menu_from_rag(
@@ -639,18 +524,12 @@ class RecipeService:
             limit=10  # 多めに取得して献立構成に使用
         )
         
-        self.logger.debug(f"📊 [RECIPE] Main: {len(categorized_results.get('main', []))} recipes")
-        self.logger.debug(f"📊 [RECIPE] Sub: {len(categorized_results.get('sub', []))} recipes")
-        self.logger.debug(f"📊 [RECIPE] Soup: {len(categorized_results.get('soup', []))} recipes")
-        
         # RAG検索結果を献立形式に変換（3ベクトルDB対応）
         menu_result = await self.rag_client.convert_categorized_results_to_menu_format(
             categorized_results=categorized_results,
             inventory_items=inventory_items,
             menu_type=menu_type
         )
-        
-        self.logger.debug(f"📊 [RECIPE] RAG menu result: {menu_result}")
         
         # 選択されたレシピのURL情報を取得して保持
         selected_menu = menu_result.get("selected", {})
@@ -677,7 +556,6 @@ class RecipeService:
                                 "category_detail": recipe.get("category_detail", ""),
                                 "category": recipe.get("category", "")
                             }
-                            self.logger.debug(f"🔍 [RECIPE] Found URL for '{selected_title}': {url}")
                             break
         
         # RAG検索結果をMenuResultに変換
