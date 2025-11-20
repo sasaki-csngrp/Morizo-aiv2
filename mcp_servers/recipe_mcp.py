@@ -44,6 +44,232 @@ if not root_logger.handlers:
     setup_logging(initialize=False)  # ローテーションなし
 
 
+# ============================================================================
+# ヘルパー関数
+# ============================================================================
+
+async def _get_authenticated_client_safe(user_id: str, token: str = None) -> Client:
+    """
+    認証済みクライアントを安全に取得（エラーハンドリングとログを含む）
+    
+    Args:
+        user_id: ユーザーID
+        token: 認証トークン
+    
+    Returns:
+        Client: 認証済みSupabaseクライアント
+    
+    Raises:
+        Exception: 認証に失敗した場合
+    """
+    logger.debug(f"🔐 [RECIPE] Getting authenticated client for user_id={user_id}")
+    try:
+        client = get_authenticated_client(user_id, token)
+        logger.info(f"🔐 [RECIPE] Authenticated client created successfully for user: {user_id}")
+        return client
+    except Exception as e:
+        logger.error(f"❌ [RECIPE] Failed to get authenticated client: {e}")
+        raise
+
+
+def _format_rag_menu_result(
+    menu_result: Dict[str, Any],
+    inventory_items: List[str]
+) -> Dict[str, Any]:
+    """
+    RAG検索結果を統一フォーマットに変換
+    
+    Args:
+        menu_result: RAG検索結果（selectedキーを含む）
+        inventory_items: 在庫食材リスト
+    
+    Returns:
+        Dict[str, Any]: フォーマット済みデータ
+    """
+    selected_menu = menu_result.get("selected", {})
+    
+    main_dish_data = selected_menu.get("main_dish", {})
+    side_dish_data = selected_menu.get("side_dish", {})
+    soup_data = selected_menu.get("soup", {})
+    
+    main_dish_ingredients = main_dish_data.get("ingredients", []) if isinstance(main_dish_data, dict) else []
+    side_dish_ingredients = side_dish_data.get("ingredients", []) if isinstance(side_dish_data, dict) else []
+    soup_ingredients = soup_data.get("ingredients", []) if isinstance(soup_data, dict) else []
+    
+    ingredients_used = []
+    ingredients_used.extend(main_dish_ingredients)
+    ingredients_used.extend(side_dish_ingredients)
+    ingredients_used.extend(soup_ingredients)
+    ingredients_used = list(set(ingredients_used))
+    
+    return {
+        "main_dish": main_dish_data.get("title", "") if isinstance(main_dish_data, dict) else str(main_dish_data),
+        "side_dish": side_dish_data.get("title", "") if isinstance(side_dish_data, dict) else str(side_dish_data),
+        "soup": soup_data.get("title", "") if isinstance(soup_data, dict) else str(soup_data),
+        "main_dish_ingredients": main_dish_ingredients,
+        "side_dish_ingredients": side_dish_ingredients,
+        "soup_ingredients": soup_ingredients,
+        "ingredients_used": ingredients_used
+    }
+
+
+def _categorize_web_search_results(
+    results: List[Dict[str, Any]],
+    recipe_titles: List[str],
+    menu_categories: List[str],
+    menu_source: str
+) -> Dict[str, Any]:
+    """
+    Web検索結果をllm_menu/rag_menu構造に分類
+    
+    Args:
+        results: 検索結果のリスト
+        recipe_titles: レシピタイトルのリスト
+        menu_categories: カテゴリのリスト
+        menu_source: 検索元（llm, rag, mixed）
+    
+    Returns:
+        Dict[str, Any]: 分類済み結果
+    """
+    categorized_results = {
+        "llm_menu": {
+            "main_dish": {"title": "", "recipes": []},
+            "side_dish": {"title": "", "recipes": []},
+            "soup": {"title": "", "recipes": []}
+        },
+        "rag_menu": {
+            "main_dish": {"title": "", "recipes": []},
+            "side_dish": {"title": "", "recipes": []},
+            "soup": {"title": "", "recipes": []}
+        }
+    }
+    
+    for i, result in enumerate(results):
+        if isinstance(result, Exception) or not result.get("success"):
+            continue
+        
+        recipes = result.get("data", [])
+        category = menu_categories[i] if menu_categories and i < len(menu_categories) else "main_dish"
+        source = "rag_menu" if (menu_source == "rag" or (menu_source == "mixed" and i >= len(recipe_titles) // 2)) else "llm_menu"
+        
+        categorized_results[source][category] = {
+            "title": recipe_titles[i],
+            "recipes": recipes
+        }
+    
+    return categorized_results
+
+
+async def _search_single_recipe_with_rag_fallback(
+    title: str,
+    index: int,
+    rag_results: Dict[str, Dict[str, Any]],
+    menu_source: str,
+    recipe_titles: List[str],
+    num_results: int
+) -> Dict[str, Any]:
+    """
+    単一の料理名でレシピ検索（RAG検索結果のURLを優先）
+    
+    Args:
+        title: レシピタイトル
+        index: インデックス（menu_source判定に使用）
+        rag_results: RAG検索結果の辞書
+        menu_source: 検索元（llm, rag, mixed）
+        recipe_titles: レシピタイトルのリスト（menu_source判定に使用）
+        num_results: 取得結果数
+    
+    Returns:
+        Dict[str, Any]: 検索結果
+    """
+    # RAG検索結果からURLを取得（既に取得済みの場合）
+    if rag_results and title in rag_results:
+        rag_result = rag_results[title]
+        rag_url = rag_result.get('url', '')
+        if rag_url:
+            logger.debug(f"🔍 [RECIPE] Found URL from RAG search for '{title}': {rag_url}")
+            return {
+                "success": True,
+                "data": [{
+                    "title": title,
+                    "url": rag_url,
+                    "source": "vector_db",
+                    "description": rag_result.get('category_detail', ''),
+                    "site": "cookpad.com" if "cookpad.com" in rag_url else "other"
+                }],
+                "title": title,
+                "count": 1
+            }
+    
+    # URLがない場合のみWeb検索APIを呼び出す
+    effective_source = menu_source
+    if menu_source == "mixed":
+        total_count = len(recipe_titles)
+        if index < total_count / 2:
+            effective_source = "llm"
+            logger.debug(f"🔍 [RECIPE] Index {index} < {total_count}/2, treating as LLM proposal")
+        else:
+            effective_source = "rag"
+            logger.debug(f"🔍 [RECIPE] Index {index} >= {total_count}/2, treating as RAG proposal")
+    
+    logger.debug(f"🔍 [RECIPE] Getting search client for menu_source='{menu_source}' (effective: '{effective_source}')")
+    client = get_search_client(menu_source=effective_source)
+    client_type = type(client).__name__
+    logger.debug(f"🔍 [RECIPE] Using search client: {client_type}")
+    recipes = await client.search_recipes(title, num_results)
+    logger.debug(f"🔍 [RECIPE] Web search completed")
+    logger.debug(f"📊 [RECIPE] Title: '{title}', found {len(recipes)} recipes")
+    
+    # レシピを優先順位でソート
+    prioritized_recipes = prioritize_recipes(recipes)
+    logger.debug(f"📊 [RECIPE] Recipes prioritized for '{title}'")
+    
+    # 結果をフィルタリング
+    filtered_recipes = filter_recipe_results(prioritized_recipes)
+    logger.debug(f"📊 [RECIPE] Recipes filtered for '{title}', final count: {len(filtered_recipes)}")
+    
+    return {
+        "success": True,
+        "data": filtered_recipes,
+        "title": title,
+        "count": len(filtered_recipes)
+    }
+
+
+def _log_function_start(func_name: str, params: Dict[str, Any]) -> None:
+    """
+    関数開始時のログ出力
+    
+    Args:
+        func_name: 関数名
+        params: パラメータの辞書
+    """
+    logger.info(f"🔧 [RECIPE] Starting {func_name}")
+    for key, value in params.items():
+        if key == "token" and value:
+            logger.debug(f"  - {key}: ***")
+        else:
+            logger.debug(f"  - {key}: {value}")
+
+
+def _log_function_end(func_name: str, result: Dict[str, Any]) -> None:
+    """
+    関数終了時のログ出力
+    
+    Args:
+        func_name: 関数名
+        result: 結果の辞書
+    """
+    if result.get("success"):
+        logger.info(f"✅ [RECIPE] {func_name} completed successfully")
+    else:
+        logger.error(f"❌ [RECIPE] {func_name} failed: {result.get('error')}")
+
+
+# ============================================================================
+# MCPツール関数
+# ============================================================================
+
 @mcp.tool()
 async def get_recipe_history_for_user(user_id: str, token: str = None) -> Dict[str, Any]:
     """
@@ -60,8 +286,7 @@ async def get_recipe_history_for_user(user_id: str, token: str = None) -> Dict[s
     logger.debug(f"🔍 [RECIPE] User ID: {user_id}")
     
     try:
-        client = get_authenticated_client(user_id)
-        logger.info(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
+        client = await _get_authenticated_client_safe(user_id)
         
         result = await llm_client.get_recipe_history(client, user_id)
         logger.info(f"✅ [RECIPE] get_recipe_history_for_user completed successfully")
@@ -99,8 +324,7 @@ async def generate_menu_plan_with_history(
     logger.debug(f"🔍 [RECIPE] User ID: {user_id}, menu_type: {menu_type}")
     
     try:
-        client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
+        client = await _get_authenticated_client_safe(user_id, token)
         
         result = await llm_client.generate_menu_titles(inventory_items, menu_type, excluded_recipes)
         logger.info(f"✅ [RECIPE] generate_menu_plan_with_history completed successfully")
@@ -151,8 +375,7 @@ async def search_menu_from_rag_with_history(
     
     try:
         # 認証済みクライアントを取得（一貫性のため）
-        client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
+        client = await _get_authenticated_client_safe(user_id, token)
         
         # RAG検索を実行（3ベクトルDB対応）
         categorized_results = await rag_client.search_recipes_by_category(
@@ -184,35 +407,8 @@ async def search_menu_from_rag_with_history(
         logger.info(f"✅ [RECIPE] search_menu_from_rag_with_history completed successfully")
         logger.debug(f"📊 [RECIPE] RAG menu result: {menu_result}")
         
-        # 1件の献立のみを返す（LLM推論と合わせて計2件をユーザーに提示）
-        selected_menu = menu_result.get("selected", {})
-        
-        # 各レシピごとの食材情報を取得
-        main_dish_data = selected_menu.get("main_dish", {})
-        side_dish_data = selected_menu.get("side_dish", {})
-        soup_data = selected_menu.get("soup", {})
-        
-        main_dish_ingredients = main_dish_data.get("ingredients", []) if isinstance(main_dish_data, dict) else []
-        side_dish_ingredients = side_dish_data.get("ingredients", []) if isinstance(side_dish_data, dict) else []
-        soup_ingredients = soup_data.get("ingredients", []) if isinstance(soup_data, dict) else []
-        
-        # 献立全体で使用された食材リストを生成
-        ingredients_used = []
-        ingredients_used.extend(main_dish_ingredients)
-        ingredients_used.extend(side_dish_ingredients)
-        ingredients_used.extend(soup_ingredients)
-        ingredients_used = list(set(ingredients_used))  # 重複を除去
-        
-        # generate_menu_plan_with_historyと同じ形式に統一
-        formatted_data = {
-            "main_dish": main_dish_data.get("title", "") if isinstance(main_dish_data, dict) else str(main_dish_data),
-            "side_dish": side_dish_data.get("title", "") if isinstance(side_dish_data, dict) else str(side_dish_data),
-            "soup": soup_data.get("title", "") if isinstance(soup_data, dict) else str(soup_data),
-            "main_dish_ingredients": main_dish_ingredients,
-            "side_dish_ingredients": side_dish_ingredients,
-            "soup_ingredients": soup_ingredients,
-            "ingredients_used": ingredients_used
-        }
+        # RAG検索結果を統一フォーマットに変換
+        formatted_data = _format_rag_menu_result(menu_result, inventory_items)
         
         return {
             "success": True,
@@ -276,65 +472,14 @@ async def search_recipe_from_web(
         async def search_single_recipe(title: str, index: int) -> Dict[str, Any]:
             """単一の料理名でレシピ検索（RAG検索結果のURLを優先）"""
             try:
-                # RAG検索結果からURLを取得（既に取得済みの場合）
-                rag_url = None
-                if rag_results and title in rag_results:
-                    rag_result = rag_results[title]
-                    rag_url = rag_result.get('url', '')
-                    if rag_url:
-                        logger.debug(f"🔍 [RECIPE] Found URL from RAG search for '{title}': {rag_url}")
-                        # URLが既にある場合はWeb検索をスキップ
-                        return {
-                            "success": True,
-                            "data": [{
-                                "title": title,
-                                "url": rag_url,
-                                "source": "vector_db",  # ベクトルDBから取得
-                                "description": rag_result.get('category_detail', ''),
-                                "site": "cookpad.com" if "cookpad.com" in rag_url else "other"
-                            }],
-                            "title": title,
-                            "count": 1
-                        }
-                
-                # URLがない場合のみWeb検索APIを呼び出す（menu_sourceに基づいて検索エンジンを選択）
-                # menu_sourceが"mixed"の場合、インデックスに基づいてLLM提案分を識別
-                # 前半（index < len(recipe_titles) / 2）がLLM提案、後半がRAG提案
-                effective_source = menu_source
-                if menu_source == "mixed":
-                    # recipe_titlesの順序: [task2.main_dish, task2.side_dish, task2.soup, task3.main_dish, task3.side_dish, task3.soup]
-                    # 前半がLLM提案（task2）、後半がRAG提案（task3）
-                    total_count = len(recipe_titles)
-                    if index < total_count / 2:
-                        effective_source = "llm"
-                        logger.debug(f"🔍 [RECIPE] Index {index} < {total_count}/2, treating as LLM proposal")
-                    else:
-                        effective_source = "rag"
-                        logger.debug(f"🔍 [RECIPE] Index {index} >= {total_count}/2, treating as RAG proposal")
-                
-                logger.debug(f"🔍 [RECIPE] Getting search client for menu_source='{menu_source}' (effective: '{effective_source}')")
-                client = get_search_client(menu_source=effective_source)
-                client_type = type(client).__name__
-                logger.debug(f"🔍 [RECIPE] Using search client: {client_type}")
-                recipes = await client.search_recipes(title, num_results)
-                logger.debug(f"🔍 [RECIPE] Web search completed")
-                logger.debug(f"📊 [RECIPE] Title: '{title}', found {len(recipes)} recipes")
-                
-                # レシピを優先順位でソート
-                prioritized_recipes = prioritize_recipes(recipes)
-                logger.debug(f"📊 [RECIPE] Recipes prioritized for '{title}'")
-                
-                # 結果をフィルタリング
-                filtered_recipes = filter_recipe_results(prioritized_recipes)
-                logger.debug(f"📊 [RECIPE] Recipes filtered for '{title}', final count: {len(filtered_recipes)}")
-                
-                return {
-                    "success": True,
-                    "data": filtered_recipes,
-                    "title": title,
-                    "count": len(filtered_recipes)
-                }
-                
+                return await _search_single_recipe_with_rag_fallback(
+                    title=title,
+                    index=index,
+                    rag_results=rag_results,
+                    menu_source=menu_source,
+                    recipe_titles=recipe_titles,
+                    num_results=num_results
+                )
             except Exception as e:
                 logger.error(f"❌ [RECIPE] Error searching for '{title}': {e}")
                 return {
@@ -400,41 +545,12 @@ async def search_recipe_from_web(
             }
         else:
             # 一括提案の場合はllm_menu/rag_menu構造を返す
-            categorized_results = {
-                "llm_menu": {
-                    "main_dish": {"title": "", "recipes": []},
-                    "side_dish": {"title": "", "recipes": []},
-                    "soup": {"title": "", "recipes": []}
-                },
-                "rag_menu": {
-                    "main_dish": {"title": "", "recipes": []},
-                    "side_dish": {"title": "", "recipes": []},
-                    "soup": {"title": "", "recipes": []}
-                }
-            }
-            
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    continue
-                elif result.get("success"):
-                    recipes = result.get("data", [])
-                    
-                    # 分類情報を取得
-                    category = "main_dish"  # デフォルト
-                    source = "llm_menu"     # デフォルト
-                    
-                    if menu_categories and i < len(menu_categories):
-                        category = menu_categories[i]
-                    
-                    # 検索元の判定（簡易版：インデックスベース）
-                    if menu_source == "rag" or (menu_source == "mixed" and i >= len(recipe_titles) // 2):
-                        source = "rag_menu"
-                    
-                    # 結果を分類
-                    categorized_results[source][category] = {
-                        "title": recipe_titles[i],
-                        "recipes": recipes
-                    }
+            categorized_results = _categorize_web_search_results(
+                results=results,
+                recipe_titles=recipe_titles,
+                menu_categories=menu_categories,
+                menu_source=menu_source
+            )
             
             result = {
                 "success": True,
@@ -494,8 +610,7 @@ async def generate_proposals(
         # 認証済みクライアントを取得
         logger.debug(f"🔐 [RECIPE] Step 1: Getting authenticated client for user_id={user_id}")
         logger.debug(f"🔐 [RECIPE] Token provided: {bool(token)}")
-        client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [RECIPE] Authenticated client created successfully for user: {user_id}")
+        client = await _get_authenticated_client_safe(user_id, token)
         logger.debug(f"🔐 [RECIPE] Client type: {type(client).__name__}")
         
         # Phase 3A: セッション内の提案済みレシピは、呼び出し元でexcluded_recipesとして渡されるため
