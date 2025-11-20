@@ -12,6 +12,10 @@ from config.loggers import GenericLogger
 from ..models import InventoryResponse, InventoryListResponse, InventoryItemResponse, InventoryRequest, CSVUploadResponse, OCRReceiptResponse, OCRMappingRequest, OCRMappingResponse
 from mcp_servers.inventory_crud import InventoryCRUD
 from mcp_servers.utils import get_authenticated_client
+from ..utils.inventory_auth import get_authenticated_user_and_client
+from ..utils.file_validator import validate_image_file
+from ..utils.csv_validator import parse_and_validate_csv
+from ..utils.ocr_validator import validate_ocr_items
 
 router = APIRouter()
 logger = GenericLogger("api", "inventory")
@@ -32,27 +36,10 @@ async def get_inventory_list(
     try:
         logger.info(f"🔍 [API] Inventory list request received: sort_by={sort_by}, sort_order={sort_order}")
         
-        # 1. 認証処理
-        authorization = http_request.headers.get("Authorization")
-        token = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
+        # 1. 認証処理とクライアント作成
+        user_id, client = await get_authenticated_user_and_client(http_request)
         
-        user_info = getattr(http_request.state, 'user_info', None)
-        if not user_info:
-            logger.error("❌ [API] User info not found in request state")
-            raise HTTPException(status_code=401, detail="認証が必要です")
-        
-        user_id = user_info['user_id']
-        logger.debug(f"🔍 [API] User ID: {user_id}")
-        
-        # 2. 認証済みSupabaseクライアントの作成
-        try:
-            client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
-        except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
-            raise HTTPException(status_code=401, detail="認証に失敗しました")
-        
-        # 3. CRUDクラスを使用して在庫一覧を取得
+        # 2. CRUDクラスを使用して在庫一覧を取得
         # 【特例】直接DB呼び出しは設計思想に反するが、在庫ビューアーは例外とする
         # CRUD操作のためにLLM→MCP経由は重いため、パフォーマンス重視で直接呼び出し
         crud = InventoryCRUD()
@@ -83,27 +70,10 @@ async def add_inventory_item(request: InventoryRequest, http_request: Request):
         logger.info("🔍 [API] Inventory add request received")
         logger.debug(f"🔍 [API] Item name: {request.item_name}")
         
-        # 1. 認証処理
-        authorization = http_request.headers.get("Authorization")
-        token = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
+        # 1. 認証処理とクライアント作成
+        user_id, client = await get_authenticated_user_and_client(http_request)
         
-        user_info = getattr(http_request.state, 'user_info', None)
-        if not user_info:
-            logger.error("❌ [API] User info not found in request state")
-            raise HTTPException(status_code=401, detail="認証が必要です")
-        
-        user_id = user_info['user_id']
-        logger.debug(f"🔍 [API] User ID: {user_id}")
-        
-        # 2. 認証済みSupabaseクライアントの作成
-        try:
-            client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
-        except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
-            raise HTTPException(status_code=401, detail="認証に失敗しました")
-        
-        # 3. CRUDクラスを使用して在庫を追加
+        # 2. CRUDクラスを使用して在庫を追加
         # 【特例】直接DB呼び出しは設計思想に反するが、在庫ビューアーは例外とする
         # CRUD操作のためにLLM→MCP経由は重いため、パフォーマンス重視で直接呼び出し
         crud = InventoryCRUD()
@@ -146,26 +116,10 @@ async def update_inventory_item(
         logger.info("🔍 [API] Inventory update request received")
         logger.debug(f"🔍 [API] Item ID: {item_id}")
         
-        # 1. 認証処理
-        authorization = http_request.headers.get("Authorization")
-        token = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
+        # 1. 認証処理とクライアント作成
+        user_id, client = await get_authenticated_user_and_client(http_request)
         
-        user_info = getattr(http_request.state, 'user_info', None)
-        if not user_info:
-            logger.error("❌ [API] User info not found in request state")
-            raise HTTPException(status_code=401, detail="認証が必要です")
-        
-        user_id = user_info['user_id']
-        
-        # 2. 認証済みSupabaseクライアントの作成
-        try:
-            client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
-        except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
-            raise HTTPException(status_code=401, detail="認証に失敗しました")
-        
-        # 3. CRUDクラスを使用して在庫を更新
+        # 2. CRUDクラスを使用して在庫を更新
         # 【特例】直接DB呼び出しは設計思想に反するが、在庫ビューアーは例外とする
         # CRUD操作のためにLLM→MCP経由は重いため、パフォーマンス重視で直接呼び出し
         crud = InventoryCRUD()
@@ -205,26 +159,10 @@ async def delete_inventory_item(item_id: str, http_request: Request):
         logger.info("🔍 [API] Inventory delete request received")
         logger.debug(f"🔍 [API] Item ID: {item_id}")
         
-        # 1. 認証処理
-        authorization = http_request.headers.get("Authorization")
-        token = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
+        # 1. 認証処理とクライアント作成
+        user_id, client = await get_authenticated_user_and_client(http_request)
         
-        user_info = getattr(http_request.state, 'user_info', None)
-        if not user_info:
-            logger.error("❌ [API] User info not found in request state")
-            raise HTTPException(status_code=401, detail="認証が必要です")
-        
-        user_id = user_info['user_id']
-        
-        # 2. 認証済みSupabaseクライアントの作成
-        try:
-            client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
-        except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
-            raise HTTPException(status_code=401, detail="認証に失敗しました")
-        
-        # 3. CRUDクラスを使用して在庫を削除
+        # 2. CRUDクラスを使用して在庫を削除
         # 【特例】直接DB呼び出しは設計思想に反するが、在庫ビューアーは例外とする
         # CRUD操作のためにLLM→MCP経由は重いため、パフォーマンス重視で直接呼び出し
         crud = InventoryCRUD()
@@ -257,16 +195,8 @@ async def upload_csv_inventory(
         logger.info("🔍 [API] CSV upload request received")
         logger.debug(f"🔍 [API] Filename: {file.filename}")
         
-        # 1. 認証処理
-        authorization = http_request.headers.get("Authorization")
-        token = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
-        
-        user_info = getattr(http_request.state, 'user_info', None)
-        if not user_info:
-            logger.error("❌ [API] User info not found in request state")
-            raise HTTPException(status_code=401, detail="認証が必要です")
-        
-        user_id = user_info['user_id']
+        # 1. 認証処理とクライアント作成
+        user_id, client = await get_authenticated_user_and_client(http_request)
         
         # 2. ファイル検証
         if not file.filename.endswith('.csv'):
@@ -277,128 +207,10 @@ async def upload_csv_inventory(
         if len(file_content) > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="ファイルサイズは10MB以下にしてください")
         
-        # 3. CSV解析
-        import csv
-        import io
-        from datetime import datetime
+        # 3. CSV解析とバリデーション
+        items, validation_errors = parse_and_validate_csv(file_content, file.filename)
         
-        # エンコーディング検出（UTF-8/BOM付き対応）
-        try:
-            text = file_content.decode('utf-8-sig')
-        except:
-            text = file_content.decode('utf-8')
-        
-        csv_reader = csv.DictReader(io.StringIO(text))
-        
-        # 4. データバリデーションと変換
-        items = []
-        validation_errors = []
-        
-        for row_num, row in enumerate(csv_reader, start=2):  # ヘッダー行を除くため2から開始
-            try:
-                # 必須項目チェック
-                if not row.get('item_name') or not row.get('item_name').strip():
-                    validation_errors.append({
-                        "row": row_num,
-                        "item_name": row.get('item_name', ''),
-                        "error": "アイテム名は必須です"
-                    })
-                    continue
-                
-                if not row.get('quantity'):
-                    validation_errors.append({
-                        "row": row_num,
-                        "item_name": row.get('item_name', ''),
-                        "error": "数量は必須です"
-                    })
-                    continue
-                
-                # 数量の型変換と検証
-                try:
-                    quantity = float(row['quantity'])
-                    if quantity <= 0:
-                        validation_errors.append({
-                            "row": row_num,
-                            "item_name": row.get('item_name', ''),
-                            "error": "数量は0より大きい値が必要です"
-                        })
-                        continue
-                except ValueError:
-                    validation_errors.append({
-                        "row": row_num,
-                        "item_name": row.get('item_name', ''),
-                        "error": "数量は数値である必要があります"
-                    })
-                    continue
-                
-                # アイテム名の長さチェック
-                item_name = row['item_name'].strip()
-                if len(item_name) > 100:
-                    validation_errors.append({
-                        "row": row_num,
-                        "item_name": item_name,
-                        "error": "アイテム名は100文字以下である必要があります"
-                    })
-                    continue
-                
-                # 単位の検証
-                unit = row.get('unit', '個').strip()
-                if len(unit) > 20:
-                    validation_errors.append({
-                        "row": row_num,
-                        "item_name": item_name,
-                        "error": "単位は20文字以下である必要があります"
-                    })
-                    continue
-                
-                # 保管場所の検証
-                storage_location = row.get('storage_location', '冷蔵庫').strip()
-                if storage_location and len(storage_location) > 50:
-                    validation_errors.append({
-                        "row": row_num,
-                        "item_name": item_name,
-                        "error": "保管場所は50文字以下である必要があります"
-                    })
-                    continue
-                
-                # 消費期限の検証
-                expiry_date = row.get('expiry_date', '').strip()
-                if expiry_date:
-                    try:
-                        datetime.strptime(expiry_date, '%Y-%m-%d')
-                    except ValueError:
-                        validation_errors.append({
-                            "row": row_num,
-                            "item_name": item_name,
-                            "error": "消費期限はYYYY-MM-DD形式である必要があります"
-                        })
-                        continue
-                
-                # バリデーション通過
-                items.append({
-                    "item_name": item_name,
-                    "quantity": quantity,
-                    "unit": unit,
-                    "storage_location": storage_location if storage_location else "冷蔵庫",
-                    "expiry_date": expiry_date if expiry_date else None
-                })
-                
-            except Exception as e:
-                validation_errors.append({
-                    "row": row_num,
-                    "item_name": row.get('item_name', ''),
-                    "error": f"データ処理エラー: {str(e)}"
-                })
-        
-        # 5. 認証済みSupabaseクライアントの作成
-        try:
-            client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
-        except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
-            raise HTTPException(status_code=401, detail="認証に失敗しました")
-        
-        # 6. 一括登録
+        # 4. 一括登録
         crud = InventoryCRUD()
         result = await crud.add_items_bulk(client, user_id, items)
         
@@ -420,31 +232,6 @@ async def upload_csv_inventory(
         raise HTTPException(status_code=500, detail="CSVアップロード処理でエラーが発生しました")
 
 
-def validate_image_file(image_bytes: bytes, filename: str) -> Tuple[bool, Optional[str]]:
-    """画像ファイルの検証"""
-    # ファイルサイズチェック（10MB制限）
-    max_size = 10 * 1024 * 1024  # 10MB
-    if len(image_bytes) > max_size:
-        return False, "ファイルサイズは10MB以下にしてください"
-    
-    # ファイル形式チェック
-    valid_extensions = ['.jpg', '.jpeg', '.png']
-    file_ext = os.path.splitext(filename.lower())[1]
-    
-    if file_ext not in valid_extensions:
-        return False, "JPEGまたはPNGファイルのみアップロード可能です"
-    
-    # 画像形式の検証（マジックナンバー）
-    if image_bytes.startswith(b'\xff\xd8\xff'):
-        # JPEG
-        return True, None
-    elif image_bytes.startswith(b'\x89PNG\r\n\x1a\n'):
-        # PNG
-        return True, None
-    else:
-        return False, "画像ファイルの形式が正しくありません"
-
-
 @router.post("/inventory/ocr-receipt", response_model=OCRReceiptResponse)
 async def ocr_receipt(
     image: UploadFile = File(...),
@@ -455,16 +242,8 @@ async def ocr_receipt(
         logger.info("🔍 [API] OCR receipt request received")
         logger.debug(f"🔍 [API] Filename: {image.filename}")
         
-        # 1. 認証処理
-        authorization = http_request.headers.get("Authorization")
-        token = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
-        
-        user_info = getattr(http_request.state, 'user_info', None)
-        if not user_info:
-            logger.error("❌ [API] User info not found in request state")
-            raise HTTPException(status_code=401, detail="認証が必要です")
-        
-        user_id = user_info['user_id']
+        # 1. 認証処理とクライアント作成
+        user_id, client = await get_authenticated_user_and_client(http_request)
         
         # 2. 画像ファイルの検証
         image_bytes = await image.read()
@@ -500,9 +279,6 @@ async def ocr_receipt(
         
         # 4. 変換テーブル適用
         try:
-            client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
-            
             # 変換テーブルを適用
             items = await ocr_service.apply_item_mappings(items, client, user_id)
             logger.debug(f"✅ [API] Applied item mappings to {len(items)} items")
@@ -511,45 +287,9 @@ async def ocr_receipt(
             logger.warning(f"⚠️ [API] Failed to apply item mappings: {e}")
         
         # 5. データバリデーション
-        validated_items = []
-        validation_errors = []
+        validated_items, validation_errors = validate_ocr_items(items)
         
-        for idx, item in enumerate(items, 1):
-            try:
-                # 必須項目チェック
-                if not item.get("item_name") or not str(item.get("item_name")).strip():
-                    validation_errors.append(f"行{idx}: アイテム名が空です")
-                    continue
-                
-                if item.get("quantity") is None:
-                    validation_errors.append(f"行{idx}: 数量が指定されていません")
-                    continue
-                
-                # 数量の検証
-                try:
-                    quantity = float(item["quantity"])
-                    if quantity <= 0:
-                        validation_errors.append(f"行{idx}: 数量は0より大きい値が必要です")
-                        continue
-                except (ValueError, TypeError):
-                    validation_errors.append(f"行{idx}: 数量が数値ではありません")
-                    continue
-                
-                # 単位のデフォルト値
-                unit = item.get("unit", "個")
-                
-                validated_items.append({
-                    "item_name": str(item["item_name"]).strip(),
-                    "quantity": quantity,
-                    "unit": str(unit).strip(),
-                    "storage_location": item.get("storage_location", "冷蔵庫"),
-                    "expiry_date": item.get("expiry_date")
-                })
-                
-            except Exception as e:
-                validation_errors.append(f"行{idx}: データ処理エラー - {str(e)}")
-        
-        # 5. 在庫登録（バリデーション通過したアイテムのみ）
+        # 6. 在庫登録（バリデーション通過したアイテムのみ）
         # 【コメントアウト】フロントエンドで選択したアイテムのみを登録するため、自動登録は無効化
         # registered_count = 0
         # if validated_items:
@@ -600,26 +340,10 @@ async def add_ocr_mapping(
         logger.info("🔍 [API] OCR mapping request received")
         logger.debug(f"🔍 [API] Mapping: '{request.original_name}' -> '{request.normalized_name}'")
         
-        # 1. 認証処理
-        authorization = http_request.headers.get("Authorization")
-        token = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
+        # 1. 認証処理とクライアント作成
+        user_id, client = await get_authenticated_user_and_client(http_request)
         
-        user_info = getattr(http_request.state, 'user_info', None)
-        if not user_info:
-            logger.error("❌ [API] User info not found in request state")
-            raise HTTPException(status_code=401, detail="認証が必要です")
-        
-        user_id = user_info['user_id']
-        
-        # 2. 認証済みSupabaseクライアントの作成
-        try:
-            client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
-        except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
-            raise HTTPException(status_code=401, detail="認証に失敗しました")
-        
-        # 3. 変換テーブルに登録
+        # 2. 変換テーブルに登録
         from mcp_servers.ocr_mapping_crud import OCRMappingCRUD
         
         mapping_crud = OCRMappingCRUD()
