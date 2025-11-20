@@ -125,7 +125,8 @@ class RecipeService:
         rag_results: Dict[str, Dict[str, Any]],
         menu_source: str,
         recipe_titles: List[str],
-        num_results: int
+        num_results: int,
+        use_perplexity: bool = None
     ) -> Dict[str, Any]:
         """
         単一の料理名でレシピ検索（RAG検索結果のURLを優先）
@@ -137,10 +138,13 @@ class RecipeService:
             menu_source: 検索元（llm, rag, mixed）
             recipe_titles: レシピタイトルのリスト（menu_source判定に使用）
             num_results: 取得結果数
+            use_perplexity: 強制的にPerplexityを使用するか（Noneの場合はmenu_sourceに基づいて決定）
         
         Returns:
             Dict[str, Any]: 検索結果
         """
+        web_search_results = []
+        
         # RAG検索結果からURLを取得（既に取得済みの場合）
         if rag_results and title in rag_results:
             rag_result = rag_results[title]
@@ -154,11 +158,61 @@ class RecipeService:
                     description=rag_result.get('category_detail', ''),
                     site="cookpad.com" if "cookpad.com" in rag_url else "other"
                 )
+                web_search_results.append(web_search_result.to_dict())
+                
+                # RAG結果からURLを1件取得した場合、残りをPerplexityで検索
+                # num_resultsが1より大きい場合のみ追加検索を実行
+                if num_results > 1:
+                    remaining_count = num_results - 1
+                    self.logger.debug(f"🔍 [RECIPE] RAG URL found, searching for {remaining_count} additional results with Perplexity")
+                    
+                    # use_perplexityがTrueの場合、またはmenu_source="rag"でuse_perplexityがNoneの場合、Perplexityを使用
+                    should_use_perplexity = use_perplexity is True or (use_perplexity is None and menu_source == "rag")
+                    
+                    if should_use_perplexity:
+                        effective_source = "rag"  # menu_source="rag"として扱う
+                        client = get_search_client(menu_source=effective_source, use_perplexity=True)
+                    else:
+                        # 通常の判定ロジック
+                        effective_source = menu_source
+                        if menu_source == "mixed":
+                            total_count = len(recipe_titles)
+                            if index < total_count / 2:
+                                effective_source = "llm"
+                            else:
+                                effective_source = "rag"
+                        client = get_search_client(menu_source=effective_source, use_perplexity=use_perplexity)
+                    
+                    client_type = type(client).__name__
+                    self.logger.debug(f"🔍 [RECIPE] Using search client: {client_type} for additional search")
+                    additional_recipes = await client.search_recipes(title, remaining_count)
+                    self.logger.debug(f"🔍 [RECIPE] Additional web search completed, found {len(additional_recipes)} recipes")
+                    
+                    # レシピを優先順位でソート
+                    prioritized_recipes = prioritize_recipes(additional_recipes)
+                    # 結果をフィルタリング
+                    filtered_recipes = filter_recipe_results(prioritized_recipes)
+                    
+                    # WebSearchResultに変換して追加
+                    for recipe in filtered_recipes:
+                        web_search_result = WebSearchResult(
+                            title=recipe.get("title", ""),
+                            url=recipe.get("url", ""),
+                            source=recipe.get("source", "web"),
+                            description=recipe.get("description"),
+                            site=recipe.get("site")
+                        )
+                        web_search_results.append(web_search_result.to_dict())
+                    
+                    self.logger.debug(f"📊 [RECIPE] Total results after additional search: {len(web_search_results)}")
+                else:
+                    self.logger.debug(f"🔍 [RECIPE] num_results={num_results}, skipping additional search")
+                
                 return {
                     "success": True,
-                    "data": [web_search_result.to_dict()],
+                    "data": web_search_results,
                     "title": title,
-                    "count": 1
+                    "count": len(web_search_results)
                 }
         
         # URLがない場合のみWeb検索APIを呼び出す
@@ -172,8 +226,8 @@ class RecipeService:
                 effective_source = "rag"
                 self.logger.debug(f"🔍 [RECIPE] Index {index} >= {total_count}/2, treating as RAG proposal")
         
-        self.logger.debug(f"🔍 [RECIPE] Getting search client for menu_source='{menu_source}' (effective: '{effective_source}')")
-        client = get_search_client(menu_source=effective_source)
+        self.logger.debug(f"🔍 [RECIPE] Getting search client for menu_source='{menu_source}' (effective: '{effective_source}'), use_perplexity={use_perplexity}")
+        client = get_search_client(menu_source=effective_source, use_perplexity=use_perplexity)
         client_type = type(client).__name__
         self.logger.debug(f"🔍 [RECIPE] Using search client: {client_type}")
         recipes = await client.search_recipes(title, num_results)
@@ -189,7 +243,6 @@ class RecipeService:
         self.logger.debug(f"📊 [RECIPE] Recipes filtered for '{title}', final count: {len(filtered_recipes)}")
         
         # WebSearchResultに変換
-        web_search_results = []
         for recipe in filtered_recipes:
             web_search_result = WebSearchResult(
                 title=recipe.get("title", ""),
@@ -446,7 +499,8 @@ class RecipeService:
         num_results: int = 5,
         menu_categories: List[str] = None,
         menu_source: str = "mixed",
-        rag_results: Dict[str, Dict[str, Any]] = None
+        rag_results: Dict[str, Dict[str, Any]] = None,
+        use_perplexity: bool = None
     ) -> Dict[str, Any]:
         """
         Web検索によるレシピ検索
@@ -457,12 +511,13 @@ class RecipeService:
             menu_categories: 料理名の分類リスト
             menu_source: 検索元（llm, rag, mixed）
             rag_results: RAG検索結果の辞書
+            use_perplexity: 強制的にPerplexityを使用するか（Noneの場合はmenu_sourceに基づいて決定）
         
         Returns:
             Dict[str, Any]: 分類された検索結果
         """
         self.logger.debug(f"🔍 [RECIPE] Titles count: {len(recipe_titles)}, titles: {recipe_titles}, num_results: {num_results}")
-        self.logger.debug(f"📊 [RECIPE] Menu categories: {menu_categories}, source: {menu_source}")
+        self.logger.debug(f"📊 [RECIPE] Menu categories: {menu_categories}, source: {menu_source}, use_perplexity: {use_perplexity}")
         
         async def search_single_recipe(title: str, index: int) -> Dict[str, Any]:
             """単一の料理名でレシピ検索（RAG検索結果のURLを優先）"""
@@ -473,7 +528,8 @@ class RecipeService:
                     rag_results=rag_results,
                     menu_source=menu_source,
                     recipe_titles=recipe_titles,
-                    num_results=num_results
+                    num_results=num_results,
+                    use_perplexity=use_perplexity
                 )
             except Exception as e:
                 self.logger.error(f"❌ [RECIPE] Error searching for '{title}': {e}")
@@ -596,11 +652,43 @@ class RecipeService:
         
         self.logger.debug(f"📊 [RECIPE] RAG menu result: {menu_result}")
         
+        # 選択されたレシピのURL情報を取得して保持
+        selected_menu = menu_result.get("selected", {})
+        url_map = {}  # タイトルをキーとしてURLを保持
+        
+        # categorized_resultsから選択されたレシピのURLを取得
+        category_mapping = {
+            "main_dish": "main",
+            "side_dish": "sub",
+            "soup": "soup"
+        }
+        
+        for category_key, category_value in category_mapping.items():
+            selected_title = selected_menu.get(category_key, {}).get("title", "")
+            if selected_title:
+                # categorized_resultsから該当するレシピを検索
+                recipes = categorized_results.get(category_value, [])
+                for recipe in recipes:
+                    if recipe.get("title") == selected_title:
+                        url = recipe.get("url", "")
+                        if url:
+                            url_map[selected_title] = {
+                                "url": url,
+                                "category_detail": recipe.get("category_detail", ""),
+                                "category": recipe.get("category", "")
+                            }
+                            self.logger.debug(f"🔍 [RECIPE] Found URL for '{selected_title}': {url}")
+                            break
+        
         # RAG検索結果をMenuResultに変換
         menu_result_model = self._format_rag_menu_result(menu_result, inventory_items)
         
+        # URL情報を結果に含める（executor.pyで使用するため）
+        result_data = menu_result_model.to_dict()
+        result_data["_rag_urls"] = url_map  # 内部使用のため_プレフィックス
+        
         return {
             "success": True,
-            "data": menu_result_model.to_dict()
+            "data": result_data
         }
 

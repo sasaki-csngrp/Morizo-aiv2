@@ -233,7 +233,8 @@ async def search_recipe_from_web(
     token: str = None,
     menu_categories: List[str] = None,
     menu_source: str = "mixed",
-    rag_results: Dict[str, Dict[str, Any]] = None
+    rag_results: Dict[str, Dict[str, Any]] = None,
+    use_perplexity: bool = None
 ) -> Dict[str, Any]:
     """
     Web検索によるレシピ検索（主菜提案対応・複数料理名対応・並列実行・詳細分類）
@@ -246,6 +247,7 @@ async def search_recipe_from_web(
         menu_categories: 料理名の分類リスト（main_dish, side_dish, soup）
         menu_source: 検索元（llm, rag, mixed）
         rag_results: RAG検索結果の辞書（タイトルをキーとしてURLを含む） - オプション
+        use_perplexity: 強制的にPerplexityを使用するか（Noneの場合はmenu_sourceに基づいて決定）
     
     Returns:
         Dict[str, Any]: 分類された検索結果のレシピリスト（画像URL含む）
@@ -255,7 +257,8 @@ async def search_recipe_from_web(
         num_results=num_results,
         menu_categories=menu_categories,
         menu_source=menu_source,
-        rag_results=rag_results
+        rag_results=rag_results,
+        use_perplexity=use_perplexity
     )
 
 

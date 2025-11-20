@@ -112,7 +112,15 @@ class RecipeServiceHandler:
                     self.logger.error(f"❌ [RecipeServiceHandler] Failed to format RAG menu: {e}")
                 
             elif service_method == "recipe_service.search_recipes_from_web":
-                # task4完了時にtask3とtask4の結果を統合して選択UIを表示
+                # 献立一括提案の場合、task4とtask5の結果を統合する必要がある
+                # task4が完了した時点では、まだtask5が完了していないため、統合処理は実行しない
+                # task5が完了した時点で統合処理を実行する
+                if is_menu_scenario and task_id == "task4":
+                    # task4が完了した時点では、まだtask5が完了していないため、何も返さない
+                    self.logger.debug(f"🔍 [RecipeServiceHandler] Task4 completed for menu scenario, waiting for task5")
+                    return [], None
+                
+                # task4完了時にtask3とtask4の結果を統合して選択UIを表示（段階的提案の場合）
                 self.logger.debug(f"🔍 [RecipeServiceHandler] Task4 completed, integrating with task3 results")
                 
                 # resultsからtask3の結果を直接取得
@@ -190,6 +198,80 @@ class RecipeServiceHandler:
                         rag_side_dish_ingredients = None
                         rag_soup_ingredients = None
                         
+                        # task4とtask5の結果を統合（献立一括提案の場合）
+                        integrated_web_data = None
+                        if task_id == "task5":
+                            # task5の場合、task4の結果と統合
+                            task4_result = None
+                            task5_result = data
+                            
+                            if results:
+                                for task_key, task_data in results.items():
+                                    if task_key == "task4" and task_data.get("success"):
+                                        task4_result = task_data.get("result", {})
+                                        break
+                            
+                            self.logger.debug(f"🔍 [RecipeServiceHandler] Task5 completed, checking task4 and task5 results")
+                            self.logger.debug(f"🔍 [RecipeServiceHandler] Task4 result: {task4_result is not None}, Task5 result: {task5_result is not None}")
+                            
+                            if task4_result and task4_result.get("success") and task5_result and task5_result.get("success"):
+                                # task4とtask5の結果を統合
+                                task4_data = task4_result.get("data", {})
+                                task5_data = task5_result.get("data", {})
+                                
+                                self.logger.debug(f"🔍 [RecipeServiceHandler] Task4 data keys: {list(task4_data.keys()) if isinstance(task4_data, dict) else 'not dict'}")
+                                self.logger.debug(f"🔍 [RecipeServiceHandler] Task5 data keys: {list(task5_data.keys()) if isinstance(task5_data, dict) else 'not dict'}")
+                                
+                                # task4の結果からllm_menuを取得（menu_source="llm"なのでllm_menuのみ）
+                                task4_llm_menu = task4_data.get("llm_menu", {})
+                                if not task4_llm_menu:
+                                    # llm_menuが直接ない場合、data全体がllm_menuの可能性
+                                    if "main_dish" in task4_data or "side_dish" in task4_data or "soup" in task4_data:
+                                        # 単一カテゴリ提案の形式の場合
+                                        task4_llm_menu = {
+                                            "main_dish": task4_data.get("main_dish", {"title": "", "recipes": []}),
+                                            "side_dish": task4_data.get("side_dish", {"title": "", "recipes": []}),
+                                            "soup": task4_data.get("soup", {"title": "", "recipes": []})
+                                        }
+                                
+                                # task5の結果からrag_menuを取得（menu_source="rag"なのでrag_menuのみ）
+                                task5_rag_menu = task5_data.get("rag_menu", {})
+                                if not task5_rag_menu:
+                                    # rag_menuが直接ない場合、data全体がrag_menuの可能性
+                                    if "main_dish" in task5_data or "side_dish" in task5_data or "soup" in task5_data:
+                                        # 単一カテゴリ提案の形式の場合
+                                        task5_rag_menu = {
+                                            "main_dish": task5_data.get("main_dish", {"title": "", "recipes": []}),
+                                            "side_dish": task5_data.get("side_dish", {"title": "", "recipes": []}),
+                                            "soup": task5_data.get("soup", {"title": "", "recipes": []})
+                                        }
+                                
+                                # llm_menuとrag_menuを統合
+                                integrated_web_data = {
+                                    "success": True,
+                                    "data": {
+                                        "llm_menu": task4_llm_menu if task4_llm_menu else {
+                                            "main_dish": {"title": "", "recipes": []},
+                                            "side_dish": {"title": "", "recipes": []},
+                                            "soup": {"title": "", "recipes": []}
+                                        },
+                                        "rag_menu": task5_rag_menu if task5_rag_menu else {
+                                            "main_dish": {"title": "", "recipes": []},
+                                            "side_dish": {"title": "", "recipes": []},
+                                            "soup": {"title": "", "recipes": []}
+                                        }
+                                    }
+                                }
+                                self.logger.debug(f"✅ [RecipeServiceHandler] Integrated task4 and task5 results for menu scenario")
+                                self.logger.debug(f"🔍 [RecipeServiceHandler] LLM menu main_dish recipes: {len(integrated_web_data['data']['llm_menu'].get('main_dish', {}).get('recipes', []))}")
+                                self.logger.debug(f"🔍 [RecipeServiceHandler] RAG menu main_dish recipes: {len(integrated_web_data['data']['rag_menu'].get('main_dish', {}).get('recipes', []))}")
+                            else:
+                                self.logger.warning(f"⚠️ [RecipeServiceHandler] Task4 or task5 result is not successful, cannot integrate")
+                                if not task4_result:
+                                    self.logger.warning(f"⚠️ [RecipeServiceHandler] Task4 result not found")
+                                if not task5_result:
+                                    self.logger.warning(f"⚠️ [RecipeServiceHandler] Task5 result not found")
+                        
                         if results:
                             for task_key, task_data in results.items():
                                 if task_key == "task2" and task_data.get("success"):
@@ -222,10 +304,13 @@ class RecipeServiceHandler:
                                             self.logger.debug(f"   - side_dish_ingredients: {rag_side_dish_ingredients}")
                                             self.logger.debug(f"   - soup_ingredients: {rag_soup_ingredients}")
                         
+                        # 統合されたWebデータを使用（task5の場合）または元のデータを使用（task4の場合）
+                        web_data_for_json = integrated_web_data if integrated_web_data else data
+                        
                         # 献立提案ではテキスト重複を避けるため、Web整形テキストは追加しない
                         # （generate_menu_plan/search_menu_from_rag で既に表示済み）
                         menu_data = menu_generator.generate_menu_data_json(
-                            data, 
+                            web_data_for_json, 
                             ingredients_used=llm_ingredients_used,
                             main_dish_ingredients=llm_main_dish_ingredients,
                             side_dish_ingredients=llm_side_dish_ingredients,

@@ -218,19 +218,36 @@ class TaskExecutor:
                 task3_result = previous_results["task3"]
                 if isinstance(task3_result, dict) and task3_result.get("success"):
                     task3_data = task3_result.get("result", {}).get("data", {})
-                    candidates = task3_data.get("candidates", [])
                     
-                    # RAG検索結果（source='rag'でurlが含まれている候補）からrag_resultsを構築
+                    # 段階的提案の場合: candidatesからURLを取得
+                    candidates = task3_data.get("candidates", [])
                     rag_results = {}
-                    for candidate in candidates:
-                        if candidate.get("source") == "rag" and candidate.get("url"):
-                            title = candidate.get("title", "")
-                            if title:
-                                rag_results[title] = {
-                                    "url": candidate.get("url"),
-                                    "category_detail": candidate.get("category_detail", ""),
-                                    "category": candidate.get("category", "")
-                                }
+                    
+                    if candidates:
+                        # 段階的提案: candidatesからURLを取得
+                        for candidate in candidates:
+                            if candidate.get("source") == "rag" and candidate.get("url"):
+                                title = candidate.get("title", "")
+                                if title:
+                                    rag_results[title] = {
+                                        "url": candidate.get("url"),
+                                        "category_detail": candidate.get("category_detail", ""),
+                                        "category": candidate.get("category", "")
+                                    }
+                    else:
+                        # 献立一括提案の場合: search_menu_from_ragの結果からURLを取得
+                        # task3の結果に_rag_urlsが含まれている場合、それを使用
+                        rag_urls = task3_data.get("_rag_urls", {})
+                        if rag_urls:
+                            # _rag_urlsからrag_resultsを構築
+                            for title, url_info in rag_urls.items():
+                                if url_info.get("url"):
+                                    rag_results[title] = {
+                                        "url": url_info.get("url"),
+                                        "category_detail": url_info.get("category_detail", ""),
+                                        "category": url_info.get("category", "")
+                                    }
+                            self.logger.debug(f"🔍 [EXECUTOR] Found {len(rag_results)} URLs from _rag_urls in task3 result")
                     
                     if rag_results:
                         injected_params["rag_results"] = rag_results
