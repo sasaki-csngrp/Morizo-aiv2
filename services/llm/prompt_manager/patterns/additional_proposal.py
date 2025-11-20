@@ -7,10 +7,10 @@ from ..utils import build_base_prompt
 
 
 def build_additional_proposal_prompt(user_request: str, user_id: str, sse_session_id: str, category: str) -> str:
-    """追加提案用のプロンプトを構築（主菜・副菜・汁物共通）"""
+    """追加提案用のプロンプトを構築（主菜・副菜・汁物・その他共通）"""
     base = build_base_prompt()
     
-    category_name = {"main": "主菜", "sub": "副菜", "soup": "汁物"}.get(category, "レシピ")
+    category_name = {"main": "主菜", "sub": "副菜", "soup": "汁物", "other": "その他"}.get(category, "レシピ")
     
     return f"""
 {base}
@@ -41,6 +41,7 @@ c. **task3**: `recipe_service.generate_proposals(category="{category}")` を呼�
    - `menu_type`: 文字列リテラルとして "session.context.menu_type" と指定
    - **重要**: inventory_itemsパラメータには絶対に "session_inventory" という名前を使用しないこと
    - `category`: "{category}"
+   {f'   - `category_detail_keyword`: 文字列リテラルとして "session.context.category_detail_keyword" と指定（otherカテゴリの場合のみ）' if category == "other" else ''}
 
 d. **task4**: `recipe_service.search_recipes_from_web()` を呼び出す。その際、task3で取得したレシピタイトルを `recipe_titles` パラメータに設定する。
 

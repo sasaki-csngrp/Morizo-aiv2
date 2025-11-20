@@ -11,6 +11,7 @@ from .patterns.menu import build_menu_prompt
 from .patterns.main_proposal import build_main_proposal_prompt
 from .patterns.sub_proposal import build_sub_proposal_prompt
 from .patterns.soup_proposal import build_soup_proposal_prompt
+from .patterns.other_proposal import build_other_proposal_prompt
 from .patterns.additional_proposal import build_additional_proposal_prompt
 from config.loggers import GenericLogger
 
@@ -107,6 +108,18 @@ class PromptManager:
                 user_id,
                 params.get("used_ingredients"),
                 params.get("menu_category", "japanese")
+            ),
+            "other": lambda: build_other_proposal_prompt(
+                params.get("user_request", ""),
+                user_id,
+                params.get("main_ingredient"),
+                params.get("category_detail_keyword")
+            ),
+            "other_additional": lambda: build_additional_proposal_prompt(
+                params.get("user_request", ""),
+                user_id,
+                sse_session_id,
+                "other"
             ),
             "sub_additional": lambda: build_additional_proposal_prompt(
                 params.get("user_request", ""),

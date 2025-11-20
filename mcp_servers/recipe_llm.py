@@ -399,29 +399,32 @@ ingredients_usedは献立全体で使用される食材のリストです。
         self, 
         inventory_items: List[str], 
         menu_type: str,
-        category: str,  # "main", "sub", "soup"
+        category: str,  # "main", "sub", "soup", "other"
         main_ingredient: str = None,
         used_ingredients: List[str] = None,  # 副菜・汁物用（主菜で使った食材）
         excluded_recipes: List[str] = None,
-        count: int = 2
+        count: int = 2,
+        category_detail_keyword: str = None  # otherカテゴリ用
     ) -> Dict[str, Any]:
         """
-        汎用候補生成メソッド（主菜・副菜・汁物対応）
+        汎用候補生成メソッド（主菜・副菜・汁物・その他対応）
         
         Args:
-            category: "main", "sub", "soup"
+            category: "main", "sub", "soup", "other"
             used_ingredients: すでに使った食材（副菜・汁物で主菜で使った食材を除外）
             inventory_items: 在庫食材リスト
             menu_type: 献立タイプ
             main_ingredient: 主要食材（主菜の場合のみ）
             excluded_recipes: 除外レシピ
             count: 生成件数
+            category_detail_keyword: category_detailのキーワード（otherカテゴリ用）
         """
         try:
             # カテゴリ別のプロンプトを構築
             prompt = self._build_candidate_prompt(
                 inventory_items, menu_type, category,
-                main_ingredient, used_ingredients, excluded_recipes, count
+                main_ingredient, used_ingredients, excluded_recipes, count,
+                category_detail_keyword
             )
             
             self.logger.debug(f"🤖 [LLM] Generating {category} candidates")
@@ -457,7 +460,8 @@ ingredients_usedは献立全体で使用される食材のリストです。
         main_ingredient: str = None,
         used_ingredients: List[str] = None,
         excluded_recipes: List[str] = None,
-        count: int = 2
+        count: int = 2,
+        category_detail_keyword: str = None
     ) -> str:
         """カテゴリ別の候補生成プロンプトを構築"""
         
@@ -465,7 +469,8 @@ ingredients_usedは献立全体で使用される食材のリストです。
         menu_name_map = {
             "main": "主菜",
             "sub": "副菜",
-            "soup": "汁物"
+            "soup": "汁物",
+            "other": "その他"
         }
         menu_name = menu_name_map.get(category, "料理")
         
@@ -484,15 +489,38 @@ ingredients_usedは献立全体で使用される食材のリストです。
         if excluded_recipes:
             excluded_text = f"\n除外レシピ（提案しないでください）: {', '.join(excluded_recipes)}"
         
+        # category_detail_keywordの指定（otherカテゴリ用）
+        category_detail_text = ""
+        if category_detail_keyword and category == "other":
+            # category_detail_keywordから具体的なカテゴリ名を抽出
+            if "麺もの" in category_detail_keyword:
+                category_detail_text = "\n重要: 麺もの（うどん、そば、ラーメン、そうめんなど）のレシピを提案してください。"
+            elif "パスタ" in category_detail_keyword:
+                category_detail_text = "\n重要: パスタのレシピを提案してください。"
+            elif "丼" in category_detail_keyword or "ご飯もの" in category_detail_keyword:
+                category_detail_text = "\n重要: ご飯もの（丼物、チャーハン、カレーライスなど）のレシピを提案してください。"
+            else:
+                category_detail_text = f"\n重要: {category_detail_keyword}のレシピを提案してください。"
+        
+        # 条件5のテキストを生成（f-string内でバックスラッシュを使えないため、事前に処理）
+        condition_5_text = ""
+        if category_detail_text:
+            # バックスラッシュを含む文字列リテラルを変数に代入
+            newline_important = "\n重要: "
+            period = "。"
+            cleaned_text = category_detail_text.replace(newline_important, "").replace(period, "")
+            condition_5_text = f"5. {cleaned_text}のレシピであること"
+        
         prompt = f"""
 在庫食材: {', '.join(inventory_items)}
-献立タイプ: {menu_type}{main_ingredient_text}{used_ingredients_text}{excluded_text}
+献立タイプ: {menu_type}{main_ingredient_text}{used_ingredients_text}{excluded_text}{category_detail_text}
 
 以下の条件で{menu_name}のタイトルを{count}件生成してください:
 1. 在庫食材のみを使用
 2. 独創的で新しいレシピタイトル
 3. 除外レシピは絶対に使用しない
 4. 各提案に使用食材リスト（ingredients）を必ず含める（必須項目）
+{condition_5_text}
 
 重要: 各候補には必ず"ingredients"フィールドを含め、在庫食材から使用する食材名のリストを記載してください。
 

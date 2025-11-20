@@ -237,11 +237,11 @@ class ToolRouter:
             titles = await session_service.get_proposed_recipes(sse_session_id, category)
             
             self.logger.debug(f"✅ [ToolRouter] Retrieved {len(titles)} proposed titles from session")
-            return {"success": True, "data": titles}
+            return {"success": True, "result": {"data": titles}}
             
         except Exception as e:
             self.logger.error(f"❌ [ToolRouter] Error in _handle_session_get_proposed_titles: {e}")
-            return {"success": False, "error": str(e), "data": []}
+            return {"success": False, "error": str(e), "result": {"data": []}}
     
     def get_available_tools(self) -> List[str]:
         """利用可能なツール一覧を取得"""

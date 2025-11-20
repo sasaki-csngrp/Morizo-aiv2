@@ -37,10 +37,11 @@ class RecipeRAGClient:
         """初期化"""
         load_dotenv()
         
-        # 環境変数から3つのChromaDBのパスを取得
+        # 環境変数から4つのChromaDBのパスを取得
         self.vector_db_path_main = os.getenv("CHROMA_PERSIST_DIRECTORY_MAIN", "./recipe_vector_db_main")
         self.vector_db_path_sub = os.getenv("CHROMA_PERSIST_DIRECTORY_SUB", "./recipe_vector_db_sub")
         self.vector_db_path_soup = os.getenv("CHROMA_PERSIST_DIRECTORY_SOUP", "./recipe_vector_db_soup")
+        self.vector_db_path_other = os.getenv("CHROMA_PERSIST_DIRECTORY_OTHER", "./recipe_vector_db_other_2")
         
         # 環境変数から埋め込みモデルを取得
         embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
@@ -57,7 +58,7 @@ class RecipeRAGClient:
         self._llm_solver = None
     
     def _get_vectorstores(self) -> Dict[str, Chroma]:
-        """3つのベクトルストアの取得（遅延初期化）"""
+        """4つのベクトルストアの取得（遅延初期化）"""
         if self._vectorstores is None:
             try:
                 self._vectorstores = {
@@ -72,25 +73,31 @@ class RecipeRAGClient:
                     "soup": Chroma(
                         persist_directory=self.vector_db_path_soup,
                         embedding_function=self.embeddings
+                    ),
+                    "other": Chroma(
+                        persist_directory=self.vector_db_path_other,
+                        embedding_function=self.embeddings
                     )
                 }
-                logger.debug(f"3つのベクトルストアを読み込みました")
+                logger.debug(f"4つのベクトルストアを読み込みました")
                 logger.debug(f"🔍 [RAG] 主菜: {self.vector_db_path_main}")
                 logger.debug(f"🔍 [RAG] 副菜: {self.vector_db_path_sub}")
                 logger.debug(f"🔍 [RAG] 汁物: {self.vector_db_path_soup}")
+                logger.debug(f"🔍 [RAG] その他: {self.vector_db_path_other}")
             except Exception as e:
                 logger.error(f"ベクトルストア読み込みエラー: {e}")
                 raise
         return self._vectorstores
     
     def _get_search_engines(self) -> Dict[str, RecipeSearchEngine]:
-        """3つの検索エンジンの取得（遅延初期化）"""
+        """4つの検索エンジンの取得（遅延初期化）"""
         if not hasattr(self, '_search_engines') or self._search_engines is None:
             vectorstores = self._get_vectorstores()
             self._search_engines = {
                 "main": RecipeSearchEngine(vectorstores["main"]),
                 "sub": RecipeSearchEngine(vectorstores["sub"]),
-                "soup": RecipeSearchEngine(vectorstores["soup"])
+                "soup": RecipeSearchEngine(vectorstores["soup"]),
+                "other": RecipeSearchEngine(vectorstores["other"])
             }
         return self._search_engines
     
@@ -261,28 +268,31 @@ class RecipeRAGClient:
         self,
         ingredients: List[str],
         menu_type: str,
-        category: str,  # "main", "sub", "soup"
+        category: str,  # "main", "sub", "soup", "other"
         main_ingredient: str = None,
         used_ingredients: List[str] = None,
         excluded_recipes: List[str] = None,
-        limit: int = 3
+        limit: int = 3,
+        category_detail_keyword: str = None
     ) -> List[Dict[str, Any]]:
         """
-        汎用候補検索メソッド（主菜・副菜・汁物対応）
+        汎用候補検索メソッド（主菜・副菜・汁物・その他対応）
         
         categoryに応じて適切なベクトルストアを選択：
         - "main" → main ベクトルストア
         - "sub" → sub ベクトルストア
         - "soup" → soup ベクトルストア
+        - "other" → other ベクトルストア
         
         Args:
             ingredients: 在庫食材リスト
             menu_type: 献立タイプ
-            category: "main", "sub", "soup"
+            category: "main", "sub", "soup", "other"
             main_ingredient: 主要食材
             used_ingredients: すでに使った食材（除外する）
             excluded_recipes: 除外レシピ
             limit: 検索件数
+            category_detail_keyword: category_detailのキーワード（otherカテゴリ用）
         
         Returns:
             検索結果のリスト
@@ -292,6 +302,9 @@ class RecipeRAGClient:
             logger.debug(f"🔍 [RAG] Limit: {limit}")
             
             # 適切なベクトルストアを選択
+            if category not in ["main", "sub", "soup", "other"]:
+                raise ValueError(f"Invalid category: {category}")
+            
             search_engine = self._get_search_engines()[category]
             
             # 検索クエリを構築
@@ -314,7 +327,7 @@ class RecipeRAGClient:
             
             # RAG検索（除外レシピを渡す）
             results = await search_engine.search_similar_recipes(
-                search_query, menu_type, excluded_recipes, limit, rag_main_ingredient
+                search_query, menu_type, excluded_recipes, limit, rag_main_ingredient, category_detail_keyword
             )
             
             # 各結果に使用食材リストを含める

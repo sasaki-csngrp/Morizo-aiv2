@@ -40,9 +40,9 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
         if request.recipes:
             # フロントエンドから直接送信されたレシピ情報を使用
             selected_recipes = request.recipes
-            logger.debug(f"🔍 [API] Using recipes from request: main={selected_recipes.get('main') is not None}, sub={selected_recipes.get('sub') is not None}, soup={selected_recipes.get('soup') is not None}")
+            logger.debug(f"🔍 [API] Using recipes from request: main={selected_recipes.get('main') is not None}, sub={selected_recipes.get('sub') is not None}, soup={selected_recipes.get('soup') is not None}, other={selected_recipes.get('other') is not None}")
             # デバッグログ: フロントエンドから送信されたレシピデータの内容を確認
-            for category in ["main", "sub", "soup"]:
+            for category in ["main", "sub", "soup", "other"]:
                 recipe = selected_recipes.get(category)
                 if recipe:
                     ingredients = recipe.get("ingredients", [])
@@ -53,7 +53,7 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
         elif request.sse_session_id:
             # セッションIDから選択済みレシピを取得（後方互換性）
             selected_recipes = await session_service.get_selected_recipes(request.sse_session_id)
-            logger.debug(f"🔍 [API] Using recipes from session: main={selected_recipes.get('main') is not None}, sub={selected_recipes.get('sub') is not None}, soup={selected_recipes.get('soup') is not None}")
+            logger.debug(f"🔍 [API] Using recipes from session: main={selected_recipes.get('main') is not None}, sub={selected_recipes.get('sub') is not None}, soup={selected_recipes.get('soup') is not None}, other={selected_recipes.get('other') is not None}")
         else:
             # どちらも指定されていない場合はエラー
             logger.warning(f"⚠️ [API] Neither recipes nor sse_session_id provided")
@@ -76,7 +76,7 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
         
         # 選択済みレシピのログ出力
         logger.debug(f"🔍 [API] Selected recipes to save:")
-        for category in ["main", "sub", "soup"]:
+        for category in ["main", "sub", "soup", "other"]:
             recipe = selected_recipes.get(category)
             if recipe:
                 logger.debug(f"  {category}: {recipe.get('title', 'N/A')} (source: {recipe.get('source', 'N/A')})")
@@ -99,7 +99,8 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
         category_prefix_map = {
             "main": "主菜: ",
             "sub": "副菜: ",
-            "soup": "汁物: "
+            "soup": "汁物: ",
+            "other": "その他: "
         }
         
         source_mapping = {
@@ -108,7 +109,7 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
             "web": "web"
         }
         
-        for category in ["main", "sub", "soup"]:
+        for category in ["main", "sub", "soup", "other"]:
             recipe = selected_recipes.get(category)
             if not recipe:
                 continue  # 未選択のレシピはスキップ

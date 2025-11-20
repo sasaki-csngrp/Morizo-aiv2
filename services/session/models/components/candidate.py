@@ -19,24 +19,26 @@ class CandidateComponent:
             logger: ロガーインスタンス
         """
         self.logger = logger
-        self.candidates: Dict[str, list] = {"main": [], "sub": [], "soup": []}
+        self.candidates: Dict[str, list] = {"main": [], "sub": [], "soup": [], "other": []}
     
     def set(self, category: str, candidates: list) -> None:
         """候補情報を保存（Phase 3C-3）
         
         Args:
-            category: カテゴリ（"main", "sub", "soup"）
+            category: カテゴリ（"main", "sub", "soup", "other"）
             candidates: 候補情報のリスト
         """
-        if category in self.candidates:
-            self.candidates[category] = candidates
-            self.logger.debug(f"💾 [SESSION] Set {len(candidates)} {category} candidates")
+        # カテゴリが存在しない場合は初期化
+        if category not in self.candidates:
+            self.candidates[category] = []
+        self.candidates[category] = candidates
+        self.logger.debug(f"💾 [SESSION] Set {len(candidates)} {category} candidates")
     
     def get(self, category: str) -> list:
         """候補情報を取得
         
         Args:
-            category: カテゴリ（"main", "sub", "soup"）
+            category: カテゴリ（"main", "sub", "soup", "other"）
         
         Returns:
             list: 候補情報のリスト

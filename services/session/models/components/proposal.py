@@ -19,24 +19,26 @@ class ProposalComponent:
             logger: ロガーインスタンス
         """
         self.logger = logger
-        self.proposed_recipes: Dict[str, list] = {"main": [], "sub": [], "soup": []}
+        self.proposed_recipes: Dict[str, list] = {"main": [], "sub": [], "soup": [], "other": []}
     
     def add(self, category: str, titles: list) -> None:
         """提案済みレシピタイトルを追加
         
         Args:
-            category: カテゴリ（"main", "sub", "soup"）
+            category: カテゴリ（"main", "sub", "soup", "other"）
             titles: 提案済みタイトルのリスト
         """
-        if category in self.proposed_recipes:
-            self.proposed_recipes[category].extend(titles)
-            self.logger.debug(f"📝 [SESSION] Added {len(titles)} proposed {category} recipes")
+        # otherカテゴリが存在しない場合は初期化
+        if category not in self.proposed_recipes:
+            self.proposed_recipes[category] = []
+        self.proposed_recipes[category].extend(titles)
+        self.logger.debug(f"📝 [SESSION] Added {len(titles)} proposed {category} recipes")
     
     def get(self, category: str) -> list:
         """提案済みレシピタイトルを取得
         
         Args:
-            category: カテゴリ（"main", "sub", "soup"）
+            category: カテゴリ（"main", "sub", "soup", "other"）
         
         Returns:
             list: 提案済みタイトルのリスト
@@ -47,7 +49,7 @@ class ProposalComponent:
         """提案済みレシピをクリア
         
         Args:
-            category: カテゴリ（"main", "sub", "soup"）
+            category: カテゴリ（"main", "sub", "soup", "other"）
         """
         if category in self.proposed_recipes:
             self.proposed_recipes[category] = []

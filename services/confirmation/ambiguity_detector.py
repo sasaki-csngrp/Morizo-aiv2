@@ -154,7 +154,12 @@ class AmbiguityDetector:
     ) -> Optional[AmbiguityInfo]:
         """主菜提案の曖昧性チェック（主要食材未指定時）"""
         
-        if task.method == "generate_proposals" and task.parameters.get("category") == "main":
+        # otherカテゴリの場合は曖昧性チェックをスキップ
+        category = task.parameters.get("category")
+        if category == "other":
+            return None
+        
+        if task.method == "generate_proposals" and category == "main":
             # 主要食材が指定されていない場合
             main_ingredient = task.parameters.get("main_ingredient")
             if not main_ingredient:

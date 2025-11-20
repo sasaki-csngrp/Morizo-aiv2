@@ -44,7 +44,8 @@ class RecipeSearchEngine:
         menu_type: str,
         excluded_recipes: List[str] = None,
         limit: int = 5,
-        main_ingredient: str = None
+        main_ingredient: str = None,
+        category_detail_keyword: str = None
     ) -> List[Dict[str, Any]]:
         """
         在庫食材に基づく類似レシピ検索（部分マッチング機能付き）
@@ -55,6 +56,7 @@ class RecipeSearchEngine:
             excluded_recipes: 除外するレシピタイトル
             limit: 検索結果の最大件数
             main_ingredient: 主要食材
+            category_detail_keyword: category_detailのキーワード（otherカテゴリ用）
         
         Returns:
             検索結果のリスト
@@ -67,7 +69,8 @@ class RecipeSearchEngine:
                 excluded_recipes=excluded_recipes,
                 limit=limit,
                 min_match_score=0.05,  # 低い閾値で幅広く検索
-                main_ingredient=main_ingredient
+                main_ingredient=main_ingredient,
+                category_detail_keyword=category_detail_keyword
             )
             
             # 既存のAPIとの互換性のため、不要なフィールドを削除
@@ -97,7 +100,8 @@ class RecipeSearchEngine:
         excluded_recipes: List[str] = None,
         limit: int = 5,
         min_match_score: float = 0.1,
-        main_ingredient: str = None
+        main_ingredient: str = None,
+        category_detail_keyword: str = None
     ) -> List[Dict[str, Any]]:
         """
         在庫食材の部分マッチングでレシピを検索
@@ -109,6 +113,7 @@ class RecipeSearchEngine:
             limit: 検索結果の最大件数
             min_match_score: 最小マッチングスコア
             main_ingredient: 主要食材
+            category_detail_keyword: category_detailのキーワード（otherカテゴリ用）
         
         Returns:
             検索結果のリスト（マッチングスコア付き）
@@ -117,17 +122,22 @@ class RecipeSearchEngine:
             # 在庫食材の重複を除去して正規化
             normalized_ingredients = list(set(ingredients))
             
+            # category_detail_keywordがある場合、検索クエリに追加
+            category_query_part = ""
+            if category_detail_keyword:
+                category_query_part = f"{category_detail_keyword} "
+            
             # 主要食材がある場合は2段階検索を実行
             if main_ingredient:
                 # 主要食材を正規化
                 normalized_main = normalize_ingredient(main_ingredient)
                 
                 # 第1段階: 主要食材のみでの検索（多めに取得）
-                main_query = f"{normalized_main} {normalized_main} {normalized_main} {menu_type}"
+                main_query = f"{category_query_part}{normalized_main} {normalized_main} {normalized_main} {menu_type}"
                 main_results = self.vectorstore.similarity_search(main_query, k=limit * 15)
                 
                 # 第2段階: 在庫食材込みでの検索
-                inventory_query = f"{normalized_main} {normalized_main} {' '.join(normalized_ingredients)} {menu_type}"
+                inventory_query = f"{category_query_part}{normalized_main} {normalized_main} {' '.join(normalized_ingredients)} {menu_type}"
                 inventory_results = self.vectorstore.similarity_search(inventory_query, k=limit * 10)
                 
                 # 結果をマージ（重複除去）
@@ -143,7 +153,7 @@ class RecipeSearchEngine:
                             break
             else:
                 # 主要食材指定なしの場合は従来通り
-                query = f"{' '.join(normalized_ingredients)} {menu_type}"
+                query = f"{category_query_part}{' '.join(normalized_ingredients)} {menu_type}"
                 results = self.vectorstore.similarity_search(query, k=limit * 4)
             
             # 部分マッチングでフィルタリングとスコアリング
@@ -185,6 +195,12 @@ class RecipeSearchEngine:
                     match_score, matched_ingredients = self._calculate_match_score(
                         recipe_ingredients, normalized_ingredients, main_ingredient
                     )
+                    
+                    # category_detail_keywordがある場合、category_detailでフィルタリング
+                    if category_detail_keyword:
+                        category_detail = metadata.get('category_detail', '')
+                        if category_detail_keyword not in category_detail:
+                            continue
                     
                     # 最小スコア以上のレシピのみを追加
                     if match_score >= min_match_score:

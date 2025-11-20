@@ -41,13 +41,18 @@ class ServiceCoordinator:
                         main_ingredient = parameters.get("main_ingredient")
                         menu_type = parameters.get("menu_type", "")
                         inventory_items = parameters.get("inventory_items")
+                        category_detail_keyword = parameters.get("category_detail_keyword")
                         
                         # セッションコンテキストを保存
                         session.set_context("main_ingredient", main_ingredient)
                         session.set_context("menu_type", menu_type)
                         if inventory_items:
                             session.set_context("inventory_items", inventory_items)
+                        if category_detail_keyword:
+                            session.set_context("category_detail_keyword", category_detail_keyword)
                         self.logger.debug(f"💾 [ServiceCoordinator] Saved main_ingredient='{main_ingredient}' and menu_type='{menu_type}' to session")
+                        if category_detail_keyword:
+                            self.logger.debug(f"💾 [ServiceCoordinator] Saved category_detail_keyword='{category_detail_keyword}' to session")
                         
                         # Phase 3A: セッション内の提案済みレシピを取得してexcluded_recipesに追加
                         category = parameters.get("category", "main")

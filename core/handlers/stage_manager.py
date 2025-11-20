@@ -67,7 +67,7 @@ class StageManager:
             
             # 現在の段階を取得
             current_stage = session.get_current_stage()
-            category = current_stage  # "main", "sub", "soup"
+            category = current_stage  # "main", "sub", "soup", "other"
             
             # セッションから候補情報を取得
             candidates = session.get_candidates(category)
@@ -133,6 +133,12 @@ class StageManager:
                 session.set_selected_recipe("soup", selected_recipe)
                 next_stage = "completed"
                 self.logger.info(f"✅ [STAGE] Completed all stages")
+                
+            elif current_stage == "other":
+                # otherカテゴリを選択した場合、完了（単体動作のため）
+                session.set_selected_recipe("other", selected_recipe)
+                next_stage = "completed"
+                self.logger.info(f"✅ [STAGE] Completed other category selection")
                 
             else:
                 self.logger.warning(f"⚠️ [STAGE] Unexpected stage: {current_stage}")

@@ -126,6 +126,10 @@ class RecipeServiceHandler:
                 if task3_result and task3_result.get("success") and task3_result.get("data", {}).get("candidates"):
                     candidates = task3_result["data"]["candidates"]
                     
+                    # task3の結果からカテゴリを取得（main/sub/soup/other）
+                    task3_data = task3_result.get("data", {})
+                    category = task3_data.get("category", "main")
+                    
                     # task4のWeb検索結果を統合
                     candidates_with_urls = web_integrator.integrate(candidates, task_id, data, utils)
                     
@@ -133,16 +137,19 @@ class RecipeServiceHandler:
                     if sse_session_id and session_service:
                         titles = [c.get("title") for c in candidates_with_urls if c.get("title")]
                         
-                        await session_service.add_proposed_recipes(sse_session_id, "main", titles)
-                        self.logger.debug(f"💾 [RecipeServiceHandler] Saved {len(titles)} proposed titles to session")
+                        await session_service.add_proposed_recipes(sse_session_id, category, titles)
+                        self.logger.debug(f"💾 [RecipeServiceHandler] Saved {len(titles)} proposed titles to session (category: {category})")
                     
                     # Phase 3C-3: 候補情報をセッションに保存（詳細情報）
                     if sse_session_id and session_service:
                         session = await session_service.get_session(sse_session_id, user_id=None)
                         if session:
-                            current_stage = session.get_current_stage()
-                            category = current_stage  # "main", "sub", "soup"
+                            # task3の結果から取得したcategoryを使用（main/sub/soup/other）
                             await session_service.set_candidates(sse_session_id, category, candidates_with_urls)
+                            # otherカテゴリの場合はcurrent_stageを"other"に設定
+                            if category == "other":
+                                session.set_current_stage("other")
+                                self.logger.debug(f"✅ [RecipeServiceHandler] Set current_stage to 'other' for other category proposal")
                             # デバッグログ: 保存する候補のsourceとingredientsを確認
                             for i, candidate in enumerate(candidates_with_urls):
                                 ingredients = candidate.get('ingredients', [])

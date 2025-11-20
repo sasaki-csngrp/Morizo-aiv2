@@ -114,6 +114,10 @@ class Session:
         """現在の段階を取得"""
         return self.stage.get_current_stage()
     
+    def set_current_stage(self, stage: str) -> None:
+        """現在の段階を設定"""
+        self.stage.set_current_stage(stage)
+    
     def set_selected_recipe(self, category: str, recipe: Dict[str, Any]) -> None:
         """選択したレシピを保存"""
         inventory_items = self.context.get("inventory_items", [])

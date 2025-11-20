@@ -24,10 +24,11 @@ class StageComponent:
         self.logger = logger
         
         # Phase 2.5D: 段階的選択管理
-        self.current_stage: str = "main"  # "main", "sub", "soup", "completed"
+        self.current_stage: str = "main"  # "main", "sub", "soup", "other", "completed"
         self.selected_main_dish: Optional[Dict[str, Any]] = None
         self.selected_sub_dish: Optional[Dict[str, Any]] = None
         self.selected_soup: Optional[Dict[str, Any]] = None
+        self.selected_other_recipe: Optional[Dict[str, Any]] = None  # otherカテゴリ用
         self.used_ingredients: list = []
         self.menu_category: str = "japanese"  # "japanese", "western", "chinese"
     
@@ -35,9 +36,18 @@ class StageComponent:
         """現在の段階を取得
         
         Returns:
-            str: 現在の段階（"main", "sub", "soup", "completed"）
+            str: 現在の段階（"main", "sub", "soup", "other", "completed"）
         """
         return self.current_stage
+    
+    def set_current_stage(self, stage: str) -> None:
+        """現在の段階を設定
+        
+        Args:
+            stage: 段階（"main", "sub", "soup", "other", "completed"）
+        """
+        self.current_stage = stage
+        self.logger.debug(f"✅ [SESSION] Set current_stage to: {stage}")
     
     def _determine_menu_category(self, menu_type: str) -> str:
         """献立カテゴリを判定
@@ -59,7 +69,7 @@ class StageComponent:
         """選択したレシピを保存
         
         Args:
-            category: カテゴリ（"main", "sub", "soup"）
+            category: カテゴリ（"main", "sub", "soup", "other"）
             recipe: レシピ情報
             inventory_items: 在庫食材名リスト
         """
@@ -83,6 +93,10 @@ class StageComponent:
         elif category == "soup":
             self.selected_soup = recipe
             self.current_stage = "completed"
+        elif category == "other":
+            # otherカテゴリは単体動作のため、選択後は完了
+            self.selected_other_recipe = recipe
+            self.current_stage = "completed"
         
         # デバッグログ: 選択されたレシピのsourceを確認
         self.logger.debug(f"✅ [SESSION] Recipe selected for {category}: title='{recipe.get('title', 'N/A')}', source='{recipe.get('source', 'N/A')}'")
@@ -96,7 +110,8 @@ class StageComponent:
         return {
             "main": self.selected_main_dish,
             "sub": self.selected_sub_dish,
-            "soup": self.selected_soup
+            "soup": self.selected_soup,
+            "other": self.selected_other_recipe
         }
     
     def get_used_ingredients(self) -> list:

@@ -7,6 +7,7 @@ This module provides MCP server for recipe generation with LLM-based tools.
 import sys
 import os
 import asyncio
+import traceback
 # プロジェクトルートをPythonのモジュール検索パスに追加
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -457,93 +458,225 @@ async def search_recipe_from_web(
 async def generate_proposals(
     inventory_items: List[str],
     user_id: str,
-    category: str = "main",  # "main", "sub", "soup"
+    category: str = "main",  # "main", "sub", "soup", "other"
     menu_type: str = "",
     main_ingredient: Optional[str] = None,
     used_ingredients: List[str] = None,
     excluded_recipes: List[str] = None,
     menu_category: str = "japanese",  # "japanese", "western", "chinese"
     sse_session_id: str = None,
-    token: str = None
+    token: str = None,
+    category_detail_keyword: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    汎用提案メソッド（主菜・副菜・汁物対応）
+    汎用提案メソッド（主菜・副菜・汁物・その他対応）
     
     Args:
-        category: "main", "sub", "soup"
+        category: "main", "sub", "soup", "other"
         used_ingredients: すでに使った食材（副菜・汁物で使用）
         menu_category: 献立カテゴリ（汁物の判断に使用）
     """
-    logger.debug(f"🔧 [RECIPE] Starting generate_proposals")
-    logger.debug(f"🔍 [RECIPE] Category: {category}, User: {user_id}")
-    logger.debug(f"🔍 [RECIPE] Main ingredient: {main_ingredient}, Used ingredients: {used_ingredients}")
-    logger.debug(f"📊 [RECIPE] Excluded recipes: {len(excluded_recipes or [])} recipes")
+    logger.debug(f"🔧 [RECIPE] ========== generate_proposals START ==========")
+    logger.debug(f"🔧 [RECIPE] Function called with parameters:")
+    logger.debug(f"  - inventory_items: {inventory_items} (type: {type(inventory_items).__name__}, len: {len(inventory_items) if inventory_items else 0})")
+    logger.debug(f"  - user_id: {user_id} (type: {type(user_id).__name__})")
+    logger.debug(f"  - category: {category} (type: {type(category).__name__})")
+    logger.debug(f"  - menu_type: {menu_type} (type: {type(menu_type).__name__})")
+    logger.debug(f"  - main_ingredient: {main_ingredient} (type: {type(main_ingredient).__name__})")
+    logger.debug(f"  - used_ingredients: {used_ingredients} (type: {type(used_ingredients).__name__}, len: {len(used_ingredients) if used_ingredients else 0})")
+    logger.debug(f"  - excluded_recipes: {excluded_recipes} (type: {type(excluded_recipes).__name__}, len: {len(excluded_recipes) if excluded_recipes else 0})")
+    logger.debug(f"  - menu_category: {menu_category} (type: {type(menu_category).__name__})")
+    logger.debug(f"  - sse_session_id: {sse_session_id} (type: {type(sse_session_id).__name__})")
+    logger.debug(f"  - token: {'***' if token else None} (type: {type(token).__name__ if token else 'NoneType'})")
+    logger.debug(f"  - category_detail_keyword: {category_detail_keyword} (type: {type(category_detail_keyword).__name__})")
     
     try:
         # 認証済みクライアントを取得
+        logger.debug(f"🔐 [RECIPE] Step 1: Getting authenticated client for user_id={user_id}")
+        logger.debug(f"🔐 [RECIPE] Token provided: {bool(token)}")
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [RECIPE] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE] Authenticated client created successfully for user: {user_id}")
+        logger.debug(f"🔐 [RECIPE] Client type: {type(client).__name__}")
         
         # Phase 3A: セッション内の提案済みレシピは、呼び出し元でexcluded_recipesとして渡されるため
         # MCPサーバー内では追加処理は不要（プロセス分離のため）
+        logger.debug(f"📊 [RECIPE] Step 2: Processing excluded recipes")
         all_excluded = (excluded_recipes or []).copy()
         logger.debug(f"📊 [RECIPE] Total excluded: {len(all_excluded)} recipes")
+        if all_excluded:
+            logger.debug(f"📊 [RECIPE] Excluded recipe titles (first 5): {all_excluded[:5]}")
+        
+        # otherカテゴリの場合はused_ingredientsを使用しない（単体動作のため）
+        logger.debug(f"📊 [RECIPE] Step 3: Processing category-specific logic")
+        if category == "other":
+            logger.debug(f"📊 [RECIPE] Category is 'other', setting used_ingredients to None")
+            used_ingredients = None
+        else:
+            logger.debug(f"📊 [RECIPE] Category is '{category}', keeping used_ingredients: {used_ingredients}")
         
         # LLMとRAGを並列実行（汎用メソッドを使用）
-        llm_task = llm_client.generate_candidates(
-            inventory_items=inventory_items,
-            menu_type=menu_type,
-            category=category,
-            main_ingredient=main_ingredient,
-            used_ingredients=used_ingredients,
-            excluded_recipes=all_excluded,
-            count=2
-        )
-        rag_task = rag_client.search_candidates(
-            ingredients=inventory_items,
-            menu_type=menu_type,
-            category=category,
-            main_ingredient=main_ingredient,
-            used_ingredients=used_ingredients,
-            excluded_recipes=all_excluded,
-            limit=3
-        )
+        logger.debug(f"📊 [RECIPE] Step 4: Creating LLM and RAG tasks")
+        logger.debug(f"📊 [RECIPE] LLM task parameters:")
+        logger.debug(f"  - inventory_items: {inventory_items}")
+        logger.debug(f"  - menu_type: {menu_type}")
+        logger.debug(f"  - category: {category}")
+        logger.debug(f"  - main_ingredient: {main_ingredient}")
+        logger.debug(f"  - used_ingredients: {used_ingredients}")
+        logger.debug(f"  - excluded_recipes count: {len(all_excluded)}")
+        logger.debug(f"  - count: 2")
+        logger.debug(f"  - category_detail_keyword: {category_detail_keyword}")
+        
+        logger.debug(f"📊 [RECIPE] RAG task parameters:")
+        logger.debug(f"  - ingredients: {inventory_items}")
+        logger.debug(f"  - menu_type: {menu_type}")
+        logger.debug(f"  - category: {category}")
+        logger.debug(f"  - main_ingredient: {main_ingredient}")
+        logger.debug(f"  - used_ingredients: {used_ingredients}")
+        logger.debug(f"  - excluded_recipes count: {len(all_excluded)}")
+        logger.debug(f"  - limit: 3")
+        logger.debug(f"  - category_detail_keyword: {category_detail_keyword}")
+        
+        try:
+            logger.debug(f"📊 [RECIPE] Creating LLM task...")
+            llm_task = llm_client.generate_candidates(
+                inventory_items=inventory_items,
+                menu_type=menu_type,
+                category=category,
+                main_ingredient=main_ingredient,
+                used_ingredients=used_ingredients,
+                excluded_recipes=all_excluded,
+                count=2,
+                category_detail_keyword=category_detail_keyword
+            )
+            logger.debug(f"✅ [RECIPE] LLM task created successfully (type: {type(llm_task).__name__})")
+        except Exception as e:
+            logger.error(f"❌ [RECIPE] Failed to create LLM task: {e}")
+            logger.error(f"❌ [RECIPE] LLM task creation error type: {type(e).__name__}")
+            logger.error(f"❌ [RECIPE] LLM task creation traceback: {traceback.format_exc()}")
+            raise
+        
+        try:
+            logger.debug(f"📊 [RECIPE] Creating RAG task...")
+            rag_task = rag_client.search_candidates(
+                ingredients=inventory_items,
+                menu_type=menu_type,
+                category=category,
+                main_ingredient=main_ingredient,
+                used_ingredients=used_ingredients,
+                excluded_recipes=all_excluded,
+                limit=3,
+                category_detail_keyword=category_detail_keyword
+            )
+            logger.debug(f"✅ [RECIPE] RAG task created successfully (type: {type(rag_task).__name__})")
+        except Exception as e:
+            logger.error(f"❌ [RECIPE] Failed to create RAG task: {e}")
+            logger.error(f"❌ [RECIPE] RAG task creation error type: {type(e).__name__}")
+            logger.error(f"❌ [RECIPE] RAG task creation traceback: {traceback.format_exc()}")
+            raise
         
         # 両方の結果を待つ（並列実行）
-        llm_result, rag_result = await asyncio.gather(llm_task, rag_task)
+        logger.debug(f"📊 [RECIPE] Step 5: Executing asyncio.gather for LLM and RAG tasks")
+        logger.debug(f"📊 [RECIPE] LLM task type: {type(llm_task).__name__}")
+        logger.debug(f"📊 [RECIPE] RAG task type: {type(rag_task).__name__}")
+        
+        try:
+            logger.debug(f"📊 [RECIPE] Awaiting asyncio.gather...")
+            llm_result, rag_result = await asyncio.gather(llm_task, rag_task)
+            logger.debug(f"✅ [RECIPE] asyncio.gather completed successfully")
+            logger.debug(f"📊 [RECIPE] LLM result type: {type(llm_result).__name__}")
+            logger.debug(f"📊 [RECIPE] RAG result type: {type(rag_result).__name__}")
+        except Exception as e:
+            logger.error(f"❌ [RECIPE] asyncio.gather failed: {e}")
+            logger.error(f"❌ [RECIPE] asyncio.gather error type: {type(e).__name__}")
+            logger.error(f"❌ [RECIPE] asyncio.gather traceback: {traceback.format_exc()}")
+            raise
         
         # 統合（sourceフィールドを追加）
+        logger.debug(f"📊 [RECIPE] Step 6: Processing and integrating results")
+        logger.debug(f"📊 [RECIPE] LLM result structure:")
+        logger.debug(f"  - Type: {type(llm_result).__name__}")
+        logger.debug(f"  - Keys: {list(llm_result.keys()) if isinstance(llm_result, dict) else 'N/A'}")
+        logger.debug(f"  - Success: {llm_result.get('success') if isinstance(llm_result, dict) else 'N/A'}")
+        if isinstance(llm_result, dict) and llm_result.get("success"):
+            llm_data = llm_result.get("data", {})
+            logger.debug(f"  - Data keys: {list(llm_data.keys()) if isinstance(llm_data, dict) else 'N/A'}")
+            llm_candidates_list = llm_data.get("candidates", [])
+            logger.debug(f"  - Candidates count: {len(llm_candidates_list)}")
+            logger.debug(f"  - Candidates type: {type(llm_candidates_list).__name__}")
+        
+        logger.debug(f"📊 [RECIPE] RAG result structure:")
+        logger.debug(f"  - Type: {type(rag_result).__name__}")
+        if isinstance(rag_result, list):
+            logger.debug(f"  - List length: {len(rag_result)}")
+            if rag_result:
+                logger.debug(f"  - First item keys: {list(rag_result[0].keys()) if isinstance(rag_result[0], dict) else 'N/A'}")
+        elif isinstance(rag_result, dict):
+            logger.debug(f"  - Dict keys: {list(rag_result.keys())}")
+        
         candidates = []
+        
+        # LLM結果の処理
+        logger.debug(f"📊 [RECIPE] Processing LLM results...")
         if llm_result.get("success"):
-            llm_candidates = llm_result["data"]["candidates"]
-            # LLM候補にsourceフィールドを追加
-            for candidate in llm_candidates:
-                if "source" not in candidate:
-                    candidate["source"] = "llm"
-            candidates.extend(llm_candidates)
+            try:
+                llm_candidates = llm_result["data"]["candidates"]
+                logger.debug(f"📊 [RECIPE] LLM candidates extracted: {len(llm_candidates)} items")
+                # LLM候補にsourceフィールドを追加
+                for i, candidate in enumerate(llm_candidates):
+                    if "source" not in candidate:
+                        candidate["source"] = "llm"
+                    logger.debug(f"📊 [RECIPE] LLM candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}'")
+                candidates.extend(llm_candidates)
+                logger.debug(f"✅ [RECIPE] Added {len(llm_candidates)} LLM candidates")
+            except Exception as e:
+                logger.error(f"❌ [RECIPE] Error processing LLM results: {e}")
+                logger.error(f"❌ [RECIPE] LLM result processing error type: {type(e).__name__}")
+                logger.error(f"❌ [RECIPE] LLM result processing traceback: {traceback.format_exc()}")
+        else:
+            logger.warning(f"⚠️ [RECIPE] LLM result indicates failure: {llm_result.get('error', 'Unknown error')}")
+        
+        # RAG結果の処理
+        logger.debug(f"📊 [RECIPE] Processing RAG results...")
         if rag_result:
-            # RAG候補にsourceフィールドとURLを追加
-            rag_candidates = []
-            for r in rag_result:
-                candidate = {
-                    "title": r["title"],
-                    "ingredients": r.get("ingredients", []),
-                    "source": "rag"
-                }
-                # URLが含まれている場合は追加（ベクトルDBから取得）
-                if "url" in r and r["url"]:
-                    candidate["url"] = r["url"]
-                rag_candidates.append(candidate)
-            candidates.extend(rag_candidates)
+            try:
+                logger.debug(f"📊 [RECIPE] RAG result is truthy, processing...")
+                # RAG候補にsourceフィールドとURLを追加
+                rag_candidates = []
+                for i, r in enumerate(rag_result):
+                    logger.debug(f"📊 [RECIPE] Processing RAG result {i+1}: type={type(r).__name__}, keys={list(r.keys()) if isinstance(r, dict) else 'N/A'}")
+                    candidate = {
+                        "title": r["title"],
+                        "ingredients": r.get("ingredients", []),
+                        "source": "rag"
+                    }
+                    # URLが含まれている場合は追加（ベクトルDBから取得）
+                    if "url" in r and r["url"]:
+                        candidate["url"] = r["url"]
+                        logger.debug(f"📊 [RECIPE] RAG candidate {i+1} has URL: {r['url']}")
+                    rag_candidates.append(candidate)
+                    logger.debug(f"📊 [RECIPE] RAG candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}'")
+                candidates.extend(rag_candidates)
+                logger.debug(f"✅ [RECIPE] Added {len(rag_candidates)} RAG candidates")
+            except Exception as e:
+                logger.error(f"❌ [RECIPE] Error processing RAG results: {e}")
+                logger.error(f"❌ [RECIPE] RAG result processing error type: {type(e).__name__}")
+                logger.error(f"❌ [RECIPE] RAG result processing traceback: {traceback.format_exc()}")
+        else:
+            logger.warning(f"⚠️ [RECIPE] RAG result is empty or falsy")
         
         # デバッグログ: 各候補のsourceを確認
+        logger.debug(f"📊 [RECIPE] Final candidates summary:")
+        logger.debug(f"  - Total candidates: {len(candidates)}")
         for i, candidate in enumerate(candidates):
-            logger.debug(f"🔍 [RECIPE] Candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}'")
+            logger.debug(f"🔍 [RECIPE] Candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}', has_url={bool(candidate.get('url'))}")
         
         logger.info(f"✅ [RECIPE] generate_proposals completed")
-        logger.debug(f"📊 [RECIPE] {len(candidates)} candidates (LLM: {len(llm_result.get('data', {}).get('candidates', [])) if llm_result.get('success') else 0}, RAG: {len(rag_result) if rag_result else 0})")
+        llm_count = len(llm_result.get('data', {}).get('candidates', [])) if llm_result.get('success') else 0
+        rag_count = len(rag_result) if rag_result else 0
+        logger.debug(f"📊 [RECIPE] Final counts - Total: {len(candidates)}, LLM: {llm_count}, RAG: {rag_count}")
         
-        return {
+        logger.debug(f"📊 [RECIPE] Step 7: Building return value")
+        return_value = {
             "success": True,
             "data": {
                 "candidates": candidates,
@@ -551,13 +684,34 @@ async def generate_proposals(
                 "total": len(candidates),
                 "main_ingredient": main_ingredient,
                 "excluded_count": len(all_excluded),
-                "llm_count": len(llm_result.get("data", {}).get("candidates", [])),
-                "rag_count": len(rag_result)
+                "llm_count": len(llm_result.get("data", {}).get("candidates", [])) if llm_result.get("success") else 0,
+                "rag_count": len(rag_result) if rag_result else 0
             }
         }
+        logger.debug(f"📊 [RECIPE] Return value structure:")
+        logger.debug(f"  - success: {return_value['success']}")
+        logger.debug(f"  - data keys: {list(return_value['data'].keys())}")
+        logger.debug(f"  - candidates count: {len(return_value['data']['candidates'])}")
+        logger.debug(f"🔧 [RECIPE] ========== generate_proposals END (SUCCESS) ==========")
+        return return_value
         
     except Exception as e:
-        logger.error(f"❌ [RECIPE] Error in generate_proposals: {e}")
+        logger.error(f"❌ [RECIPE] ========== generate_proposals END (ERROR) ==========")
+        logger.error(f"❌ [RECIPE] Exception occurred in generate_proposals")
+        logger.error(f"❌ [RECIPE] Exception type: {type(e).__name__}")
+        logger.error(f"❌ [RECIPE] Exception message: {str(e)}")
+        logger.error(f"❌ [RECIPE] Exception args: {e.args}")
+        logger.error(f"❌ [RECIPE] Full traceback:")
+        logger.error(f"{traceback.format_exc()}")
+        logger.error(f"❌ [RECIPE] Error context - Parameters at error time:")
+        logger.error(f"  - inventory_items: {inventory_items}")
+        logger.error(f"  - user_id: {user_id}")
+        logger.error(f"  - category: {category}")
+        logger.error(f"  - menu_type: {menu_type}")
+        logger.error(f"  - main_ingredient: {main_ingredient}")
+        logger.error(f"  - used_ingredients: {used_ingredients}")
+        logger.error(f"  - excluded_recipes count: {len(excluded_recipes) if excluded_recipes else 0}")
+        logger.error(f"  - category_detail_keyword: {category_detail_keyword}")
         return {"success": False, "error": str(e)}
 
 

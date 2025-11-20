@@ -87,7 +87,7 @@ class RequestAnalyzer:
         if self._is_ambiguity_resume(session_context):
             return "ambiguity_resume"
         
-        # 優先度2: 追加提案（判定順を 汁物→副菜→主菜 に変更して誤判定を抑止）
+        # 優先度2: 追加提案（判定順を 汁物→副菜→主菜→other に変更して誤判定を抑止）
         if self._is_additional_proposal(request, sse_session_id):
             # 汁物を最優先（説明文に主菜/副菜が含まれていても汁物指定を優先）
             if ("汁物" in request or "スープ" in request or "味噌汁" in request or "soup" in request.lower()):
@@ -95,6 +95,9 @@ class RequestAnalyzer:
             # 副菜を次に優先（「主菜で使っていない食材で副菜…」などのケースに対応）
             elif ("副菜" in request or "サブ" in request or "sub" in request.lower()):
                 return "sub_additional"
+            # otherカテゴリの追加提案をチェック（主菜より優先）
+            elif self._is_other_category_request(request):
+                return "other_additional"
             # 最後に主菜
             elif ("主菜" in request or "メイン" in request or "main" in request.lower()):
                 return "main_additional"
@@ -116,6 +119,10 @@ class RequestAnalyzer:
               "主菜で" in request or "メインを" in request or "メインが" in request or
               "main" in request.lower() or "主菜" in request or "メイン" in request):
             return "main"
+        
+        # 優先度3.5: otherカテゴリの検出（主菜・副菜・汁物の後、献立生成の前）
+        if self._is_other_category_request(request):
+            return "other"
         
         # 優先度4: 在庫操作
         if self._is_inventory_operation(request):
@@ -146,6 +153,85 @@ class RequestAnalyzer:
         inventory_keywords = ["追加", "削除", "更新", "変えて", "変更", "確認", "在庫"]
         return any(keyword in request for keyword in inventory_keywords)
     
+    def _is_other_category_request(self, request: str) -> bool:
+        """otherカテゴリのリクエストかどうかを判定"""
+        request_lower = request.lower()
+        
+        # カテゴリ全体のキーワード
+        if any(keyword in request for keyword in ["その他のレシピ", "その他を", "その他が", "その他の"]):
+            return True
+        
+        # ご飯もの系のキーワード
+        if any(keyword in request for keyword in [
+            "丼のレシピ", "丼を", "丼が", "丼物",
+            "チャーハン", "カレーライス", "おにぎり", "オムライス",
+            "雑炊", "リゾット", "寿司", "ドリア", "パエリア", "ハヤシライス"
+        ]):
+            return True
+        
+        # 麺もの系のキーワード
+        if any(keyword in request for keyword in [
+            "麺もの", "麺のレシピ", "麺を", "麺が",
+            "うどん", "そば", "そうめん", "焼きそば",
+            "中華麺", "ラーメン", "ビーフン"
+        ]):
+            return True
+        
+        # パスタ系のキーワード
+        if any(keyword in request for keyword in [
+            "パスタ", "カルボナーラ", "ミートソース", "ナポリタン",
+            "ペペロンチーノ", "たらこパスタ", "明太子パスタ"
+        ]):
+            return True
+        
+        # その他のキーワード
+        if any(keyword in request for keyword in [
+            "ソース", "ドレッシング", "たれ",
+            "鍋", "ホットプレート", "粉もの", "チヂミ",
+            "ハンバーグ", "グラタン", "おでん", "シチュー"
+        ]):
+            return True
+        
+        return False
+    
+    def _extract_category_detail_keyword(self, request: str) -> Optional[str]:
+        """リクエストからcategory_detailのキーワードを抽出"""
+        # 麺もの系
+        if "うどん" in request:
+            return "麺ものうどん"
+        elif "そば" in request and "パスタ" not in request:
+            return "麺ものそば"
+        elif "そうめん" in request:
+            return "麺ものそうめん"
+        elif "焼きそば" in request:
+            return "麺もの焼きそば"
+        elif "中華麺" in request or "ラーメン" in request:
+            return "麺もの中華麺"
+        
+        # パスタ系
+        elif "カルボナーラ" in request:
+            return "パスタカルボナーラ"
+        elif "ミートソース" in request:
+            return "パスタミートソース"
+        elif "ナポリタン" in request:
+            return "パスタナポリタン"
+        elif "トマト" in request and "パスタ" in request:
+            return "パスタトマト系"
+        elif "パスタ" in request:
+            return "パスタ"  # 汎用的なパスタ
+        
+        # ご飯もの系
+        elif "丼" in request:
+            return "ご飯もの丼物"
+        elif "チャーハン" in request:
+            return "ご飯ものチャーハン"
+        elif "カレー" in request:
+            return "ご飯ものカレーライス"
+        elif "おにぎり" in request:
+            return "ご飯ものおにぎり"
+        
+        return None
+    
     def _extract_params(
         self, 
         request: str, 
@@ -160,15 +246,17 @@ class RequestAnalyzer:
         }
         
         # カテゴリ提案の場合
-        if pattern in ["main", "sub", "soup", "main_additional", "sub_additional", "soup_additional"]:
+        if pattern in ["main", "sub", "soup", "other", "main_additional", "sub_additional", "soup_additional", "other_additional"]:
             # カテゴリ設定
             category_map = {
                 "main": "main",
                 "sub": "sub",
                 "soup": "soup",
+                "other": "other",
                 "main_additional": "main",
                 "sub_additional": "sub",
-                "soup_additional": "soup"
+                "soup_additional": "soup",
+                "other_additional": "other"
             }
             params["category"] = category_map[pattern]
             
@@ -179,6 +267,7 @@ class RequestAnalyzer:
                 params["main_ingredient"] = None
             
             # 使用済み食材（セッションから取得）
+            # otherカテゴリは単体動作のため、used_ingredientsは使用しない
             if pattern in ["sub", "soup", "sub_additional", "soup_additional"]:
                 params["used_ingredients"] = session_context.get("used_ingredients", [])
             else:
@@ -189,6 +278,16 @@ class RequestAnalyzer:
                 params["menu_category"] = session_context.get("menu_category", "japanese")
             else:
                 params["menu_category"] = None
+            
+            # otherカテゴリの場合、category_detail_keywordを抽出
+            if pattern in ["other", "other_additional"]:
+                # 追加提案の場合はセッションコンテキストから取得を試みる
+                if pattern == "other_additional":
+                    params["category_detail_keyword"] = session_context.get("category_detail_keyword") or self._extract_category_detail_keyword(request)
+                else:
+                    params["category_detail_keyword"] = self._extract_category_detail_keyword(request)
+            else:
+                params["category_detail_keyword"] = None
         
         return params
     

@@ -172,6 +172,26 @@ class SelectionHandler:
                 # 完了
                 self.logger.info(f"✅ [SELECTION] All stages completed")
                 
+                # otherカテゴリの場合は単体動作として完了
+                if current_stage == "other":
+                    # Phase 5B-3: すべての選択済みレシピを集約して取得（親セッションからも）
+                    all_selected_recipes = await self.stage_manager.get_selected_recipes(sse_session_id)
+                    other_recipe = all_selected_recipes.get("other") or selected_recipe
+                    self.logger.debug(f"🔍 [SELECTION] Other category recipe selected: {other_recipe.get('title', 'N/A') if other_recipe else 'N/A'}")
+                    
+                    return {
+                        "success": True,
+                        "message": "レシピが確定しました。",
+                        "menu": {
+                            "other": other_recipe
+                        },
+                        "selected_recipe": {
+                            "category": "other",
+                            "recipe": selected_recipe
+                        }
+                    }
+                
+                # 主菜・副菜・汁物の献立完成の場合
                 # Phase 5B-3: すべての選択済みレシピを集約して取得（親セッションからも）
                 all_selected_recipes = await self.stage_manager.get_selected_recipes(sse_session_id)
                 self.logger.debug(f"🔍 [SELECTION] All selected recipes (aggregated): main={all_selected_recipes.get('main') is not None}, sub={all_selected_recipes.get('sub') is not None}, soup={all_selected_recipes.get('soup') is not None}")
@@ -244,25 +264,35 @@ class SelectionHandler:
             
             # 旧セッションからコンテキストを取得（コンテキスト復元）
             main_ingredient = None
-            current_stage = None  # "main" | "sub" | "soup"
+            current_stage = None  # "main" | "sub" | "soup" | "other"
             inventory_items = None
             menu_type = None
+            category_detail_keyword = None
             if old_sse_session_id:
                 old_session = await self.session_service.get_session(old_sse_session_id, user_id)
                 if old_session:
                     main_ingredient = old_session.get_context("main_ingredient")
                     inventory_items = old_session.get_context("inventory_items")
                     menu_type = old_session.get_context("menu_type")
-                    # 現在の段階（main/sub/soup）を取得
+                    category_detail_keyword = old_session.get_context("category_detail_keyword")
+                    # 現在の段階（main/sub/soup/other）を取得
                     try:
                         current_stage = old_session.get_current_stage()
                     except Exception:
                         current_stage = None
                     
                     # 旧セッションから提案済みタイトルを取得（現在段階に合わせる）
-                    stage_for_titles = current_stage if current_stage in ["main", "sub", "soup"] else "main"
-                    proposed_titles = old_session.get_proposed_recipes(stage_for_titles)
-                    self.logger.debug(f"🔍 [SELECTION] Retrieved from old session: main_ingredient={main_ingredient}, current_stage={current_stage}, proposed_titles[{stage_for_titles}] count={len(proposed_titles)}")
+                    # otherカテゴリの判定（category_detail_keywordがある場合もotherカテゴリとして判定）
+                    other_proposed = old_session.get_proposed_recipes("other")
+                    if other_proposed or category_detail_keyword:
+                        stage_for_titles = "other"
+                        # otherカテゴリの提案済みレシピを取得
+                        proposed_titles = old_session.get_proposed_recipes("other")
+                        self.logger.debug(f"🔍 [SELECTION] Detected other category from old session: category_detail_keyword={category_detail_keyword}, other_proposed count={len(proposed_titles)}")
+                    else:
+                        stage_for_titles = current_stage if current_stage in ["main", "sub", "soup"] else "main"
+                        proposed_titles = old_session.get_proposed_recipes(stage_for_titles)
+                    self.logger.debug(f"🔍 [SELECTION] Retrieved from old session: main_ingredient={main_ingredient}, current_stage={current_stage}, category_detail_keyword={category_detail_keyword}, proposed_titles[{stage_for_titles}] count={len(proposed_titles)}")
                     
                     # 新しいセッションにコンテキストをコピー
                     new_session = await self.session_service.get_session(sse_session_id, user_id)
@@ -272,6 +302,8 @@ class SelectionHandler:
                     new_session.set_context("main_ingredient", main_ingredient)
                     new_session.set_context("inventory_items", inventory_items)
                     new_session.set_context("menu_type", menu_type)
+                    if category_detail_keyword:
+                        new_session.set_context("category_detail_keyword", category_detail_keyword)
                     # Phase 5B-3: 親セッションIDを保存（選択済みレシピの集約に使用）
                     new_session.set_context("parent_session_id", old_sse_session_id)
                     self.logger.debug(f"✅ [SELECTION] Saved parent_session_id={old_sse_session_id} to new session")
@@ -329,7 +361,25 @@ class SelectionHandler:
                         current_stage = session.get_current_stage()
                     except Exception:
                         current_stage = None
-            if current_stage not in ["main", "sub", "soup"]:
+            
+            # otherカテゴリの判定（提案済みレシピとcategory_detail_keywordから判断）
+            is_other_category = False
+            category_detail_keyword = None
+            session = await self.session_service.get_session(sse_session_id, user_id)
+            if session:
+                # セッションコンテキストからcategory_detail_keywordを取得
+                category_detail_keyword = session.get_context("category_detail_keyword")
+                # otherカテゴリの提案済みレシピがあるか確認
+                other_proposed = session.get_proposed_recipes("other")
+                if other_proposed or category_detail_keyword:
+                    is_other_category = True
+                    self.logger.debug(f"🔍 [SELECTION] Detected other category: other_proposed count={len(other_proposed) if other_proposed else 0}, category_detail_keyword={category_detail_keyword}")
+            
+            # current_stageの判定（otherカテゴリの場合は"other"に設定）
+            if is_other_category:
+                current_stage = "other"
+                self.logger.debug(f"🔍 [SELECTION] Set current_stage to 'other' based on category_detail_keyword or other_proposed")
+            elif current_stage not in ["main", "sub", "soup"]:
                 current_stage = "main"
 
             # 現在段階に応じた追加提案リクエスト文言を生成
@@ -337,7 +387,6 @@ class SelectionHandler:
                 # 主菜の追加提案（主要食材があれば付与）
                 if not main_ingredient:
                     # 新しいセッションから取得を試みる
-                    session = await self.session_service.get_session(sse_session_id, user_id)
                     if session:
                         main_ingredient = session.get_context("main_ingredient")
                 if main_ingredient:
@@ -350,7 +399,6 @@ class SelectionHandler:
                 additional_request = "主菜で使っていない食材で副菜をもう5件提案して"
             elif current_stage == "soup":
                 # 汁物の追加提案（和:味噌汁 / それ以外:スープ）
-                session = await self.session_service.get_session(sse_session_id, user_id)
                 menu_category = None
                 if session:
                     try:
@@ -359,6 +407,20 @@ class SelectionHandler:
                         menu_category = None
                 soup_type = "味噌汁" if menu_category == "japanese" else "スープ"
                 additional_request = f"{soup_type}をもう5件提案して"
+            elif current_stage == "other":
+                # otherカテゴリの追加提案
+                if category_detail_keyword:
+                    # category_detail_keywordに基づいて適切なリクエストを生成
+                    if "麺もの" in category_detail_keyword or "麺" in category_detail_keyword:
+                        additional_request = "麺もののレシピをもう5件提案して"
+                    elif "パスタ" in category_detail_keyword:
+                        additional_request = "パスタのレシピをもう5件提案して"
+                    elif "丼" in category_detail_keyword or "ご飯もの" in category_detail_keyword:
+                        additional_request = "ご飯もののレシピをもう5件提案して"
+                    else:
+                        additional_request = f"{category_detail_keyword}のレシピをもう5件提案して"
+                else:
+                    additional_request = "その他のレシピをもう5件提案して"
             else:
                 # フォールバック
                 additional_request = "主菜をもう5件提案して"
