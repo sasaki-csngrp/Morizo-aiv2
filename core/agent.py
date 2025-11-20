@@ -269,7 +269,7 @@ class TrueReactAgent:
         
         Args:
             user_request: ユーザーのリクエスト
-            help_state: 現在のヘルプ状態（None, "overview", "detail_1-4"）
+            help_state: 現在のヘルプ状態（None, "overview", "detail_1-5"）
             help_handler: HelpHandlerインスタンス
             sse_session_id: SSEセッションID
             user_id: ユーザーID
@@ -280,10 +280,10 @@ class TrueReactAgent:
         user_request_stripped = user_request.strip()
         self.logger.debug(f"🔍 [HELP] Processing help mode: request='{user_request}', state={help_state}")
         
-        # 数字入力の検知（1-4）
+        # 数字入力の検知（1-5）
         if user_request_stripped.isdigit():
             detail_number = int(user_request_stripped)
-            if 1 <= detail_number <= 4:
+            if 1 <= detail_number <= 5:
                 # 機能別詳細の表示
                 detail_response = help_handler.generate_detail(detail_number)
                 if detail_response:
@@ -310,7 +310,7 @@ class TrueReactAgent:
             # 数字入力を再度チェック（セッションから復元した場合）
             if user_request_stripped.isdigit():
                 detail_number = int(user_request_stripped)
-                if 1 <= detail_number <= 4:
+                if 1 <= detail_number <= 5:
                     detail_response = help_handler.generate_detail(detail_number)
                     if detail_response:
                         if sse_session_id:
