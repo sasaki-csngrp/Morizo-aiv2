@@ -6,11 +6,13 @@ This module provides web search functionality for recipe retrieval using Google 
 
 import os
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from urllib.parse import urljoin
 import requests
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
 from config.loggers import GenericLogger
+from bs4 import BeautifulSoup
 
 # 環境変数の読み込み
 load_dotenv()
@@ -264,8 +266,8 @@ class _PerplexitySearchClient:
             
             result = response.json()
             
-            # レスポンスからURLを抽出
-            recipes = self._parse_perplexity_response(result, recipe_title, num_results)
+            # レスポンスからURLを抽出（非同期で画像も取得）
+            recipes = await self._parse_perplexity_response(result, recipe_title, num_results)
             
             logger.debug(f"✅ [PERPLEXITY] Found recipes")
             logger.debug(f"📊 [PERPLEXITY] Found {len(recipes)} recipes")
@@ -281,8 +283,8 @@ class _PerplexitySearchClient:
         sites = "または".join(self.recipe_sites.keys())
         return f"{recipe_title} レシピ {sites} のURLを教えてください。URLのみを返してください。"
     
-    def _parse_perplexity_response(self, response: Dict, recipe_title: str, num_results: int) -> List[Dict[str, Any]]:
-        """Perplexity APIのレスポンスを解析・整形"""
+    async def _parse_perplexity_response(self, response: Dict, recipe_title: str, num_results: int) -> List[Dict[str, Any]]:
+        """Perplexity APIのレスポンスを解析・整形（画像URLも取得）"""
         recipes = []
         
         try:
@@ -309,15 +311,32 @@ class _PerplexitySearchClient:
             # 重複を除去
             recipe_urls = list(dict.fromkeys(recipe_urls))
             
-            # 要求された数だけ返す
+            # 要求された数だけ処理（画像URLも並列取得）
+            import asyncio
+            recipe_data_list = []
+            image_tasks = []
+            
             for url in recipe_urls[:num_results]:
                 site_name = self._identify_site(url)
+                recipe_data_list.append({
+                    'url': url,
+                    'site_name': site_name
+                })
+                # 画像取得タスクを作成
+                image_tasks.append(self._fetch_recipe_image(url))
+            
+            # 画像取得を並列実行
+            image_urls = await asyncio.gather(*image_tasks)
+            
+            # レシピデータと画像URLを結合
+            for recipe_data, image_url in zip(recipe_data_list, image_urls):
                 recipe = {
                     'title': recipe_title,
-                    'url': url,
+                    'url': recipe_data['url'],
                     'description': f'{recipe_title}のレシピ（Perplexity検索）',
-                    'site': site_name,
-                    'source': self.recipe_sites.get(site_name, 'Unknown')
+                    'site': recipe_data['site_name'],
+                    'source': self.recipe_sites.get(recipe_data['site_name'], 'Unknown'),
+                    'image_url': image_url  # 画像URLを追加
                 }
                 recipes.append(recipe)
             
@@ -332,6 +351,152 @@ class _PerplexitySearchClient:
             if site in url:
                 return site
         return 'other'
+    
+    async def _fetch_recipe_image(self, url: str) -> Optional[str]:
+        """
+        レシピページから画像URLを取得
+        
+        Args:
+            url: レシピページのURL
+        
+        Returns:
+            画像URL（取得失敗時はNone）
+        """
+        try:
+            # HTMLを取得
+            response = requests.get(
+                url, 
+                timeout=5, 
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            )
+            response.raise_for_status()
+            
+            # BeautifulSoupでパース
+            soup = BeautifulSoup(response.text, 'lxml')
+            
+            # デバッグ: HTMLの一部をログ出力（最初の1000文字）
+            logger.debug(f"🔍 [PERPLEXITY] HTML preview for {url}: {response.text[:1000]}")
+            
+            # 1. OGP画像を優先的に取得
+            og_image = soup.find('meta', property='og:image')
+            if og_image and og_image.get('content'):
+                image_url = og_image['content']
+                # 相対URLの場合は絶対URLに変換
+                if image_url.startswith('//'):
+                    image_url = 'https:' + image_url
+                elif image_url.startswith('/'):
+                    image_url = urljoin(url, image_url)
+                logger.info(f"🖼️ [PERPLEXITY] Found OGP image for {url}: {image_url}")
+                return image_url
+            else:
+                logger.debug(f"🔍 [PERPLEXITY] No OGP image found for {url}")
+            
+            # 2. Twitter Card画像
+            twitter_image = soup.find('meta', attrs={'name': 'twitter:image'})
+            if twitter_image and twitter_image.get('content'):
+                image_url = twitter_image['content']
+                if image_url.startswith('//'):
+                    image_url = 'https:' + image_url
+                elif image_url.startswith('/'):
+                    image_url = urljoin(url, image_url)
+                logger.debug(f"🖼️ [PERPLEXITY] Found Twitter image for {url}: {image_url}")
+                return image_url
+            
+            # 3. クラシル専用: 特定のクラス名の画像を取得
+            if 'kurashiru.com' in url:
+                logger.debug(f"🔍 [PERPLEXITY] Searching for Kurashiru image in {url}")
+                # クラシルのレシピ画像は通常、特定のクラスやdata属性に含まれる
+                # まず、すべてのimgタグを確認
+                all_imgs = soup.find_all('img')
+                logger.debug(f"🔍 [PERPLEXITY] Found {len(all_imgs)} img tags in Kurashiru page")
+                
+                # OGP画像が既に取得できている場合はスキップ（OGPが優先）
+                # クラシルのレシピ画像は通常、特定のクラスやdata属性に含まれる
+                img_tag = soup.find('img', class_=lambda x: x and ('recipe-image' in str(x).lower() or 'main-image' in str(x).lower() or 'hero-image' in str(x).lower()))
+                if not img_tag:
+                    # data-src属性も確認
+                    img_tag = soup.find('img', attrs={'data-src': True})
+                if not img_tag:
+                    # videoタグのposter属性も確認（クラシルは動画サイト）
+                    video_tag = soup.find('video')
+                    if video_tag and video_tag.get('poster'):
+                        image_url = video_tag['poster']
+                        if image_url.startswith('//'):
+                            image_url = 'https:' + image_url
+                        elif image_url.startswith('/'):
+                            image_url = urljoin(url, image_url)
+                        logger.info(f"🖼️ [PERPLEXITY] Found Kurashiru video poster for {url}: {image_url}")
+                        return image_url
+                if img_tag:
+                    image_url = img_tag.get('src') or img_tag.get('data-src')
+                    if image_url:
+                        if image_url.startswith('//'):
+                            image_url = 'https:' + image_url
+                        elif image_url.startswith('/'):
+                            image_url = urljoin(url, image_url)
+                        logger.info(f"🖼️ [PERPLEXITY] Found Kurashiru image for {url}: {image_url}")
+                        return image_url
+                logger.debug(f"⚠️ [PERPLEXITY] No Kurashiru-specific image found for {url}")
+            
+            # 4. デリッシュキッチン専用: 特定のクラス名の画像を取得
+            if 'delishkitchen.tv' in url:
+                # デリッシュキッチンのレシピ画像を取得
+                img_tag = soup.find('img', class_=lambda x: x and ('recipe-image' in str(x).lower() or 'main-image' in str(x).lower() or 'hero-image' in str(x).lower()))
+                if not img_tag:
+                    # data-src属性も確認
+                    img_tag = soup.find('img', attrs={'data-src': True})
+                if img_tag:
+                    image_url = img_tag.get('src') or img_tag.get('data-src')
+                    if image_url:
+                        if image_url.startswith('//'):
+                            image_url = 'https:' + image_url
+                        elif image_url.startswith('/'):
+                            image_url = urljoin(url, image_url)
+                        logger.debug(f"🖼️ [PERPLEXITY] Found DelishKitchen image for {url}: {image_url}")
+                        return image_url
+            
+            # 5. フォールバック: 最初の大きな画像を取得（アイコンやロゴを除外）
+            img_tags = soup.find_all('img')
+            for img in img_tags:
+                src = img.get('src') or img.get('data-src')
+                if src:
+                    # アイコンやロゴを除外
+                    skip_keywords = ['icon', 'logo', 'avatar', 'button', 'badge', 'spinner', 'loading']
+                    if not any(skip in src.lower() for skip in skip_keywords):
+                        # サイズが大きそうな画像を優先（width/height属性を確認）
+                        width = img.get('width')
+                        height = img.get('height')
+                        if width and height:
+                            try:
+                                w = int(str(width).replace('px', ''))
+                                h = int(str(height).replace('px', ''))
+                                # 小さすぎる画像はスキップ
+                                if w < 100 or h < 100:
+                                    continue
+                            except ValueError:
+                                pass
+                        
+                        if src.startswith('//'):
+                            src = 'https:' + src
+                        elif src.startswith('/'):
+                            src = urljoin(url, src)
+                        logger.debug(f"🖼️ [PERPLEXITY] Found fallback image for {url}: {src}")
+                        return src
+            
+            logger.warning(f"⚠️ [PERPLEXITY] No image found for {url}")
+            return None
+            
+        except requests.exceptions.Timeout:
+            logger.warning(f"⚠️ [PERPLEXITY] Timeout while fetching image from {url}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"⚠️ [PERPLEXITY] Request error while fetching image from {url}: {e}")
+            return None
+        except Exception as e:
+            logger.warning(f"⚠️ [PERPLEXITY] Failed to fetch image from {url}: {e}")
+            return None
 
 
 def prioritize_recipes(recipes: List[Dict]) -> List[Dict]:

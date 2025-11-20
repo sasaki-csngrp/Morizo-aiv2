@@ -52,7 +52,53 @@ class WebSearchResultIntegrator:
                 self.logger.debug(f"🔍 [WebSearchResultIntegrator] No web search results found for task {task_id}")
                 return candidates
             
-            # 候補とWeb検索結果を統合（sourceフィールドを保持）
+            # 使用済みのWeb検索結果を記録（重複を避けるため）
+            used_web_results = set()
+            
+            # タイトルマッチング用のヘルパー関数
+            def normalize_title(title: str) -> str:
+                """タイトルを正規化（比較用）"""
+                if not title:
+                    return ""
+                # 空白を除去、小文字に変換
+                return title.strip().lower()
+            
+            def find_matching_web_result(candidate_title: str) -> Optional[Dict[str, Any]]:
+                """候補のタイトルに一致するWeb検索結果を探す"""
+                normalized_candidate_title = normalize_title(candidate_title)
+                
+                # 1. 完全一致を探す
+                for idx, web_result in enumerate(web_search_results):
+                    if idx in used_web_results:
+                        continue
+                    web_title = web_result.get("title", "")
+                    if normalize_title(web_title) == normalized_candidate_title:
+                        used_web_results.add(idx)
+                        self.logger.debug(f"🔗 [WebSearchResultIntegrator] Exact title match: '{candidate_title}' <-> '{web_title}'")
+                        return web_result
+                
+                # 2. 部分一致を探す（候補のタイトルがWeb検索結果のタイトルに含まれる、またはその逆）
+                for idx, web_result in enumerate(web_search_results):
+                    if idx in used_web_results:
+                        continue
+                    web_title = web_result.get("title", "")
+                    normalized_web_title = normalize_title(web_title)
+                    
+                    # 候補のタイトルがWeb検索結果のタイトルに含まれる
+                    if normalized_candidate_title in normalized_web_title:
+                        used_web_results.add(idx)
+                        self.logger.debug(f"🔗 [WebSearchResultIntegrator] Partial match (candidate in web): '{candidate_title}' in '{web_title}'")
+                        return web_result
+                    
+                    # Web検索結果のタイトルが候補のタイトルに含まれる
+                    if normalized_web_title in normalized_candidate_title:
+                        used_web_results.add(idx)
+                        self.logger.debug(f"🔗 [WebSearchResultIntegrator] Partial match (web in candidate): '{web_title}' in '{candidate_title}'")
+                        return web_result
+                
+                return None
+            
+            # 候補とWeb検索結果を統合（タイトルベースのマッチング）
             integrated_candidates = []
             for i, candidate in enumerate(candidates):
                 integrated_candidate = candidate.copy()
@@ -61,24 +107,30 @@ class WebSearchResultIntegrator:
                 if "source" not in integrated_candidate:
                     integrated_candidate["source"] = "web"
                 
-                # 対応するWeb検索結果を取得
-                if i < len(web_search_results):
-                    web_result = web_search_results[i]
-                    if web_result.get("url"):
-                        # URL情報を統合（sourceは既存の値を保持）
-                        domain = utils.extract_domain(web_result.get("url", "")) if utils else ""
-                        integrated_candidate["urls"] = [{
-                            "title": web_result.get("title", ""),
-                            "url": web_result.get("url", ""),
-                            "domain": domain
-                        }]
-                        # URLが存在する場合でも、元のsource（llm/rag）を保持
-                        # Web検索はレシピ詳細取得のための補助情報であり、出典は変えない
-                        self.logger.debug(f"🔗 [WebSearchResultIntegrator] Integrated URLs for candidate {i}: {integrated_candidate.get('urls', [])}, source: {integrated_candidate.get('source', 'N/A')}")
-                    else:
-                        self.logger.warning(f"⚠️ [WebSearchResultIntegrator] Web search result has no URL for candidate {i}")
+                # タイトルベースで対応するWeb検索結果を取得
+                candidate_title = candidate.get("title", "")
+                web_result = find_matching_web_result(candidate_title)
+                
+                if web_result and web_result.get("url"):
+                    # URL情報を統合（sourceは既存の値を保持）
+                    domain = utils.extract_domain(web_result.get("url", "")) if utils else ""
+                    url_info = {
+                        "title": web_result.get("title", ""),
+                        "url": web_result.get("url", ""),
+                        "domain": domain
+                    }
+                    # 画像URLが存在する場合は追加
+                    if web_result.get("image_url"):
+                        url_info["image_url"] = web_result.get("image_url")
+                        self.logger.debug(f"🖼️ [WebSearchResultIntegrator] Found image URL for candidate '{candidate_title}': {web_result.get('image_url')}")
+                    integrated_candidate["urls"] = [url_info]
+                    # URLが存在する場合でも、元のsource（llm/rag）を保持
+                    # Web検索はレシピ詳細取得のための補助情報であり、出典は変えない
+                    self.logger.debug(f"🔗 [WebSearchResultIntegrator] Integrated URLs for candidate '{candidate_title}': {integrated_candidate.get('urls', [])}, source: {integrated_candidate.get('source', 'N/A')}")
+                elif web_result:
+                    self.logger.warning(f"⚠️ [WebSearchResultIntegrator] Web search result matched for '{candidate_title}' but has no URL")
                 else:
-                    self.logger.warning(f"⚠️ [WebSearchResultIntegrator] No web search result for candidate {i}")
+                    self.logger.debug(f"🔍 [WebSearchResultIntegrator] No matching web search result found for candidate '{candidate_title}'")
                 
                 integrated_candidates.append(integrated_candidate)
             

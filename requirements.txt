@@ -15,6 +15,8 @@ chromadb>=0.4.0
 
 # Web検索API
 requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
 
 # データベース・認証
 supabase>=2.19.0
