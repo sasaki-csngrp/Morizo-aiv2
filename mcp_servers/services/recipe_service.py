@@ -13,6 +13,7 @@ from supabase import Client
 from mcp_servers.recipe_llm import RecipeLLM
 from mcp_servers.recipe_rag import RecipeRAGClient
 from mcp_servers.recipe_web import get_search_client, prioritize_recipes, filter_recipe_results
+from mcp_servers.models.recipe_models import RecipeProposal, MenuResult, WebSearchResult
 from config.loggers import GenericLogger
 
 
@@ -33,16 +34,16 @@ class RecipeService:
         self,
         menu_result: Dict[str, Any],
         inventory_items: List[str]
-    ) -> Dict[str, Any]:
+    ) -> MenuResult:
         """
-        RAG検索結果を統一フォーマットに変換
+        RAG検索結果をMenuResultに変換
         
         Args:
             menu_result: RAG検索結果（selectedキーを含む）
             inventory_items: 在庫食材リスト
         
         Returns:
-            Dict[str, Any]: フォーマット済みデータ
+            MenuResult: 変換済みデータモデル
         """
         selected_menu = menu_result.get("selected", {})
         
@@ -60,15 +61,15 @@ class RecipeService:
         ingredients_used.extend(soup_ingredients)
         ingredients_used = list(set(ingredients_used))
         
-        return {
-            "main_dish": main_dish_data.get("title", "") if isinstance(main_dish_data, dict) else str(main_dish_data),
-            "side_dish": side_dish_data.get("title", "") if isinstance(side_dish_data, dict) else str(side_dish_data),
-            "soup": soup_data.get("title", "") if isinstance(soup_data, dict) else str(soup_data),
-            "main_dish_ingredients": main_dish_ingredients,
-            "side_dish_ingredients": side_dish_ingredients,
-            "soup_ingredients": soup_ingredients,
-            "ingredients_used": ingredients_used
-        }
+        return MenuResult(
+            main_dish=main_dish_data.get("title", "") if isinstance(main_dish_data, dict) else str(main_dish_data),
+            side_dish=side_dish_data.get("title", "") if isinstance(side_dish_data, dict) else str(side_dish_data),
+            soup=soup_data.get("title", "") if isinstance(soup_data, dict) else str(soup_data),
+            main_dish_ingredients=main_dish_ingredients,
+            side_dish_ingredients=side_dish_ingredients,
+            soup_ingredients=soup_ingredients,
+            ingredients_used=ingredients_used
+        )
     
     def _categorize_web_search_results(
         self,
@@ -146,15 +147,16 @@ class RecipeService:
             rag_url = rag_result.get('url', '')
             if rag_url:
                 self.logger.debug(f"🔍 [RECIPE] Found URL from RAG search for '{title}': {rag_url}")
+                web_search_result = WebSearchResult(
+                    title=title,
+                    url=rag_url,
+                    source="vector_db",
+                    description=rag_result.get('category_detail', ''),
+                    site="cookpad.com" if "cookpad.com" in rag_url else "other"
+                )
                 return {
                     "success": True,
-                    "data": [{
-                        "title": title,
-                        "url": rag_url,
-                        "source": "vector_db",
-                        "description": rag_result.get('category_detail', ''),
-                        "site": "cookpad.com" if "cookpad.com" in rag_url else "other"
-                    }],
+                    "data": [web_search_result.to_dict()],
                     "title": title,
                     "count": 1
                 }
@@ -186,11 +188,23 @@ class RecipeService:
         filtered_recipes = filter_recipe_results(prioritized_recipes)
         self.logger.debug(f"📊 [RECIPE] Recipes filtered for '{title}', final count: {len(filtered_recipes)}")
         
+        # WebSearchResultに変換
+        web_search_results = []
+        for recipe in filtered_recipes:
+            web_search_result = WebSearchResult(
+                title=recipe.get("title", ""),
+                url=recipe.get("url", ""),
+                source=recipe.get("source", "web"),
+                description=recipe.get("description"),
+                site=recipe.get("site")
+            )
+            web_search_results.append(web_search_result.to_dict())
+        
         return {
             "success": True,
-            "data": filtered_recipes,
+            "data": web_search_results,
             "title": title,
-            "count": len(filtered_recipes)
+            "count": len(web_search_results)
         }
     
     # ============================================================================
@@ -341,7 +355,7 @@ class RecipeService:
         elif isinstance(rag_result, dict):
             self.logger.debug(f"  - Dict keys: {list(rag_result.keys())}")
         
-        candidates = []
+        recipe_proposals = []
         
         # LLM結果の処理
         self.logger.debug(f"📊 [RECIPE] Processing LLM results...")
@@ -349,12 +363,17 @@ class RecipeService:
             try:
                 llm_candidates = llm_result["data"]["candidates"]
                 self.logger.debug(f"📊 [RECIPE] LLM candidates extracted: {len(llm_candidates)} items")
-                # LLM候補にsourceフィールドを追加
+                # LLM候補をRecipeProposalに変換
                 for i, candidate in enumerate(llm_candidates):
-                    if "source" not in candidate:
-                        candidate["source"] = "llm"
-                    self.logger.debug(f"📊 [RECIPE] LLM candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}'")
-                candidates.extend(llm_candidates)
+                    proposal = RecipeProposal(
+                        title=candidate.get("title", ""),
+                        ingredients=candidate.get("ingredients", []),
+                        source="llm",
+                        url=candidate.get("url"),
+                        description=candidate.get("description")
+                    )
+                    recipe_proposals.append(proposal)
+                    self.logger.debug(f"📊 [RECIPE] LLM candidate {i+1}: title='{proposal.title}', source='{proposal.source}'")
                 self.logger.debug(f"✅ [RECIPE] Added {len(llm_candidates)} LLM candidates")
             except Exception as e:
                 self.logger.error(f"❌ [RECIPE] Error processing LLM results: {e}")
@@ -368,23 +387,19 @@ class RecipeService:
         if rag_result:
             try:
                 self.logger.debug(f"📊 [RECIPE] RAG result is truthy, processing...")
-                # RAG候補にsourceフィールドとURLを追加
-                rag_candidates = []
+                # RAG候補をRecipeProposalに変換
                 for i, r in enumerate(rag_result):
                     self.logger.debug(f"📊 [RECIPE] Processing RAG result {i+1}: type={type(r).__name__}, keys={list(r.keys()) if isinstance(r, dict) else 'N/A'}")
-                    candidate = {
-                        "title": r["title"],
-                        "ingredients": r.get("ingredients", []),
-                        "source": "rag"
-                    }
-                    # URLが含まれている場合は追加（ベクトルDBから取得）
-                    if "url" in r and r["url"]:
-                        candidate["url"] = r["url"]
-                        self.logger.debug(f"📊 [RECIPE] RAG candidate {i+1} has URL: {r['url']}")
-                    rag_candidates.append(candidate)
-                    self.logger.debug(f"📊 [RECIPE] RAG candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}'")
-                candidates.extend(rag_candidates)
-                self.logger.debug(f"✅ [RECIPE] Added {len(rag_candidates)} RAG candidates")
+                    proposal = RecipeProposal(
+                        title=r.get("title", ""),
+                        ingredients=r.get("ingredients", []),
+                        source="rag",
+                        url=r.get("url"),
+                        description=r.get("description")
+                    )
+                    recipe_proposals.append(proposal)
+                    self.logger.debug(f"📊 [RECIPE] RAG candidate {i+1}: title='{proposal.title}', source='{proposal.source}', has_url={bool(proposal.url)}")
+                self.logger.debug(f"✅ [RECIPE] Added {len(rag_result)} RAG candidates")
             except Exception as e:
                 self.logger.error(f"❌ [RECIPE] Error processing RAG results: {e}")
                 self.logger.error(f"❌ [RECIPE] RAG result processing error type: {type(e).__name__}")
@@ -394,9 +409,12 @@ class RecipeService:
         
         # デバッグログ: 各候補のsourceを確認
         self.logger.debug(f"📊 [RECIPE] Final candidates summary:")
-        self.logger.debug(f"  - Total candidates: {len(candidates)}")
-        for i, candidate in enumerate(candidates):
-            self.logger.debug(f"🔍 [RECIPE] Candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}', has_url={bool(candidate.get('url'))}")
+        self.logger.debug(f"  - Total candidates: {len(recipe_proposals)}")
+        for i, proposal in enumerate(recipe_proposals):
+            self.logger.debug(f"🔍 [RECIPE] Candidate {i+1}: title='{proposal.title}', source='{proposal.source}', has_url={bool(proposal.url)}")
+        
+        # RecipeProposalを辞書に変換
+        candidates = [proposal.to_dict() for proposal in recipe_proposals]
         
         self.logger.info(f"✅ [RECIPE] generate_proposals completed")
         llm_count = len(llm_result.get('data', {}).get('candidates', [])) if llm_result.get('success') else 0
@@ -578,11 +596,11 @@ class RecipeService:
         
         self.logger.debug(f"📊 [RECIPE] RAG menu result: {menu_result}")
         
-        # RAG検索結果を統一フォーマットに変換
-        formatted_data = self._format_rag_menu_result(menu_result, inventory_items)
+        # RAG検索結果をMenuResultに変換
+        menu_result_model = self._format_rag_menu_result(menu_result, inventory_items)
         
         return {
             "success": True,
-            "data": formatted_data
+            "data": menu_result_model.to_dict()
         }
 
