@@ -11,6 +11,14 @@ import os
 import shutil
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
+import time
+
+
+def jst_time(*args):
+    """JST（日本時間）を返すconverter関数（システムのタイムゾーンを使用）"""
+    # システムのタイムゾーンがJSTに設定されているため、time.localtime()はJSTを返す
+    return time.localtime()
 
 
 class AlignedFormatter(logging.Formatter):
@@ -18,6 +26,8 @@ class AlignedFormatter(logging.Formatter):
     
     def __init__(self, fmt=None, datefmt=None):
         super().__init__(fmt, datefmt)
+        # JSTタイムゾーンを使用するようにconverterを設定
+        self.converter = jst_time
         self.logger_name_width = 30  # Fixed width for logger names
         self.level_name_width = 5    # Fixed width for log levels
     
@@ -37,6 +47,8 @@ class AlignedFormatter(logging.Formatter):
         
         # Create temporary formatter with aligned format
         temp_formatter = logging.Formatter(aligned_format, self.datefmt)
+        # JSTタイムゾーンを使用するようにconverterを設定
+        temp_formatter.converter = jst_time
         return temp_formatter.format(record)
 
 

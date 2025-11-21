@@ -2,30 +2,30 @@
 
 ## 概要
 
-Morizo-web と Morizo-aiv2 を AWS EC2 (Ubuntu 24.04 LTS) 上にデプロイするための本番移行計画書です。
+Morizo-web と Morizo-aiv2 を GCP VM (Ubuntu 24.04 LTS) 上にデプロイするための本番移行計画書です。
 
 ### 対象環境
-- **本番環境**: AWS EC2 (Ubuntu 24.04 LTS, t2.micro)
+- **本番環境**: GCP VM (Ubuntu 24.04 LTS, e2-micro)
 - **ドメイン**: morizo.csngrp.co.jp
 - **Supabase**: 開発環境と同じプロジェクトを使用
 - **デプロイ方法**: 手動デプロイ（初期）
 
 ### 前提条件
-- EC2インスタンスが起動済み
-- ドメインがEC2インスタンスに紐付け済み
+- GCP VMインスタンスが起動済み
+- ドメインがGCP VMインスタンスに紐付け済み
 - SSH接続が可能
 - 各リポジトリへのアクセス権限があること
 
 ### 作業ユーザー
 
-**重要**: この手順書は、rootユーザーではなく、**通常のユーザー（`ubuntu`）**で作業することを想定しています。
+**重要**: この手順書は、rootユーザーではなく、**通常のユーザー（`sasaki`）**で作業することを想定しています。
 
-- **デフォルトユーザー**: `ubuntu`（EC2のデフォルトユーザー）
+- **デフォルトユーザー**: `sasaki`（GCP VMの作業ユーザー）
 - **必要な権限**: sudo権限（パッケージインストール、systemd設定など）
 - **セキュリティ**: rootユーザーでの作業は避け、必要な場合のみ`sudo`を使用します
 
 各コマンドの説明：
-- `sudo`なしのコマンド → `ubuntu`ユーザーで直接実行
+- `sudo`なしのコマンド → `sasaki`ユーザーで直接実行
 - `sudo`付きのコマンド → 管理者権限が必要な操作
 
 **現在のユーザー確認**:
@@ -33,23 +33,35 @@ Morizo-web と Morizo-aiv2 を AWS EC2 (Ubuntu 24.04 LTS) 上にデプロイす�
 # 現在のユーザーを確認
 whoami
 
-# ubuntuユーザーであることを確認（他のユーザーの場合は適宜読み替えてください）
+# sasakiユーザーであることを確認（他のユーザーの場合は適宜読み替えてください）
 ```
 
 ---
 
 ## 1. インフラ構成
 
-### 1.1 EC2インスタンス仕様
-- **インスタンスタイプ**: t2.micro
+### 1.1 GCP VMインスタンス仕様
+- **マシンタイプ**: e2-micro
 - **OS**: Ubuntu 24.04 LTS
-- **ストレージ**: 必要に応じて拡張（ベクトルDBデータ用）
+- **ストレージ**: 20GB 標準永続ディスク（ベクトルDBデータ用）
+- **メモリ**: 1GB（共有メモリ: 958MB利用可能）
+
+**メモリ要件について**:
+- **e2-microのメモリ制約**: 1GBのメモリは、Morizo-aiv2（FastAPI + ChromaDB + LangChain）とMorizo-web（Next.js）を同時に実行するには**非常に厳しい**状況です
+- **推奨メモリ構成**:
+  - **最低限**: 2GB（スワップ必須）
+  - **推奨**: 4GB以上
+  - **理想**: 8GB以上（本番環境での安定運用）
+- **現在の構成での対策**:
+  - スワップ領域（2-4GB）の設定が**必須**です（セクション2.5参照）
+  - メモリ使用量の監視と最適化が必要です
+  - 可能であれば、e2-small（2GB）またはe2-medium（4GB）へのアップグレードを検討してください
 
 ### 1.2 ネットワーク構成
 ```
 インターネット
     ↓
-EC2 Security Group (ポート443のみ開放)
+GCP ファイアウォールルール (ポート443のみ開放)
     ↓
 Ubuntu 24.04 LTS
     ├── Morizo-web (Next.js) - ポート443で公開
@@ -61,8 +73,8 @@ Ubuntu 24.04 LTS
 - **Morizo-web**: 443ポートでリスニング
 - **Morizo-aiv2**: 8000ポート（localhost:8000、Morizo-webからのみアクセス）
 
-### 1.4 セキュリティグループ設定
-EC2のセキュリティグループで以下を設定：
+### 1.4 ファイアウォールルール設定
+GCPのファイアウォールルールで以下を設定：
 - **インバウンドルール**:
   - タイプ: HTTPS
   - ポート: 443
@@ -71,9 +83,9 @@ EC2のセキュリティグループで以下を設定：
 
 ---
 
-## 2. 初期セットアップ（EC2環境構築）
+## 2. 初期セットアップ（GCP VM環境構築）
 
-**作業ユーザー**: `ubuntu`ユーザーで作業を開始してください。
+**作業ユーザー**: `sasaki`ユーザーで作業を開始してください。
 
 ### 2.1 システムパッケージのインストール
 
@@ -83,8 +95,8 @@ sudo apt update && sudo apt upgrade -y
 
 # 必要なパッケージのインストール（sudo権限が必要）
 sudo apt install -y \
-    python3.11 \
-    python3.11-venv \
+    python3.12 \
+    python3.12-venv \
     python3-pip \
     nodejs \
     npm \
@@ -92,7 +104,8 @@ sudo apt install -y \
     curl \
     build-essential \
     certbot \
-    openssl
+    openssl \
+    vim
 ```
 
 ### 2.2 Node.jsのバージョン確認・アップグレード
@@ -101,20 +114,27 @@ sudo apt install -y \
 # Node.jsバージョン確認（通常ユーザーで実行）
 node -v
 
-# 必要に応じて最新のLTSバージョンをインストール（sudo権限が必要）
-curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+# Node.js 22をインストール（sudo権限が必要）
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
+
+# インストール後のバージョン確認（通常ユーザーで実行）
+node -v
+npm -v
 ```
+
+**注意**: 
+- 既にNode.jsがインストールされている場合、上記コマンドでアップグレードされます
+- Node.js 22はLTS（Long Term Support）バージョンです
 
 ### 2.3 Python環境の確認
 
 ```bash
-# Python 3.11がインストールされていることを確認（通常ユーザーで実行）
-python3.11 --version
-
-# pipのアップグレード（通常ユーザーで実行）
-python3.11 -m pip install --upgrade pip --user
+# Python 3.12がインストールされていることを確認（通常ユーザーで実行）
+python3.12 --version
 ```
+
+**注意**: Ubuntu 24.04 LTSでは、PEP 668によりシステム全体のPython環境での`pip`インストールが制限されています。pipのアップグレードは、後述の仮想環境内で行います（セクション3.2参照）。
 
 ### 2.4 SSL証明書の取得（Let's Encrypt）
 
@@ -126,19 +146,73 @@ sudo certbot certonly --standalone -d morizo.csngrp.co.jp
 # /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem
 # /etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem
 
-# 証明書の読み取り権限を確認（ubuntuユーザーが読み取れることを確認）
+# 証明書の読み取り権限を確認（sasakiユーザーが読み取れることを確認）
 sudo ls -la /etc/letsencrypt/live/morizo.csngrp.co.jp/
 ```
 
 **注意**: 
-- SSL証明書の取得には、ドメインがEC2のパブリックIPに正しく向いている必要があります。
+- SSL証明書の取得には、ドメインがGCP VMのパブリックIPに正しく向いている必要があります。
 - 証明書ファイルはroot所有ですが、Next.jsアプリケーションから読み取れるように、適切な権限設定が必要です（後述）。
+
+### 2.5 スワップ領域の設定（必須）
+
+**重要**: e2-micro（1GBメモリ）では、Morizo-aiv2とMorizo-webを同時に実行するにはメモリが不足する可能性が高いため、スワップ領域の設定が**必須**です。
+
+```bash
+# スワップファイルの作成（2GB、sudo権限が必要）
+sudo fallocate -l 2G /swapfile
+
+# スワップファイルのパーミッション設定（sudo権限が必要）
+sudo chmod 600 /swapfile
+
+# スワップ領域としてフォーマット（sudo権限が必要）
+sudo mkswap /swapfile
+
+# スワップ領域を有効化（sudo権限が必要）
+sudo swapon /swapfile
+
+# スワップの確認（通常ユーザーで実行）
+free -h
+
+# 永続化のため、/etc/fstabに追加（sudo権限が必要）
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# スワップの優先度を設定（オプション、sudo権限が必要）
+# メモリ不足時にスワップを優先的に使用する設定
+echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+
+**注意**:
+- スワップはディスクI/Oを使用するため、パフォーマンスに影響があります
+- 2GBのスワップで足りない場合は、4GBに増やすことを検討してください
+- 可能であれば、e2-small（2GB）またはe2-medium（4GB）へのアップグレードを推奨します
+
+### 2.6 タイムゾーンの設定（日本時間JST）
+
+**重要**: デフォルトではシステムのタイムゾーンがUTC（グリニッジ標準時）に設定されているため、ログの時刻がUTCで表示されます。日本時間（JST）で表示するために、システムのタイムゾーンをJSTに変更します。
+
+```bash
+# 現在のタイムゾーンを確認（通常ユーザーで実行）
+timedatectl
+
+# タイムゾーンを日本時間（JST）に変更（sudo権限が必要）
+sudo timedatectl set-timezone Asia/Tokyo
+
+# 変更後の確認（通常ユーザーで実行）
+timedatectl
+date
+```
+
+**注意**:
+- タイムゾーンを変更すると、システム全体の時刻表示がJSTになります
+- アプリケーションのログもJSTで表示されるようになります（後述のログ設定により）
 
 ---
 
 ## 3. Morizo-aiv2 デプロイ手順
 
-**作業ユーザー**: `ubuntu`ユーザーで作業します。
+**作業ユーザー**: `sasaki`ユーザーで作業します。
 
 ### 3.1 リポジトリのクローン
 
@@ -146,13 +220,13 @@ sudo ls -la /etc/letsencrypt/live/morizo.csngrp.co.jp/
 # デプロイ用ディレクトリの作成（sudo権限が必要）
 sudo mkdir -p /opt/morizo
 
-# ディレクトリの所有権をubuntuユーザーに変更
-sudo chown ubuntu:ubuntu /opt/morizo
+# ディレクトリの所有権をsasakiユーザーに変更
+sudo chown sasaki:sasaki /opt/morizo
 
 # ディレクトリに移動
 cd /opt/morizo
 
-# 現在のユーザーを確認（ubuntuであることを確認）
+# 現在のユーザーを確認（sasakiであることを確認）
 whoami
 
 # Morizo-aiv2リポジトリのクローン（通常ユーザーで実行）
@@ -167,16 +241,28 @@ ls -la
 
 ```bash
 # 仮想環境の作成（通常ユーザーで実行）
-python3.11 -m venv venv
+python3.12 -m venv venv
 
 # 仮想環境のアクティベート
 source venv/bin/activate
 
 # 依存関係のインストール
 pip install --upgrade pip
-pip install -r requirements.txt
 
-# 仮想環境の所有権を確認（ubuntuユーザー所有であることを確認）
+# メモリ使用量を抑えるため、requirements.txtを3つに分割してインストール
+# 1. 基本パッケージ（FastAPI、uvicorn、基本的な依存関係）
+pip install -r requirements_base.txt
+
+# 2. AI/ML関連パッケージ（LangChain、OpenAI、ChromaDB）
+pip install -r requirements_ai.txt
+
+# 3. 重いパッケージ（pandas、numpy、spacy、nltk）
+pip install -r requirements_heavy.txt
+
+# または、一括インストール（メモリに余裕がある場合）
+# pip install -r requirements.txt
+
+# 仮想環境の所有権を確認（sasakiユーザー所有であることを確認）
 ls -la venv/
 ```
 
@@ -189,7 +275,7 @@ cp env.example .env
 # .envファイルを編集
 vi .env
 
-# .envファイルの所有権と権限を確認（ubuntuユーザー所有、読み取り専用）
+# .envファイルの所有権と権限を確認（sasakiユーザー所有、読み取り専用）
 ls -la .env
 # 必要に応じて権限を制限（他のユーザーが読み取れないように）
 chmod 600 .env
@@ -237,11 +323,11 @@ mkdir -p recipe_vector_db_main
 mkdir -p recipe_vector_db_sub
 mkdir -p recipe_vector_db_soup
 
-# ディレクトリの所有権を確認（ubuntuユーザー所有であることを確認）
+# ディレクトリの所有権を確認（sasakiユーザー所有であることを確認）
 ls -ld recipe_vector_db_*
 
 # 既存のベクトルDBデータがある場合、それらをコピー
-# scp -r recipe_vector_db_* ubuntu@ec2-instance:/opt/morizo/Morizo-aiv2/
+# scp -r recipe_vector_db_* sasaki@gcp-vm-instance:/opt/morizo/Morizo-aiv2/
 ```
 
 ### 3.5 systemdサービスファイルの作成
@@ -251,7 +337,7 @@ ls -ld recipe_vector_db_*
 sudo vi /etc/systemd/system/morizo-aiv2.service
 ```
 
-**重要**: systemdサービスは`ubuntu`ユーザーで実行されるため、`/opt/morizo/Morizo-aiv2`ディレクトリとその配下のファイルは`ubuntu`ユーザーが読み書きできる必要があります。
+**重要**: systemdサービスは`sasaki`ユーザーで実行されるため、`/opt/morizo/Morizo-aiv2`ディレクトリとその配下のファイルは`sasaki`ユーザーが読み書きできる必要があります。
 
 以下を記述：
 
@@ -262,10 +348,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
+User=sasaki
 WorkingDirectory=/opt/morizo/Morizo-aiv2
 Environment="PATH=/opt/morizo/Morizo-aiv2/venv/bin"
-ExecStart=/opt/morizo/Morizo-aiv2/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --no-reload
+ExecStart=/opt/morizo/Morizo-aiv2/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=10
 
@@ -296,15 +382,17 @@ sudo systemctl status morizo-aiv2
 # ログの確認（sudo権限が必要）
 sudo journalctl -u morizo-aiv2 -f
 
-# プロセスの所有者を確認（ubuntuユーザーで実行されていることを確認）
-ps aux | grep morizo-aiv2
+# プロセスの所有者を確認（sasakiユーザーで実行されていることを確認）
+ps aux | grep uvicorn | grep -v grep
+# または
+ps -ef | grep uvicorn | grep -v grep
 ```
 
 ---
 
 ## 4. Morizo-web デプロイ手順
 
-**作業ユーザー**: `ubuntu`ユーザーで作業します。
+**作業ユーザー**: `sasaki`ユーザーで作業します。
 
 ### 4.1 リポジトリのクローン
 
@@ -312,14 +400,14 @@ ps aux | grep morizo-aiv2
 # /opt/morizoディレクトリに移動
 cd /opt/morizo
 
-# 現在のユーザーを確認（ubuntuであることを確認）
+# 現在のユーザーを確認（sasakiであることを確認）
 whoami
 
 # Morizo-webリポジトリのクローン（通常ユーザーで実行）
 git clone <Morizo-webのリポジトリURL> Morizo-web
 cd Morizo-web
 
-# ディレクトリの所有権を確認（ubuntuユーザー所有であることを確認）
+# ディレクトリの所有権を確認（sasakiユーザー所有であることを確認）
 ls -la
 ```
 
@@ -329,7 +417,7 @@ ls -la
 # npmパッケージのインストール（通常ユーザーで実行）
 npm install
 
-# node_modulesの所有権を確認（ubuntuユーザー所有であることを確認）
+# node_modulesの所有権を確認（sasakiユーザー所有であることを確認）
 ls -ld node_modules
 ```
 
@@ -371,7 +459,7 @@ npm run build
 
 Next.jsを直接HTTPSで起動する場合、カスタムサーバーが必要です。
 
-**作業ユーザー**: `ubuntu`ユーザーで作業します。
+**作業ユーザー**: `sasaki`ユーザーで作業します。
 
 `server.js`を作成（プロジェクトルートに）：
 
@@ -411,8 +499,8 @@ app.prepare().then(() => {
 ```
 
 **重要**: 
-- `server.js`ファイルを作成後、`ubuntu`ユーザーの所有権であることを確認してください。
-- SSL証明書ファイル（`/etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem`と`fullchain.pem`）は、`ubuntu`ユーザーが読み取れる必要があります。必要に応じて証明書ディレクトリの読み取り権限を設定してください：
+- `server.js`ファイルを作成後、`sasaki`ユーザーの所有権であることを確認してください。
+- SSL証明書ファイル（`/etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem`と`fullchain.pem`）は、`sasaki`ユーザーが読み取れる必要があります。必要に応じて証明書ディレクトリの読み取り権限を設定してください：
 
 ```bash
 # SSL証明書の読み取り権限を確認
@@ -443,7 +531,7 @@ sudo chmod 600 /etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem
 sudo vi /etc/systemd/system/morizo-web.service
 ```
 
-**重要**: systemdサービスは`ubuntu`ユーザーで実行されるため、`/opt/morizo/Morizo-web`ディレクトリとその配下のファイル、SSL証明書ファイルは`ubuntu`ユーザーが読み書きできる必要があります。
+**重要**: systemdサービスは`sasaki`ユーザーで実行されるため、`/opt/morizo/Morizo-web`ディレクトリとその配下のファイル、SSL証明書ファイルは`sasaki`ユーザーが読み書きできる必要があります。
 
 以下を記述：
 
@@ -454,7 +542,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
+User=sasaki
 WorkingDirectory=/opt/morizo/Morizo-web
 Environment="NODE_ENV=production"
 ExecStart=/usr/bin/npm start
@@ -488,7 +576,7 @@ sudo systemctl status morizo-web
 # ログの確認（sudo権限が必要）
 sudo journalctl -u morizo-web -f
 
-# プロセスの所有者を確認（ubuntuユーザーで実行されていることを確認）
+# プロセスの所有者を確認（sasakiユーザーで実行されていることを確認）
 ps aux | grep morizo-web
 ```
 
@@ -505,7 +593,7 @@ sudo systemctl status morizo-aiv2
 # ローカルでヘルスチェック（通常ユーザーで実行）
 curl http://localhost:8000/health
 
-# プロセスの所有者を確認（ubuntuユーザーで実行）
+# プロセスの所有者を確認（sasakiユーザーで実行）
 ps aux | grep uvicorn
 
 # ログの確認
@@ -547,21 +635,21 @@ sudo journalctl -u morizo-web -n 50
 # エラーログを確認（sudo権限が必要）
 sudo journalctl -u morizo-aiv2 -n 100
 
-# ファイルの所有権を確認（ubuntuユーザー所有であることを確認）
+# ファイルの所有権を確認（sasakiユーザー所有であることを確認）
 cd /opt/morizo/Morizo-aiv2
 ls -la
 
-# 手動で起動してエラーを確認（ubuntuユーザーで実行）
+# 手動で起動してエラーを確認（sasakiユーザーで実行）
 cd /opt/morizo/Morizo-aiv2
 source venv/bin/activate
 python main.py
 
-# 環境変数が正しく設定されているか確認（ubuntuユーザーで実行）
+# 環境変数が正しく設定されているか確認（sasakiユーザーで実行）
 source venv/bin/activate
 python -c "import os; from dotenv import load_dotenv; load_dotenv(); print(os.getenv('SUPABASE_URL'))"
 
 # ファイルの所有権が間違っている場合の修正
-# sudo chown -R ubuntu:ubuntu /opt/morizo/Morizo-aiv2
+# sudo chown -R sasaki:sasaki /opt/morizo/Morizo-aiv2
 ```
 
 ### 6.2 Morizo-webが起動しない
@@ -570,22 +658,22 @@ python -c "import os; from dotenv import load_dotenv; load_dotenv(); print(os.ge
 # エラーログを確認（sudo権限が必要）
 sudo journalctl -u morizo-web -n 100
 
-# ファイルの所有権を確認（ubuntuユーザー所有であることを確認）
+# ファイルの所有権を確認（sasakiユーザー所有であることを確認）
 cd /opt/morizo/Morizo-web
 ls -la
 
 # SSL証明書ファイルの読み取り権限を確認
 sudo ls -la /etc/letsencrypt/live/morizo.csngrp.co.jp/
 
-# 手動で起動してエラーを確認（ubuntuユーザーで実行）
+# 手動で起動してエラーを確認（sasakiユーザーで実行）
 cd /opt/morizo/Morizo-web
 npm start
 
-# ビルドエラーの確認（ubuntuユーザーで実行）
+# ビルドエラーの確認（sasakiユーザーで実行）
 npm run build
 
 # ファイルの所有権が間違っている場合の修正
-# sudo chown -R ubuntu:ubuntu /opt/morizo/Morizo-web
+# sudo chown -R sasaki:sasaki /opt/morizo/Morizo-web
 ```
 
 ### 6.3 SSL証明書の更新
@@ -627,14 +715,78 @@ python -c "import os; from dotenv import load_dotenv; load_dotenv(); print('MAIN
 
 ## 7. ログ管理
 
+### 7.0 ログ時刻の設定（日本時間JST）
+
+**重要**: システムのタイムゾーンをJSTに設定した後、アプリケーションのログもJSTで表示されるように設定されています。
+
+#### 7.0.1 Morizo-aiv2のログ時刻設定
+
+Morizo-aiv2のログ設定（`config/logging.py`）では、`AlignedFormatter`クラスにJSTタイムゾーンが設定されています。
+
+```python
+# config/logging.py内の設定
+def jst_time(*args):
+    """JST（日本時間）を返すconverter関数（システムのタイムゾーンを使用）"""
+    return time.localtime()
+
+class AlignedFormatter(logging.Formatter):
+    def __init__(self, fmt=None, datefmt=None):
+        super().__init__(fmt, datefmt)
+        # JSTタイムゾーンを使用するようにconverterを設定
+        self.converter = jst_time
+        # ...
+```
+
+**確認方法**:
+```bash
+# ログファイルの時刻を確認（JSTで表示される）
+tail -n 5 /opt/morizo/Morizo-aiv2/morizo_ai.log
+# 出力例: 2025-11-21 16:33:12 - morizo_ai.api.main - INFO - ...
+```
+
+#### 7.0.2 Morizo-webのログ時刻設定
+
+Morizo-webのログ設定（`lib/logging.ts`、`lib/client-logging.ts`、`middleware.ts`）では、`getJSTTimestamp()`関数を使用してJST時刻を取得しています。
+
+```typescript
+// lib/logging.ts内の設定
+private getJSTTimestamp(): string {
+  // JST（日本時間）を取得してISO形式で返す
+  const now = new Date();
+  // Intl.DateTimeFormatを使用してJST時間を取得
+  const formatter = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    // ...
+  });
+  // ...
+}
+```
+
+**確認方法**:
+```bash
+# ログファイルの時刻を確認（JSTで表示される）
+tail -n 5 /opt/morizo/Morizo-web/logs/morizo_web.log
+# 出力例: 2025-11-21T16:40:51.035+09:00 - MAIN - INFO - ...
+```
+
+**注意**:
+- システムのタイムゾーンがJSTに設定されている必要があります（セクション2.6参照）
+- アプリケーションのコードは既にJST対応済みです
+- 新しい環境に構築する場合は、システムのタイムゾーン設定（セクション2.6）を必ず実行してください
+
 ### 7.1 Morizo-aiv2のログ
 
 - **ログファイル**: `/opt/morizo/Morizo-aiv2/morizo_ai.log`
+- **エラーログファイル**: `/opt/morizo/Morizo-aiv2/morizo_ai_error.log`
 - **systemdログ**: `sudo journalctl -u morizo-aiv2`
+- **ログ時刻**: JST（日本時間）で表示されます
 
 ```bash
 # ログファイルの確認
 tail -f /opt/morizo/Morizo-aiv2/morizo_ai.log
+
+# エラーログファイルの確認
+tail -f /opt/morizo/Morizo-aiv2/morizo_ai_error.log
 
 # systemdログの確認
 sudo journalctl -u morizo-aiv2 -f
@@ -645,10 +797,15 @@ sudo journalctl -u morizo-aiv2 -f
 
 ### 7.2 Morizo-webのログ
 
+- **ログファイル**: `/opt/morizo/Morizo-web/logs/morizo_web.log`
 - **systemdログ**: `sudo journalctl -u morizo-web`
+- **ログ時刻**: JST（日本時間）で表示されます（ISO形式: `YYYY-MM-DDTHH:mm:ss.sss+09:00`）
 
 ```bash
-# ログの確認
+# ログファイルの確認
+tail -f /opt/morizo/Morizo-web/logs/morizo_web.log
+
+# systemdログの確認
 sudo journalctl -u morizo-web -f
 
 # 最新の100行を表示
@@ -662,10 +819,10 @@ sudo journalctl -u morizo-web -n 100
 ### 8.1 ベクトルDBのバックアップ
 
 ```bash
-# バックアップディレクトリの作成（ubuntuユーザーで実行）
+# バックアップディレクトリの作成（sasakiユーザーで実行）
 mkdir -p ~/backups/morizo-aiv2
 
-# ベクトルDBのバックアップ（ubuntuユーザーで実行）
+# ベクトルDBのバックアップ（sasakiユーザーで実行）
 tar -czf ~/backups/morizo-aiv2/vector_db_$(date +%Y%m%d_%H%M%S).tar.gz \
     /opt/morizo/Morizo-aiv2/recipe_vector_db_main \
     /opt/morizo/Morizo-aiv2/recipe_vector_db_sub \
@@ -675,18 +832,18 @@ tar -czf ~/backups/morizo-aiv2/vector_db_$(date +%Y%m%d_%H%M%S).tar.gz \
 ls -lh ~/backups/morizo-aiv2/
 
 # ローカルにダウンロード（scpを使用）
-# scp ubuntu@ec2-instance:~/backups/morizo-aiv2/vector_db_*.tar.gz ./
+# scp sasaki@gcp-vm-instance:~/backups/morizo-aiv2/vector_db_*.tar.gz ./
 ```
 
 ### 8.2 環境変数ファイルのバックアップ
 
 ```bash
-# 環境変数ファイルのバックアップ（ubuntuユーザーで実行、暗号化して保存）
+# 環境変数ファイルのバックアップ（sasakiユーザーで実行、暗号化して保存）
 tar -czf ~/backups/morizo-aiv2/env_backup_$(date +%Y%m%d_%H%M%S).tar.gz \
     /opt/morizo/Morizo-aiv2/.env \
     /opt/morizo/Morizo-web/.env.local
 
-# バックアップファイルの所有権を確認（ubuntuユーザー所有であることを確認）
+# バックアップファイルの所有権を確認（sasakiユーザー所有であることを確認）
 ls -lh ~/backups/morizo-aiv2/env_backup_*.tar.gz
 
 # バックアップファイルの権限を制限（他のユーザーが読み取れないように）
@@ -707,11 +864,11 @@ chmod 600 ~/backups/morizo-aiv2/env_backup_*.tar.gz
 # サービスを停止（sudo権限が必要）
 sudo systemctl stop morizo-aiv2
 
-# リポジトリの更新（ubuntuユーザーで実行）
+# リポジトリの更新（sasakiユーザーで実行）
 cd /opt/morizo/Morizo-aiv2
 git pull
 
-# 依存関係の更新（必要に応じて、ubuntuユーザーで実行）
+# 依存関係の更新（必要に応じて、sasakiユーザーで実行）
 source venv/bin/activate
 pip install -r requirements.txt
 
@@ -721,7 +878,7 @@ sudo systemctl start morizo-aiv2
 # 状態確認（sudo権限が必要）
 sudo systemctl status morizo-aiv2
 
-# ファイルの所有権を確認（ubuntuユーザー所有であることを確認）
+# ファイルの所有権を確認（sasakiユーザー所有であることを確認）
 ls -la
 ```
 
@@ -731,14 +888,14 @@ ls -la
 # サービスを停止（sudo権限が必要）
 sudo systemctl stop morizo-web
 
-# リポジトリの更新（ubuntuユーザーで実行）
+# リポジトリの更新（sasakiユーザーで実行）
 cd /opt/morizo/Morizo-web
 git pull
 
-# 依存関係の更新（必要に応じて、ubuntuユーザーで実行）
+# 依存関係の更新（必要に応じて、sasakiユーザーで実行）
 npm install
 
-# 本番ビルド（ubuntuユーザーで実行）
+# 本番ビルド（sasakiユーザーで実行）
 npm run build
 
 # サービスを再起動（sudo権限が必要）
@@ -747,7 +904,7 @@ sudo systemctl start morizo-web
 # 状態確認（sudo権限が必要）
 sudo systemctl status morizo-web
 
-# ファイルの所有権を確認（ubuntuユーザー所有であることを確認）
+# ファイルの所有権を確認（sasakiユーザー所有であることを確認）
 ls -la
 ```
 
@@ -758,14 +915,16 @@ ls -la
 - [ ] SSL証明書が正しく設定されている
 - [ ] 環境変数ファイルに機密情報が含まれている（`.gitignore`で除外されていることを確認）
 - [ ] 環境変数ファイルの権限が適切に設定されている（`chmod 600`）
-- [ ] セキュリティグループで必要最小限のポートのみ開放（443のみ）
+- [ ] ファイアウォールルールで必要最小限のポートのみ開放（443のみ）
 - [ ] システムパッケージが最新の状態である
 - [ ] ログファイルに機密情報が出力されていない
 - [ ] ベクトルDBディレクトリのアクセス権限が適切に設定されている
-- [ ] `/opt/morizo`配下のファイル・ディレクトリが`ubuntu`ユーザー所有であることを確認
-- [ ] systemdサービスが`ubuntu`ユーザーで実行されていることを確認
+- [ ] `/opt/morizo`配下のファイル・ディレクトリが`sasaki`ユーザー所有であることを確認
+- [ ] systemdサービスが`sasaki`ユーザーで実行されていることを確認
 - [ ] rootユーザーでの作業を行っていないことを確認
 - [ ] SSL証明書ファイルの読み取り権限が適切に設定されている
+- [ ] システムのタイムゾーンがJST（Asia/Tokyo）に設定されている（セクション2.6参照）
+- [ ] ログの時刻がJSTで表示されていることを確認（セクション7.0参照）
 
 ---
 
@@ -778,7 +937,7 @@ ls -la
    - ログの自動削除設定
 
 2. **モニタリング設定**
-   - CloudWatchやその他のモニタリングツールの導入
+   - Cloud Monitoringやその他のモニタリングツールの導入
    - メトリクスの収集
 
 3. **アラート設定**
@@ -791,7 +950,7 @@ ls -la
 
 5. **バックアップ自動化**
    - 定期的なバックアップスクリプトの作成
-   - S3等への自動バックアップ
+   - Cloud Storage等への自動バックアップ
 
 6. **nginxリバースプロキシの導入**
    - Next.jsの前にnginxを配置してパフォーマンス向上
@@ -808,18 +967,18 @@ ls -la
    - セッション管理の対応（Sticky Sessionなど）
 
 8. **垂直スケーリング対応**
-   - EC2インスタンスタイプのアップグレード計画
+   - GCP VMマシンタイプのアップグレード計画
    - リソース監視に基づくスケールアップ判断基準
    - メモリ・CPU使用率の閾値設定
 
 9. **マルチインスタンス構成**
-   - 複数EC2インスタンスへの分散デプロイ
-   - 共有ストレージ（EFS等）の検討
+   - 複数GCP VMインスタンスへの分散デプロイ
+   - 共有ストレージ（Cloud Storage等）の検討
    - ベクトルDBの共有化または分散配置
    - データベース接続プールの最適化
 
 10. **オートスケーリング設定**
-    - CloudWatchベースの自動スケーリング
+    - Cloud Monitoringベースの自動スケーリング
     - トラフィックに応じたインスタンス数の自動調整
     - コスト最適化のためのスケールダウンポリシー
 
@@ -834,6 +993,10 @@ ls -la
 
 ## 更新履歴
 
+- 2025-11-21: ログ時刻を日本時間（JST）に変更する設定を追加
+  - セクション2.6: タイムゾーンの設定（日本時間JST）を追加
+  - セクション7.0: ログ時刻の設定（日本時間JST）を追加
+  - Morizo-aiv2とMorizo-webのログがJSTで表示されるように設定
 - 2024-XX-XX: 初版作成
 
 ---
@@ -881,7 +1044,7 @@ HTTPS通信に必要な証明書で、以下を実現します：
 1. 証明書の有効期間は90日
    - 自動更新を設定することが推奨
 2. ドメイン所有権の確認が必要
-   - 対象ドメイン（morizo.csngrp.co.jp）がEC2のIPに正しく向いている必要がある
+   - 対象ドメイン（morizo.csngrp.co.jp）がGCP VMのIPに正しく向いている必要がある
 3. ポート80の一時開放が必要な場合がある
    - 初回取得時にHTTP-01チャレンジで使用
 
