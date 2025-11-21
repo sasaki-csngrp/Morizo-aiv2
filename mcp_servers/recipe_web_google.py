@@ -36,20 +36,29 @@ class GoogleSearchClient:
         self.service = build("customsearch", "v1", developerKey=self.api_key)
     
     async def search_recipes(self, recipe_title: str, num_results: int = 5) -> List[Dict[str, Any]]:
-        """レシピ検索を実行（複数サイト対応）"""
+        """
+        レシピ検索を実行（複数サイト対応）
+        
+        動作モード:
+        - モックモードがTrueの場合: タイトルチェックをせず、ランダムにモックデータを返す（LLM/RAG問わず使用可能）
+        - モックモードがFalseの場合: 実際のGoogle Search APIを使用し、タイトルに基づいた検索結果を返す
+        """
         logger.debug(f"🔍 [WEB] Searching recipes")
         logger.debug(f"🔍 [WEB] Recipe title: {recipe_title}")
         
-        # モック機能が有効な場合はモックデータを返す
+        # モック機能が有効な場合はモックデータを返す（タイトルチェックなし）
         if self.USE_MOCK_SEARCH:
-            logger.debug(f"🎭 [WEB] Using mock data (Google Search API disabled)")
-            # 検索キーワードに基づいて関連するレシピをフィルタリング
+            logger.debug(f"🎭 [WEB] Using mock data (Google Search API disabled, no title check)")
+            # モックモード: タイトルチェックをせず、ランダムにモックレシピを返す
+            # LLM分のレシピでもモックモードが使用可能
             filtered_recipes = self._filter_mock_recipes(recipe_title, num_results)
             logger.debug(f"✅ [WEB] Found mock recipes")
             logger.debug(f"📊 [WEB] Found {len(filtered_recipes)} mock recipes")
             return filtered_recipes
         
+        # モックモードがFalseの場合: 実際のGoogle Search APIを使用（タイトルチェックあり）
         try:
+            logger.debug(f"🔍 [WEB] Using Google Search API (title check enabled)")
             # 検索クエリを構築
             query = self._build_recipe_query(recipe_title)
             
@@ -72,10 +81,16 @@ class GoogleSearchClient:
             return []
     
     def _filter_mock_recipes(self, recipe_title: str, num_results: int) -> List[Dict[str, Any]]:
-        """モックレシピをランダムに選択"""
+        """
+        モックレシピをランダムに選択（タイトルチェックなし）
+        
+        注意: モックモードでは、recipe_titleパラメータは無視され、
+        タイトルに関係なくランダムにモックレシピを返します。
+        LLM分のレシピでもモックモードが使用可能です。
+        """
         import random
         
-        # モックレシピからランダムに選択
+        # モックレシピからランダムに選択（タイトルチェックなし）
         available_recipes = MOCK_RECIPES.copy()
         random.shuffle(available_recipes)
         

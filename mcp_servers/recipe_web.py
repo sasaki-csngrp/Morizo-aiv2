@@ -114,16 +114,19 @@ def get_search_client(menu_source: str = "mixed", use_perplexity: bool = None) -
     if USE_PERPLEXITY_SEARCH:
         return _get_or_create_perplexity_client()
     
-    # 2. use_perplexityが明示的に指定されている場合
-    if use_perplexity is True:
-        return _get_or_create_perplexity_client()
+    # 2. use_perplexityが明示的に指定されている場合も、Google Searchを使用
+    # （Perplexity APIの残金切れのため、一時的にGoogle Searchに統一）
+    # if use_perplexity is True:
+    #     return _get_or_create_perplexity_client()
     
-    # 3. menu_sourceが"llm"の場合はPerplexityを使用
-    if menu_source == "llm":
-        logger.debug(f"🔍 [WEB] menu_source='llm' detected, attempting to use Perplexity Search")
-        client = _get_or_create_perplexity_client()
-        logger.debug(f"🔍 [WEB] Returning Perplexity Search client for LLM proposals")
-        return client
+    # 3. menu_sourceが"llm"の場合も、Google Searchを使用
+    # （Perplexity APIの残金切れのため、一時的にGoogle Searchに統一）
+    # if menu_source == "llm":
+    #     logger.debug(f"🔍 [WEB] menu_source='llm' detected, attempting to use Perplexity Search")
+    #     client = _get_or_create_perplexity_client()
+    #     logger.debug(f"🔍 [WEB] Returning Perplexity Search client for LLM proposals")
+    #     return client
     
-    # 4. デフォルトはGoogle Search
+    # 4. デフォルトはGoogle Search（すべてのケースでGoogle Searchを使用）
+    logger.debug(f"🔍 [WEB] Using Google Search (menu_source={menu_source}, use_perplexity={use_perplexity})")
     return _get_or_create_google_client()
