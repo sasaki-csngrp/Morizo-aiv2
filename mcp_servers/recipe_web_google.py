@@ -5,7 +5,8 @@ This module provides web search functionality for recipe retrieval using Google 
 """
 
 import os
-from typing import List, Dict, Any
+import re
+from typing import List, Dict, Any, Optional
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
 from config.loggers import GenericLogger
@@ -94,14 +95,37 @@ class GoogleSearchClient:
         available_recipes = MOCK_RECIPES.copy()
         random.shuffle(available_recipes)
         
-        # 要求された数だけ返す
-        return available_recipes[:num_results]
+        # 要求された数だけ取得
+        selected_recipes = available_recipes[:num_results]
+        
+        # CookpadのURLの場合、image_urlを追加
+        for recipe in selected_recipes:
+            if recipe.get('site') == 'cookpad.com':
+                image_url = self._build_cookpad_ogp_image_url(recipe.get('url', ''))
+                if image_url:
+                    recipe['image_url'] = image_url
+                    logger.debug(f"🖼️ [GOOGLE] Built Cookpad OGP image URL for mock recipe: {image_url}")
+        
+        return selected_recipes
     
     def _build_recipe_query(self, recipe_title: str) -> str:
         """レシピ検索用のクエリを構築"""
         # 複数サイトを対象とした検索クエリ
         sites_query = " OR ".join([f"site:{site}" for site in RECIPE_SITES.keys()])
         return f"({sites_query}) {recipe_title} レシピ"
+
+    def _extract_cookpad_recipe_id(self, url: str) -> Optional[str]:
+        """CookpadのURLからレシピIDを抽出"""
+        match = re.search(r'/recipes/(\d+)', url)
+        return match.group(1) if match else None
+    
+    def _build_cookpad_ogp_image_url(self, url: str) -> Optional[str]:
+        """CookpadのOGP画像URLを構築"""
+        recipe_id = self._extract_cookpad_recipe_id(url)
+        if not recipe_id:
+            return None
+        return f"https://og-image.cookpad.com/global/jp/recipe/{recipe_id}"
+    
     
     def _parse_search_results(self, items: List[Dict]) -> List[Dict[str, Any]]:
         """検索結果を解析・整形"""
@@ -118,6 +142,13 @@ class GoogleSearchClient:
                 'site': site_name,
                 'source': RECIPE_SITES.get(site_name, 'Unknown')
             }
+            
+            # CookpadのURLの場合は、OGP画像URLを追加
+            if site_name == 'cookpad.com':
+                image_url = self._build_cookpad_ogp_image_url(recipe['url'])
+                if image_url:
+                    recipe['image_url'] = image_url
+                    logger.debug(f"🖼️ [GOOGLE] Built Cookpad OGP image URL: {image_url}")
             
             recipes.append(recipe)
         

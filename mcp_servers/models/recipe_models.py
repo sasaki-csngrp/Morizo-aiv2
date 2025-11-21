@@ -64,6 +64,7 @@ class WebSearchResult:
     source: str  # "vector_db" or "web"
     description: Optional[str] = None
     site: Optional[str] = None
+    image_url: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """辞書形式に変換"""
@@ -76,5 +77,7 @@ class WebSearchResult:
             result["description"] = self.description
         if self.site:
             result["site"] = self.site
+        if self.image_url:
+            result["image_url"] = self.image_url
         return result
 

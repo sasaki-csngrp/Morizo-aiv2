@@ -6,6 +6,7 @@ MCPツール層からビジネスロジックを分離し、再利用性とテ�
 """
 
 import asyncio
+import re
 import traceback
 from typing import Dict, Any, List, Optional
 from supabase import Client
@@ -150,12 +151,22 @@ class RecipeService:
             rag_result = rag_results[title]
             rag_url = rag_result.get('url', '')
             if rag_url:
+                # CookpadのURLの場合、OGP画像URLを構築
+                image_url = rag_result.get('image_url')
+                if not image_url and "cookpad.com" in rag_url:
+                    recipe_id_match = re.search(r'/recipes/(\d+)', rag_url)
+                    if recipe_id_match:
+                        recipe_id = recipe_id_match.group(1)
+                        image_url = f"https://og-image.cookpad.com/global/jp/recipe/{recipe_id}"
+                        self.logger.debug(f"🖼️ [RecipeService] Built Cookpad OGP image URL for RAG result: {image_url}")
+                
                 web_search_result = WebSearchResult(
                     title=title,
                     url=rag_url,
                     source="vector_db",
                     description=rag_result.get('category_detail', ''),
-                    site="cookpad.com" if "cookpad.com" in rag_url else "other"
+                    site="cookpad.com" if "cookpad.com" in rag_url else "other",
+                    image_url=image_url
                 )
                 web_search_results.append(web_search_result.to_dict())
                 
@@ -195,7 +206,8 @@ class RecipeService:
                             url=recipe.get("url", ""),
                             source=recipe.get("source", "web"),
                             description=recipe.get("description"),
-                            site=recipe.get("site")
+                            site=recipe.get("site"),
+                            image_url=recipe.get("image_url")
                         )
                         web_search_results.append(web_search_result.to_dict())
                 
@@ -231,7 +243,8 @@ class RecipeService:
                 url=recipe.get("url", ""),
                 source=recipe.get("source", "web"),
                 description=recipe.get("description"),
-                site=recipe.get("site")
+                site=recipe.get("site"),
+                image_url=recipe.get("image_url")
             )
             web_search_results.append(web_search_result.to_dict())
         
