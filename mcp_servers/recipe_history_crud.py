@@ -108,6 +108,7 @@ class RecipeHistoryCRUD:
         try:
             self.logger.info(f"✏️ [CRUD] Updating recipe history by ID")
             self.logger.debug(f"🔍 [CRUD] History ID: {history_id}")
+            self.logger.debug(f"🔍 [CRUD] Received notes value: {repr(notes)} (type: {type(notes)})")
             
             # 更新データの準備
             update_data = {}
@@ -120,7 +121,18 @@ class RecipeHistoryCRUD:
             if rating is not None:
                 update_data["rating"] = rating
             if notes is not None:
-                update_data["notes"] = notes
+                # 空文字列の場合はNULLに更新
+                if isinstance(notes, str) and notes.strip() == "":
+                    update_data["notes"] = None
+                    self.logger.debug(f"🔍 [CRUD] Converted empty string to None for notes")
+                else:
+                    update_data["notes"] = notes
+            elif notes is None:
+                # notesが明示的にNoneの場合は、NULLに更新するために含める
+                update_data["notes"] = None
+                self.logger.debug(f"🔍 [CRUD] Setting notes to None explicitly")
+            
+            self.logger.debug(f"🔍 [CRUD] Update data: {update_data}")
             
             if not update_data:
                 return {"success": False, "error": "No update data provided"}

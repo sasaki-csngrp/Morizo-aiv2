@@ -346,6 +346,7 @@ async def update_recipe_rating(
     """レシピ履歴の評価・コメントを更新するエンドポイント"""
     try:
         logger.debug(f"🔍 [API] Recipe rating update request received: history_id={history_id}")
+        logger.debug(f"🔍 [API] Request body - rating: {request.rating}, notes: {repr(request.notes)}")
         
         # 1. 認証処理
         authorization = http_request.headers.get("Authorization")
@@ -367,14 +368,22 @@ async def update_recipe_rating(
             logger.error(f"❌ [API] Failed to create authenticated client: {e}")
             raise HTTPException(status_code=401, detail="認証に失敗しました")
         
-        # 3. CRUD層で評価・コメントを更新
+        # 3. 空文字列をNoneに変換
+        notes_value = request.notes
+        logger.debug(f"🔍 [API] Original notes value: {repr(notes_value)}")
+        if notes_value is not None and notes_value.strip() == "":
+            notes_value = None
+            logger.debug(f"🔍 [API] Converted empty string to None")
+        logger.debug(f"🔍 [API] Final notes value to send to CRUD: {repr(notes_value)}")
+        
+        # 4. CRUD層で評価・コメントを更新
         crud = RecipeHistoryCRUD()
         result = await crud.update_history_by_id(
             client=client,
             user_id=user_id,
             history_id=history_id,
             rating=request.rating,
-            notes=request.notes
+            notes=notes_value
         )
         
         if not result.get("success"):

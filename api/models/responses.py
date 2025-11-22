@@ -5,7 +5,7 @@ API層 - レスポンスモデル
 Pydanticによるレスポンスデータの型定義
 """
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, Dict, Any, List
 
 
@@ -116,6 +116,14 @@ class RecipeRatingUpdateRequest(BaseModel):
     """レシピ評価更新リクエスト"""
     rating: Optional[int] = Field(None, description="評価（5=好き、3=普通、1=好きじゃない）")
     notes: Optional[str] = Field(None, description="コメント")
+    
+    @field_validator('notes', mode='before')
+    @classmethod
+    def validate_notes(cls, v):
+        """空文字列をNoneに変換"""
+        if v == "" or (isinstance(v, str) and v.strip() == ""):
+            return None
+        return v
 
 
 class HistoryRecipe(BaseModel):
