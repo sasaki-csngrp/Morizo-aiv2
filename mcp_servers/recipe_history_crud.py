@@ -100,7 +100,9 @@ class RecipeHistoryCRUD:
         history_id: str,
         title: Optional[str] = None,
         source: Optional[str] = None,
-        url: Optional[str] = None
+        url: Optional[str] = None,
+        rating: Optional[int] = None,
+        notes: Optional[str] = None
     ) -> Dict[str, Any]:
         """ID指定でのレシピ履歴1件更新"""
         try:
@@ -115,6 +117,10 @@ class RecipeHistoryCRUD:
                 update_data["source"] = source
             if url is not None:
                 update_data["url"] = url
+            if rating is not None:
+                update_data["rating"] = rating
+            if notes is not None:
+                update_data["notes"] = notes
             
             if not update_data:
                 return {"success": False, "error": "No update data provided"}

@@ -112,6 +112,12 @@ class MenuSaveResponse(BaseModel):
     total_saved: int = Field(..., description="保存されたレシピ数")
 
 
+class RecipeRatingUpdateRequest(BaseModel):
+    """レシピ評価更新リクエスト"""
+    rating: Optional[int] = Field(None, description="評価（5=好き、3=普通、1=好きじゃない）")
+    notes: Optional[str] = Field(None, description="コメント")
+
+
 class HistoryRecipe(BaseModel):
     """履歴レシピ情報"""
     category: Optional[str] = Field(None, description="カテゴリ（main, sub, soup, None）")
@@ -119,6 +125,9 @@ class HistoryRecipe(BaseModel):
     source: str = Field(..., description="レシピの出典（web, rag等）")
     url: Optional[str] = Field(None, description="レシピのURL")
     history_id: str = Field(..., description="レシピ履歴のID")
+    rating: Optional[int] = Field(None, description="評価（5=好き、3=普通、1=好きじゃない）")
+    notes: Optional[str] = Field(None, description="コメント")
+    image_url: Optional[str] = Field(None, description="レシピ画像URL")
 
 
 class HistoryEntry(BaseModel):

@@ -153,12 +153,10 @@ class RecipeService:
             if rag_url:
                 # CookpadのURLの場合、OGP画像URLを構築
                 image_url = rag_result.get('image_url')
-                if not image_url and "cookpad.com" in rag_url:
-                    recipe_id_match = re.search(r'/recipes/(\d+)', rag_url)
-                    if recipe_id_match:
-                        recipe_id = recipe_id_match.group(1)
-                        image_url = f"https://og-image.cookpad.com/global/jp/recipe/{recipe_id}"
-                        self.logger.debug(f"🖼️ [RecipeService] Built Cookpad OGP image URL for RAG result: {image_url}")
+                if not image_url:
+                    from mcp_servers.recipe_web_utils import build_recipe_image_url
+                    image_url = build_recipe_image_url(rag_url)
+                    self.logger.debug(f"🖼️ [RecipeService] Built recipe image URL for RAG result: {image_url}")
                 
                 from config.constants import DEFAULT_RECIPE_IMAGE_URL
                 web_search_result = WebSearchResult(

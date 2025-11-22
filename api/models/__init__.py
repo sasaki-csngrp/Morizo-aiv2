@@ -6,7 +6,7 @@ API層 - データモデル
 """
 
 from .requests import ChatRequest, ProgressUpdate, InventoryRequest, HealthRequest, RecipeAdoptionRequest, RecipeItem, MenuSaveRequest, CSVUploadError, CSVUploadResponse, OCRReceiptItem, OCRReceiptResponse, IngredientDeleteItem, IngredientDeleteRequest, OCRMappingRequest, OCRMappingResponse
-from .responses import ChatResponse, HealthResponse, InventoryResponse, InventoryListResponse, InventoryItemResponse, ErrorResponse, SSEEvent, RecipeAdoptionResponse, SavedRecipe, SavedMenuRecipe, MenuSaveResponse, HistoryRecipe, HistoryEntry, MenuHistoryResponse, IngredientDeleteCandidate, IngredientDeleteCandidatesResponse, IngredientDeleteResponse
+from .responses import ChatResponse, HealthResponse, InventoryResponse, InventoryListResponse, InventoryItemResponse, ErrorResponse, SSEEvent, RecipeAdoptionResponse, SavedRecipe, SavedMenuRecipe, MenuSaveResponse, HistoryRecipe, HistoryEntry, MenuHistoryResponse, IngredientDeleteCandidate, IngredientDeleteCandidatesResponse, IngredientDeleteResponse, RecipeRatingUpdateRequest
 
 __all__ = [
     'ChatRequest',
@@ -40,5 +40,6 @@ __all__ = [
     'IngredientDeleteRequest',
     'IngredientDeleteResponse',
     'OCRMappingRequest',
-    'OCRMappingResponse'
+    'OCRMappingResponse',
+    'RecipeRatingUpdateRequest'
 ]

@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from config.loggers import GenericLogger
-from ..models import MenuSaveRequest, MenuSaveResponse, SavedMenuRecipe, MenuHistoryResponse, HistoryRecipe, HistoryEntry
+from ..models import MenuSaveRequest, MenuSaveResponse, SavedMenuRecipe, MenuHistoryResponse, HistoryRecipe, HistoryEntry, RecipeRatingUpdateRequest
 from mcp_servers.recipe_history_crud import RecipeHistoryCRUD
 from mcp_servers.utils import get_authenticated_client
 from services.session.service import session_service
@@ -287,12 +287,19 @@ async def get_menu_history(
             if category and recipe_category != category:
                 continue
             
+            # 画像URLを生成
+            from mcp_servers.recipe_web_utils import build_recipe_image_url
+            image_url = build_recipe_image_url(item.get("url"))
+            
             history_by_date[date_key].append(HistoryRecipe(
                 category=recipe_category,
                 title=title,
                 source=item.get("source", "web"),
                 url=item.get("url"),
-                history_id=item.get("id")
+                history_id=item.get("id"),
+                rating=item.get("rating"),
+                notes=item.get("notes"),
+                image_url=image_url
             ))
         
         # 5. 日付ごとのingredients_deletedフラグを判定（その日のすべてのレシピがTrueの場合のみTrue）
@@ -328,4 +335,78 @@ async def get_menu_history(
     except Exception as e:
         logger.error(f"❌ [API] Unexpected error in get_menu_history: {e}")
         raise HTTPException(status_code=500, detail="履歴取得処理でエラーが発生しました")
+
+
+@router.put("/menu/history/{history_id}/rating")
+async def update_recipe_rating(
+    history_id: str,
+    request: RecipeRatingUpdateRequest,
+    http_request: Request = None
+):
+    """レシピ履歴の評価・コメントを更新するエンドポイント"""
+    try:
+        logger.debug(f"🔍 [API] Recipe rating update request received: history_id={history_id}")
+        
+        # 1. 認証処理
+        authorization = http_request.headers.get("Authorization")
+        token = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
+        
+        user_info = getattr(http_request.state, 'user_info', None)
+        if not user_info:
+            logger.error("❌ [API] User info not found in request state")
+            raise HTTPException(status_code=401, detail="認証が必要です")
+        
+        user_id = user_info['user_id']
+        logger.debug(f"🔍 [API] User ID: {user_id}")
+        
+        # 2. 認証済みSupabaseクライアントの作成
+        try:
+            client = get_authenticated_client(user_id, token)
+            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
+        except Exception as e:
+            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
+            raise HTTPException(status_code=401, detail="認証に失敗しました")
+        
+        # 3. CRUD層で評価・コメントを更新
+        crud = RecipeHistoryCRUD()
+        result = await crud.update_history_by_id(
+            client=client,
+            user_id=user_id,
+            history_id=history_id,
+            rating=request.rating,
+            notes=request.notes
+        )
+        
+        if not result.get("success"):
+            error_msg = result.get("error", "Unknown error")
+            logger.error(f"❌ [API] Failed to update recipe rating: {error_msg}")
+            raise HTTPException(status_code=404, detail=error_msg)
+        
+        # 4. 更新後のデータを取得
+        updated_data = result.get("data", {})
+        
+        # 5. 画像URLを生成
+        from mcp_servers.recipe_web_utils import build_recipe_image_url
+        image_url = build_recipe_image_url(updated_data.get("url"))
+        
+        # 6. レスポンスを生成
+        response_data = HistoryRecipe(
+            category=None,  # カテゴリは履歴取得時のみ設定
+            title=updated_data.get("title", ""),
+            source=updated_data.get("source", "web"),
+            url=updated_data.get("url"),
+            history_id=updated_data.get("id"),
+            rating=updated_data.get("rating"),
+            notes=updated_data.get("notes"),
+            image_url=image_url
+        )
+        
+        logger.info(f"✅ [API] Recipe rating updated successfully: history_id={history_id}")
+        return response_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [API] Unexpected error in update_recipe_rating: {e}")
+        raise HTTPException(status_code=500, detail="評価更新処理でエラーが発生しました")
 
