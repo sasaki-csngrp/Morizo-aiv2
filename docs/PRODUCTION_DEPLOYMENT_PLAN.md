@@ -442,9 +442,16 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 
 # Morizo AI URL（localhost経由）
 MORIZO_AI_URL=http://localhost:8000
+
+# ログ設定（サーバーサイド用）
+LOG_INITIALIZE_BACKUP=true       # 起動時のログファイルバックアップ（true/false）。本番環境でlogrotate使用時はfalse推奨
 ```
 
-**注意**: Next.jsでは、`NEXT_PUBLIC_`プレフィックスの環境変数のみがクライアント側で利用可能です。
+**注意**: 
+- Next.jsでは、`NEXT_PUBLIC_`プレフィックスの環境変数のみがクライアント側で利用可能です。
+- `LOG_INITIALIZE_BACKUP`はサーバーサイドでのみ使用されます。
+  - **開発環境**: `true`（デフォルト）- サーバー起動ごとにアプリでログをバックアップ＆リフレッシュ
+  - **本番環境**: `false` - logrotateに任せるため、アプリでは何もしない
 
 ### 4.4 本番ビルド
 
@@ -791,8 +798,8 @@ tail -f /opt/morizo/Morizo-aiv2/morizo_ai_error.log
 # systemdログの確認
 sudo journalctl -u morizo-aiv2 -f
 
-# ログローテーション設定（後で実装）
-# /etc/logrotate.d/morizo-aiv2 を作成予定
+# ログローテーション設定（セクション7.3.1参照）
+# /etc/logrotate.d/morizo-aiv2 が設定済み
 ```
 
 ### 7.2 Morizo-webのログ
@@ -811,6 +818,100 @@ sudo journalctl -u morizo-web -f
 # 最新の100行を表示
 sudo journalctl -u morizo-web -n 100
 ```
+
+### 7.3 ログローテーション設定
+
+#### 7.3.1 Morizo-aiv2のログローテーション設定
+
+**OSレベルのlogrotate設定**:
+
+```bash
+# logrotate設定ファイルの確認（sudo権限が必要）
+cat /etc/logrotate.d/morizo-aiv2
+```
+
+設定内容：
+- **ローテーション頻度**: 日次（daily）
+- **保持期間**: 30日間
+- **圧縮**: 有効（delaycompress）
+- **対象ファイル**: `/opt/morizo/Morizo-aiv2/morizo_ai*.log`
+
+**アプリケーションレベルの設定**:
+
+環境変数で制御可能：
+- `LOG_USE_PYTHON_ROTATION`: Pythonのローテーション使用（true/false）
+  - **開発環境**: `true`（デフォルト）- PythonのRotatingFileHandlerを使用
+  - **本番環境**: `false` - logrotateを使用するため、Pythonローテーションを無効化
+- `LOG_INITIALIZE_BACKUP`: 起動時のログファイルバックアップ（true/false）
+  - **開発環境**: `true`（デフォルト）- サーバー起動ごとにアプリでログをバックアップ＆リフレッシュ
+  - **本番環境**: `false` - logrotateに任せるため、アプリでは何もしない
+
+**本番環境での推奨設定**（`.env`ファイル）:
+```bash
+LOG_USE_PYTHON_ROTATION=false
+LOG_INITIALIZE_BACKUP=false
+```
+
+#### 7.3.2 Morizo-webのログローテーション設定
+
+**OSレベルのlogrotate設定**:
+
+```bash
+# logrotate設定ファイルの作成（sudo権限が必要）
+sudo vi /etc/logrotate.d/morizo-web
+```
+
+以下を記述：
+
+```
+# Morizo Web ログローテーション設定
+/opt/morizo/Morizo-web/logs/morizo_web*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    missingok
+    create 0644 sasaki sasaki
+    postrotate
+        systemctl reload morizo-web > /dev/null 2>&1 || true
+    endscript
+}
+```
+
+設定内容：
+- **ローテーション頻度**: 日次（daily）
+- **保持期間**: 30日間
+- **圧縮**: 有効（delaycompress）
+- **対象ファイル**: `/opt/morizo/Morizo-web/logs/morizo_web*.log`
+- **所有者**: `sasaki`ユーザー
+
+**アプリケーションレベルの設定**:
+
+環境変数で制御可能：
+- `LOG_INITIALIZE_BACKUP`: 起動時のログファイルバックアップ（true/false）
+  - **開発環境**: `true`（デフォルト）- サーバー起動ごとにアプリでログをバックアップ＆リフレッシュ
+  - **本番環境**: `false` - logrotateに任せるため、アプリでは何もしない
+
+**本番環境での推奨設定**（`.env.local`ファイル）:
+```bash
+LOG_INITIALIZE_BACKUP=false
+```
+
+**設定の確認**:
+
+```bash
+# logrotate設定のテスト（sudo権限が必要）
+sudo logrotate -d /etc/logrotate.d/morizo-web
+
+# logrotate設定の強制実行（テスト用、sudo権限が必要）
+sudo logrotate -f /etc/logrotate.d/morizo-web
+```
+
+**注意**:
+- 本番環境では、OSレベルのlogrotateを使用することを推奨します
+- アプリケーション側のログローテーション（起動時バックアップ）は、`LOG_INITIALIZE_BACKUP=false`で無効化してください
+- 開発環境では、`LOG_INITIALIZE_BACKUP=true`（デフォルト）で、サーバー起動ごとにログをリフレッシュできます
 
 ---
 
@@ -932,9 +1033,10 @@ ls -la
 
 以下の項目は後日実装予定：
 
-1. **ログローテーション設定**
-   - logrotateを使用したログファイルの自動ローテーション
+1. **ログローテーション設定** ✅ **完了**
+   - logrotateを使用したログファイルの自動ローテーション（セクション7.3参照）
    - ログの自動削除設定
+   - アプリケーションレベルとOSレベルのローテーション競合回避機能
 
 2. **モニタリング設定**
    - Cloud Monitoringやその他のモニタリングツールの導入
@@ -993,6 +1095,13 @@ ls -la
 
 ## 更新履歴
 
+- 2025-11-21: ログローテーション設定を追加
+  - セクション7.3: ログローテーション設定を追加
+    - Morizo-aiv2のlogrotate設定（OSレベル）
+    - Morizo-webのlogrotate設定（OSレベル）
+    - `LOG_INITIALIZE_BACKUP`環境変数の説明を追加
+    - 開発環境と本番環境での使い分けを明記
+  - セクション4.3: Morizo-webの環境変数設定に`LOG_INITIALIZE_BACKUP`を追加
 - 2025-11-21: ログ時刻を日本時間（JST）に変更する設定を追加
   - セクション2.6: タイムゾーンの設定（日本時間JST）を追加
   - セクション7.0: ログ時刻の設定（日本時間JST）を追加
