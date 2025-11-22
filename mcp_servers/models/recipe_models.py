@@ -68,6 +68,8 @@ class WebSearchResult:
     
     def to_dict(self) -> Dict[str, Any]:
         """辞書形式に変換"""
+        from config.constants import DEFAULT_RECIPE_IMAGE_URL
+        
         result = {
             "title": self.title,
             "url": self.url,
@@ -77,7 +79,9 @@ class WebSearchResult:
             result["description"] = self.description
         if self.site:
             result["site"] = self.site
-        if self.image_url:
-            result["image_url"] = self.image_url
+        
+        # image_urlがNoneの場合はデフォルト画像URLを設定
+        result["image_url"] = self.image_url if self.image_url else DEFAULT_RECIPE_IMAGE_URL
+        
         return result
 

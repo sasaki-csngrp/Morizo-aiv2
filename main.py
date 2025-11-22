@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from datetime import datetime
 import os
@@ -98,6 +99,9 @@ app.add_middleware(
 # カスタムミドルウェアの追加
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(AuthenticationMiddleware)
+
+# 静的ファイルの配信設定
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ルートの登録
 app.include_router(chat_router, prefix="", tags=["chat"])

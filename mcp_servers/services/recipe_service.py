@@ -160,13 +160,14 @@ class RecipeService:
                         image_url = f"https://og-image.cookpad.com/global/jp/recipe/{recipe_id}"
                         self.logger.debug(f"🖼️ [RecipeService] Built Cookpad OGP image URL for RAG result: {image_url}")
                 
+                from config.constants import DEFAULT_RECIPE_IMAGE_URL
                 web_search_result = WebSearchResult(
                     title=title,
                     url=rag_url,
                     source="vector_db",
                     description=rag_result.get('category_detail', ''),
                     site="cookpad.com" if "cookpad.com" in rag_url else "other",
-                    image_url=image_url
+                    image_url=image_url if image_url else DEFAULT_RECIPE_IMAGE_URL
                 )
                 web_search_results.append(web_search_result.to_dict())
                 
@@ -200,6 +201,7 @@ class RecipeService:
                     filtered_recipes = filter_recipe_results(prioritized_recipes)
                     
                     # WebSearchResultに変換して追加
+                    from config.constants import DEFAULT_RECIPE_IMAGE_URL
                     for recipe in filtered_recipes:
                         web_search_result = WebSearchResult(
                             title=recipe.get("title", ""),
@@ -207,7 +209,7 @@ class RecipeService:
                             source=recipe.get("source", "web"),
                             description=recipe.get("description"),
                             site=recipe.get("site"),
-                            image_url=recipe.get("image_url")
+                            image_url=recipe.get("image_url") or DEFAULT_RECIPE_IMAGE_URL
                         )
                         web_search_results.append(web_search_result.to_dict())
                 
@@ -237,6 +239,7 @@ class RecipeService:
         filtered_recipes = filter_recipe_results(prioritized_recipes)
         
         # WebSearchResultに変換
+        from config.constants import DEFAULT_RECIPE_IMAGE_URL
         for recipe in filtered_recipes:
             web_search_result = WebSearchResult(
                 title=recipe.get("title", ""),
@@ -244,7 +247,7 @@ class RecipeService:
                 source=recipe.get("source", "web"),
                 description=recipe.get("description"),
                 site=recipe.get("site"),
-                image_url=recipe.get("image_url")
+                image_url=recipe.get("image_url") or DEFAULT_RECIPE_IMAGE_URL
             )
             web_search_results.append(web_search_result.to_dict())
         

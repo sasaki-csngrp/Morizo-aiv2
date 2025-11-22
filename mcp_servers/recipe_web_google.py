@@ -99,12 +99,12 @@ class GoogleSearchClient:
         selected_recipes = available_recipes[:num_results]
         
         # CookpadのURLの場合、image_urlを追加
+        from config.constants import DEFAULT_RECIPE_IMAGE_URL
         for recipe in selected_recipes:
             if recipe.get('site') == 'cookpad.com':
                 image_url = self._build_cookpad_ogp_image_url(recipe.get('url', ''))
-                if image_url:
-                    recipe['image_url'] = image_url
-                    logger.debug(f"🖼️ [GOOGLE] Built Cookpad OGP image URL for mock recipe: {image_url}")
+                recipe['image_url'] = image_url if image_url else DEFAULT_RECIPE_IMAGE_URL
+                logger.debug(f"🖼️ [GOOGLE] Built Cookpad OGP image URL for mock recipe: {recipe['image_url']}")
         
         return selected_recipes
     
@@ -144,11 +144,11 @@ class GoogleSearchClient:
             }
             
             # CookpadのURLの場合は、OGP画像URLを追加
+            from config.constants import DEFAULT_RECIPE_IMAGE_URL
             if site_name == 'cookpad.com':
                 image_url = self._build_cookpad_ogp_image_url(recipe['url'])
-                if image_url:
-                    recipe['image_url'] = image_url
-                    logger.debug(f"🖼️ [GOOGLE] Built Cookpad OGP image URL: {image_url}")
+                recipe['image_url'] = image_url if image_url else DEFAULT_RECIPE_IMAGE_URL
+                logger.debug(f"🖼️ [GOOGLE] Built Cookpad OGP image URL: {recipe['image_url']}")
             
             recipes.append(recipe)
         

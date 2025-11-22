@@ -25,7 +25,8 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             "/health",
             "/docs", 
             "/openapi.json",
-            "/redoc"
+            "/redoc",
+            "/static"  # 静的ファイルは認証不要
         }
         
         # AuthHandlerは遅延初期化（環境変数読み込み後）

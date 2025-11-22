@@ -143,6 +143,7 @@ class PerplexitySearchClient:
             image_urls = await asyncio.gather(*image_tasks)
             
             # レシピデータと画像URLを結合
+            from config.constants import DEFAULT_RECIPE_IMAGE_URL
             for recipe_data, image_url in zip(recipe_data_list, image_urls):
                 recipe = {
                     'title': recipe_title,
@@ -150,7 +151,7 @@ class PerplexitySearchClient:
                     'description': f'{recipe_title}のレシピ（Perplexity検索）',
                     'site': recipe_data['site_name'],
                     'source': RECIPE_SITES.get(recipe_data['site_name'], 'Unknown'),
-                    'image_url': image_url  # 画像URLを追加
+                    'image_url': image_url if image_url else DEFAULT_RECIPE_IMAGE_URL
                 }
                 recipes.append(recipe)
             
