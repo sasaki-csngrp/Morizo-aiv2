@@ -281,11 +281,18 @@ class MenuDataGenerator:
                 title = str(recipe.get('title', 'レシピ詳細'))
                 domain = self.utils.extract_domain(url)
                 
-                urls.append({
+                url_info = {
                     "title": title,
                     "url": url,
                     "domain": domain
-                })
+                }
+                
+                # image_urlが存在する場合は追加
+                if 'image_url' in recipe and recipe.get('image_url'):
+                    url_info["image_url"] = str(recipe['image_url'])
+                    self.logger.debug(f"🖼️ [MenuDataGenerator] Added image_url to URL: {url_info['image_url']}")
+                
+                urls.append(url_info)
             
             # 複数URLがある場合の処理（必要に応じて拡張）
             
