@@ -349,7 +349,30 @@ class ToolRouter:
             if "recipe_titles" in mapped:
                 recipe_titles = mapped["recipe_titles"]
                 if isinstance(recipe_titles, list):
-                    self.logger.debug(f"🔧 [ToolRouter] Passing recipe_titles as-is: {len(recipe_titles)} titles")
+                    # リスト内に辞書が含まれている場合（task3.result.data全体が渡された場合）を処理
+                    if len(recipe_titles) > 0 and isinstance(recipe_titles[0], dict):
+                        # 辞書からcandidatesを抽出
+                        if "candidates" in recipe_titles[0]:
+                            candidates = recipe_titles[0]["candidates"]
+                            # candidatesが辞書のリストの場合、titleのリストに変換
+                            if isinstance(candidates, list) and len(candidates) > 0:
+                                if isinstance(candidates[0], dict) and "title" in candidates[0]:
+                                    titles = [item["title"] for item in candidates if "title" in item]
+                                    mapped["recipe_titles"] = titles
+                                    self.logger.debug(f"🔧 [ToolRouter] Extracted {len(titles)} titles from candidates dict")
+                                else:
+                                    # candidatesが既に文字列のリストの場合
+                                    mapped["recipe_titles"] = candidates
+                                    self.logger.debug(f"🔧 [ToolRouter] Using candidates as-is: {len(candidates)} titles")
+                            else:
+                                self.logger.warning(f"⚠️ [ToolRouter] candidates is not a list or is empty")
+                                mapped["recipe_titles"] = []
+                        else:
+                            self.logger.warning(f"⚠️ [ToolRouter] No 'candidates' key found in recipe_titles dict")
+                            mapped["recipe_titles"] = []
+                    else:
+                        # 通常のリスト（文字列のリスト）の場合
+                        self.logger.debug(f"🔧 [ToolRouter] Passing recipe_titles as-is: {len(recipe_titles)} titles")
                 else:
                     # 単一の文字列が渡された場合はリストに変換
                     mapped["recipe_titles"] = [recipe_titles]
