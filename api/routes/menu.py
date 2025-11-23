@@ -194,7 +194,7 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
 
 @router.get("/menu/history", response_model=MenuHistoryResponse)
 async def get_menu_history(
-    days: int = 14,
+    days: Optional[int] = 14,
     category: Optional[str] = None,
     http_request: Request = None
 ):
@@ -223,15 +223,21 @@ async def get_menu_history(
             raise HTTPException(status_code=401, detail="認証に失敗しました")
         
         # 3. 履歴を取得
-        cutoff_date = datetime.now() - timedelta(days=days)
-        
-        # recipe_historysテーブルから取得
-        result = client.table("recipe_historys")\
+        # days=0の場合は30日以前のレシピのみを取得
+        query = client.table("recipe_historys")\
             .select("*")\
-            .eq("user_id", user_id)\
-            .gte("cooked_at", cutoff_date.isoformat())\
-            .order("cooked_at", desc=True)\
-            .execute()
+            .eq("user_id", user_id)
+        
+        if days is not None and days > 0:
+            # 指定日数以降のレシピを取得
+            cutoff_date = datetime.now() - timedelta(days=days)
+            query = query.gte("cooked_at", cutoff_date.isoformat())
+        elif days == 0:
+            # それ以前: 30日以前のレシピのみを取得（30日未満は除外）
+            cutoff_date = datetime.now() - timedelta(days=30)
+            query = query.lt("cooked_at", cutoff_date.isoformat())
+        
+        result = query.order("cooked_at", desc=True).execute()
         
         logger.debug(f"🔍 [API] Retrieved {len(result.data)} recipe histories from database")
         
@@ -418,4 +424,56 @@ async def update_recipe_rating(
     except Exception as e:
         logger.error(f"❌ [API] Unexpected error in update_recipe_rating: {e}")
         raise HTTPException(status_code=500, detail="評価更新処理でエラーが発生しました")
+
+
+@router.delete("/menu/history/{history_id}")
+async def delete_recipe_history(
+    history_id: str,
+    http_request: Request = None
+):
+    """レシピ履歴を削除するエンドポイント"""
+    try:
+        logger.debug(f"🔍 [API] Recipe history delete request received: history_id={history_id}")
+        
+        # 1. 認証処理
+        authorization = http_request.headers.get("Authorization")
+        token = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
+        
+        user_info = getattr(http_request.state, 'user_info', None)
+        if not user_info:
+            logger.error("❌ [API] User info not found in request state")
+            raise HTTPException(status_code=401, detail="認証が必要です")
+        
+        user_id = user_info['user_id']
+        logger.debug(f"🔍 [API] User ID: {user_id}")
+        
+        # 2. 認証済みSupabaseクライアントの作成
+        try:
+            client = get_authenticated_client(user_id, token)
+            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
+        except Exception as e:
+            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
+            raise HTTPException(status_code=401, detail="認証に失敗しました")
+        
+        # 3. CRUD層で削除
+        crud = RecipeHistoryCRUD()
+        result = await crud.delete_history_by_id(
+            client=client,
+            user_id=user_id,
+            history_id=history_id
+        )
+        
+        if not result.get("success"):
+            error_msg = result.get("error", "Unknown error")
+            logger.error(f"❌ [API] Failed to delete recipe history: {error_msg}")
+            raise HTTPException(status_code=404, detail=error_msg)
+        
+        logger.info(f"✅ [API] Recipe history deleted successfully: history_id={history_id}")
+        return {"success": True, "message": "レシピ履歴を削除しました"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [API] Unexpected error in delete_recipe_history: {e}")
+        raise HTTPException(status_code=500, detail="履歴削除処理でエラーが発生しました")
 
