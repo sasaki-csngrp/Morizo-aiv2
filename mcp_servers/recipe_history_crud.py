@@ -172,15 +172,17 @@ class RecipeHistoryCRUD:
         self,
         client: Client,
         user_id: str,
-        category: str,  # "main", "sub", "soup"
+        category: str,  # "main", "sub", "soup", "other"
         days: int = 14  # デフォルト14日間
     ) -> Dict[str, Any]:
         """指定期間内のレシピタイトルを取得（重複回避用）
         
+        評価=1（好きじゃない）のレシピは期間に関係なく永遠に除外されます。
+        
         Args:
             client: Supabaseクライアント
             user_id: ユーザーID
-            category: カテゴリ（"main", "sub", "soup"）
+            category: カテゴリ（"main", "sub", "soup", "other"）
             days: 重複回避期間（日数）
         
         Returns:
@@ -198,28 +200,51 @@ class RecipeHistoryCRUD:
             category_prefix_map = {
                 "main": "主菜: ",
                 "sub": "副菜: ",
-                "soup": "汁物: "
+                "soup": "汁物: ",
+                "other": "その他: "
             }
             
-            # 指定期間内のレシピを取得
-            result = client.table("recipe_historys")\
+            # 1. 指定期間内のレシピを取得（評価=1のレシピは除外）
+            recent_result = client.table("recipe_historys")\
                 .select("title")\
                 .eq("user_id", user_id)\
                 .gte("cooked_at", cutoff_date.isoformat())\
+                .or_("rating.is.null,rating.neq.1")\
+                .execute()
+            
+            # 2. 評価=1（好きじゃない）のレシピを全期間から取得（永遠に除外）
+            disliked_result = client.table("recipe_historys")\
+                .select("title")\
+                .eq("user_id", user_id)\
+                .eq("rating", 1)\
                 .execute()
             
             # カテゴリでフィルタリング
             category_prefix = category_prefix_map.get(category)
+            all_titles = []
+            
+            # 過去14日以内のレシピタイトルをフィルタリング
             if category_prefix:
-                titles = [item["title"] for item in result.data 
-                          if item["title"].startswith(category_prefix)]
+                recent_titles = [item["title"] for item in recent_result.data 
+                               if item["title"].startswith(category_prefix)]
             else:
-                # カテゴリ指定がない場合は全件
-                titles = [item["title"] for item in result.data]
+                recent_titles = [item["title"] for item in recent_result.data]
+            
+            # 評価=1のレシピタイトルをフィルタリング
+            if category_prefix:
+                disliked_titles = [item["title"] for item in disliked_result.data 
+                                if item["title"].startswith(category_prefix)]
+            else:
+                disliked_titles = [item["title"] for item in disliked_result.data]
+            
+            # 3. 重複を除去してマージ
+            all_titles = list(set(recent_titles + disliked_titles))
             
             self.logger.debug(f"✅ [CRUD] Retrieved recent recipe titles successfully")
-            self.logger.debug(f"📊 [CRUD] Retrieved {len(titles)} recent {category} recipe titles")
-            return {"success": True, "data": titles}
+            self.logger.debug(f"📊 [CRUD] Retrieved {len(recent_titles)} recent {category} recipe titles (past {days} days)")
+            self.logger.debug(f"📊 [CRUD] Retrieved {len(disliked_titles)} disliked {category} recipe titles (all time)")
+            self.logger.debug(f"📊 [CRUD] Total excluded {category} recipe titles: {len(all_titles)}")
+            return {"success": True, "data": all_titles}
             
         except Exception as e:
             self.logger.error(f"❌ [CRUD] Failed to get recent recipe titles: {e}")

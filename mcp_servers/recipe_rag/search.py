@@ -179,7 +179,7 @@ class RecipeSearchEngine:
                         is_excluded = False
                         for excluded in excluded_recipes:
                             # プレフィックスを除去して正規化
-                            normalized_excluded = excluded.replace("主菜: ", "").replace("副菜: ", "").replace("汁物: ", "").strip().lower()
+                            normalized_excluded = excluded.replace("主菜: ", "").replace("副菜: ", "").replace("汁物: ", "").replace("その他: ", "").strip().lower()
                             # 完全一致のみで判定（部分一致は使用しない）
                             if normalized_title == normalized_excluded:
                                 is_excluded = True
