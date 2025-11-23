@@ -61,8 +61,21 @@ class ResponseProcessor:
             else:
                 json_str = response.strip()
             
-            # JSON解析
-            result = json.loads(json_str)
+            # JSON解析（{{形式の正規化処理を追加）
+            try:
+                result = json.loads(json_str)
+            except json.JSONDecodeError:
+                # {{形式のレスポンスを正規化して再試行
+                normalized_json = json_str.replace("{{", "{").replace("}}", "}")
+                self.logger.warning(f"⚠️ [ResponseProcessor] JSON parse failed, trying normalized format ({{{{ -> {{)")
+                try:
+                    result = json.loads(normalized_json)
+                except json.JSONDecodeError as e:
+                    # 正規化後も失敗した場合は、元のエラーをログに記録
+                    self.logger.error(f"❌ [ResponseProcessor] JSON parsing failed even after normalization: {e}")
+                    self.logger.error(f"Response content: {response}")
+                    return []
+            
             tasks = result.get("tasks", [])
             
             self.logger.debug(f"✅ [ResponseProcessor] Parsed {len(tasks)} tasks from LLM response")
