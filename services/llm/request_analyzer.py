@@ -132,6 +132,10 @@ class RequestAnalyzer:
         if "献立" in request or "メニュー" in request or "menu" in request.lower():
             return "menu"
         
+        # 優先度5.5: 挨拶
+        if self._is_greeting(request):
+            return "greeting"
+        
         # 優先度6: その他
         return "other"
     
@@ -145,6 +149,13 @@ class RequestAnalyzer:
         if not sse_session_id:
             return False
         
+        # 「その他」カテゴリのリクエスト（「その他のレシピを教えて」など）は追加提案と判定しない
+        # 「その他のレシピをもう5件」などは追加提案として判定される
+        if "その他のレシピ" in request or "その他を" in request or "その他が" in request:
+            # 「もう」「もっと」などの追加提案キーワードが含まれている場合のみ追加提案と判定
+            additional_keywords = ["もう", "もっと", "追加", "あと", "さらに"]
+            return any(keyword in request for keyword in additional_keywords)
+        
         additional_keywords = ["もう", "他の", "もっと", "追加", "あと", "さらに"]
         return any(keyword in request for keyword in additional_keywords)
     
@@ -152,6 +163,53 @@ class RequestAnalyzer:
         """在庫操作の判定"""
         inventory_keywords = ["追加", "削除", "更新", "変えて", "変更", "確認", "在庫"]
         return any(keyword in request for keyword in inventory_keywords)
+    
+    def _is_greeting(self, request: str) -> bool:
+        """挨拶の判定"""
+        request_lower = request.lower()
+        
+        # まず、「その他」カテゴリのリクエストでないことを確認
+        # 「その他」カテゴリのリクエストを挨拶と誤判定しないようにする
+        if self._is_other_category_request(request):
+            return False
+        
+        # 一般的な挨拶キーワード
+        greeting_keywords = [
+            "こんにちは", "こんばんは", "おはよう", "おはようございます",
+            "お疲れ様", "お疲れさま", "おつかれさま",
+            "ありがとう", "ありがとうございます", "どうもありがとう",
+            "すみません", "ごめんなさい", "ごめん",
+            "やあ", "どうも", "よろしく", "よろしくお願いします",
+            "はじめまして", "初めまして",
+            "さようなら", "さよなら", "バイバイ",
+            "おやすみ", "おやすみなさい",
+            "hello", "hi", "hey", "thanks", "thank you", "sorry"
+        ]
+        
+        # 料理関連のキーワード（挨拶と判定しないようにする）
+        cooking_keywords = [
+            "レシピ", "料理", "献立", "メニュー", "主菜", "副菜", "汁物",
+            "在庫", "食材", "追加", "削除", "更新", "提案", "教えて",
+            "その他", "その他の", "麺", "パスタ", "丼", "チャーハン",
+            "カレー", "おにぎり", "オムライス", "うどん", "そば", "ラーメン"
+        ]
+        
+        # 料理関連のキーワードが含まれている場合は挨拶と判定しない
+        has_cooking_keyword = any(keyword in request for keyword in cooking_keywords)
+        if has_cooking_keyword:
+            return False
+        
+        # リクエストが短く、挨拶キーワードのみを含む場合
+        request_stripped = request.strip()
+        if len(request_stripped) <= 20:  # 短いリクエストの場合
+            if any(keyword in request for keyword in greeting_keywords):
+                return True
+        
+        # リクエストが挨拶のみで構成されている場合（料理関連キーワードがなく、挨拶キーワードを含む）
+        if any(keyword in request for keyword in greeting_keywords):
+            return True
+        
+        return False
     
     def _is_other_category_request(self, request: str) -> bool:
         """otherカテゴリのリクエストかどうかを判定"""

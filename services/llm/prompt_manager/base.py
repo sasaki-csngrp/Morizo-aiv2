@@ -133,13 +133,14 @@ class PromptManager:
                 sse_session_id,
                 "soup"
             ),
+            "greeting": lambda: self._build_default_prompt(),
         }
         
         builder = pattern_map.get(pattern)
         if builder:
             return builder()
         
-        # デフォルトプロンプト（挨拶等）
+        # デフォルトプロンプト（その他の未定義パターン）
         return self._build_default_prompt()
     
     def _build_default_prompt(self) -> str:
