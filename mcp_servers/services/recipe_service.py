@@ -169,47 +169,9 @@ class RecipeService:
                 )
                 web_search_results.append(web_search_result.to_dict())
                 
-                # RAG結果からURLを1件取得した場合、残りをPerplexityで検索
-                # num_resultsが1より大きい場合のみ追加検索を実行
-                if num_results > 1:
-                    remaining_count = num_results - 1
-                    
-                    # use_perplexityがTrueの場合、またはmenu_source="rag"でuse_perplexityがNoneの場合、Perplexityを使用
-                    should_use_perplexity = use_perplexity is True or (use_perplexity is None and menu_source == "rag")
-                    
-                    if should_use_perplexity:
-                        effective_source = "rag"  # menu_source="rag"として扱う
-                        client = get_search_client(menu_source=effective_source, use_perplexity=True)
-                    else:
-                        # 通常の判定ロジック
-                        effective_source = menu_source
-                        if menu_source == "mixed":
-                            total_count = len(recipe_titles)
-                            if index < total_count / 2:
-                                effective_source = "llm"
-                            else:
-                                effective_source = "rag"
-                        client = get_search_client(menu_source=effective_source, use_perplexity=use_perplexity)
-                    
-                    additional_recipes = await client.search_recipes(title, remaining_count)
-                    
-                    # レシピを優先順位でソート
-                    prioritized_recipes = prioritize_recipes(additional_recipes)
-                    # 結果をフィルタリング
-                    filtered_recipes = filter_recipe_results(prioritized_recipes)
-                    
-                    # WebSearchResultに変換して追加
-                    from config.constants import DEFAULT_RECIPE_IMAGE_URL
-                    for recipe in filtered_recipes:
-                        web_search_result = WebSearchResult(
-                            title=recipe.get("title", ""),
-                            url=recipe.get("url", ""),
-                            source=recipe.get("source", "web"),
-                            description=recipe.get("description"),
-                            site=recipe.get("site"),
-                            image_url=recipe.get("image_url") or DEFAULT_RECIPE_IMAGE_URL
-                        )
-                        web_search_results.append(web_search_result.to_dict())
+                # RAG結果からURLを取得した場合、追加のWeb検索は実行しない
+                # （段階提案ではRAG検索結果は既にURLを持っているため、Google Searchの課金を避ける）
+                self.logger.debug(f"✅ [RecipeService] Using RAG result URL for '{title}', skipping additional web search")
                 
                 return {
                     "success": True,
