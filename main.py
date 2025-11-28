@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from config.loggers import GenericLogger
 from config.logging import setup_logging, get_log_level
 from api.middleware import AuthenticationMiddleware, LoggingMiddleware
-from api.routes import chat_router, health_router, recipe_router, menu_router, inventory_router
+from api.routes import chat_router, health_router, recipe_router, menu_router, inventory_router, user_router
 from api.models import ErrorResponse
 
 # 環境変数の読み込み
@@ -109,6 +109,7 @@ app.include_router(health_router, prefix="", tags=["health"])
 app.include_router(recipe_router, prefix="/api", tags=["recipe"])
 app.include_router(menu_router, prefix="/api", tags=["menu"])
 app.include_router(inventory_router, prefix="/api", tags=["inventory"])
+app.include_router(user_router, prefix="/api", tags=["user"])
 
 
 # エラーハンドラー
@@ -125,7 +126,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             status_code=422,
             timestamp=datetime.now().isoformat(),
             error_type="validation_error"
-        ).dict()
+        ).model_dump()
     )
 
 
@@ -141,7 +142,7 @@ async def http_exception_handler(request, exc: HTTPException):
             status_code=exc.status_code,
             timestamp=datetime.now().isoformat(),
             error_type="http_error"
-        ).dict()
+        ).model_dump()
     )
 
 
@@ -157,7 +158,7 @@ async def general_exception_handler(request, exc: Exception):
             status_code=500,
             timestamp=datetime.now().isoformat(),
             error_type="internal_error"
-        ).dict()
+        ).model_dump()
     )
 
 
