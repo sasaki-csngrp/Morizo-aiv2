@@ -234,6 +234,33 @@ class TaskChainManager:
                 # SSE送信エラーはログに記録するが、処理は継続
                 self.logger.error(f"❌ [TaskChainManager] SSE complete send failed: {e}")
     
+    def send_error(self, error_message: str, error_details: Optional[Dict[str, Any]] = None) -> None:
+        """Send error message via SSE."""
+        if self.sse_session_id:
+            try:
+                # SSE送信者を取得してエラーを送信
+                from api.utils.sse_manager import get_sse_sender
+                sse_sender = get_sse_sender()
+                
+                import asyncio
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # 既にイベントループが実行中の場合は、タスクを作成
+                    asyncio.create_task(sse_sender.send_error(
+                        self.sse_session_id, 
+                        error_message
+                    ))
+                else:
+                    # イベントループが実行されていない場合は、同期的に実行
+                    loop.run_until_complete(sse_sender.send_error(
+                        self.sse_session_id, 
+                        error_message
+                    ))
+                self.logger.error(f"❌ [TaskChainManager] Sent error to SSE: {error_message}")
+            except Exception as e:
+                # SSE送信エラーはログに記録するが、処理は継続
+                self.logger.error(f"❌ [TaskChainManager] SSE error send failed: {e}")
+    
     def update_task_status(self, task_id: str, status: TaskStatus, result: Any = None, error: str = None) -> None:
         """Update task status and result."""
         for task in self.tasks:

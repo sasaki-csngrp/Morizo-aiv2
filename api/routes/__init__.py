@@ -11,6 +11,7 @@ from .recipe import router as recipe_router
 from .menu import router as menu_router
 from .inventory import router as inventory_router
 from .user import router as user_router
+from .subscription import router as subscription_router
 
 __all__ = [
     'chat_router',
@@ -18,5 +19,6 @@ __all__ = [
     'recipe_router',
     'menu_router',
     'inventory_router',
-    'user_router'
+    'user_router',
+    'subscription_router'
 ]

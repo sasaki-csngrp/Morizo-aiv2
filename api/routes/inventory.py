@@ -16,9 +16,12 @@ from ..utils.inventory_auth import get_authenticated_user_and_client
 from ..utils.file_validator import validate_image_file
 from ..utils.csv_validator import parse_and_validate_csv
 from ..utils.ocr_validator import validate_ocr_items
+from ..utils.subscription_service import SubscriptionService
+from ..models.responses import UsageLimitExceededResponse
 
 router = APIRouter()
 logger = GenericLogger("api", "inventory")
+subscription_service = SubscriptionService()
 
 
 @router.get("/inventory/list", response_model=InventoryListResponse)
@@ -245,14 +248,31 @@ async def ocr_receipt(
         # 1. 認証処理とクライアント作成
         user_id, client = await get_authenticated_user_and_client(http_request)
         
-        # 2. 画像ファイルの検証
+        # 2. 利用回数制限チェック（OCR機能）
+        is_allowed, limit_info = await subscription_service.check_usage_limit(user_id, "ocr", client)
+        if not is_allowed:
+            logger.warning(f"⚠️ [API] OCR usage limit exceeded for user: {user_id}")
+            raise HTTPException(
+                status_code=403,
+                detail=limit_info.get("error", "利用回数制限に達しました"),
+                headers={
+                    "X-Error-Code": limit_info.get("error_code", "USAGE_LIMIT_EXCEEDED"),
+                    "X-Feature": limit_info.get("feature", "ocr"),
+                    "X-Current-Count": str(limit_info.get("current_count", 0)),
+                    "X-Limit": str(limit_info.get("limit", 0)),
+                    "X-Plan": limit_info.get("plan", "free"),
+                    "X-Reset-At": limit_info.get("reset_at", "")
+                }
+            )
+        
+        # 3. 画像ファイルの検証
         image_bytes = await image.read()
         is_valid, error_message = validate_image_file(image_bytes, image.filename)
         
         if not is_valid:
             raise HTTPException(status_code=400, detail=error_message)
         
-        # 3. OCR解析
+        # 4. OCR解析
         from services.ocr_service import OCRService
         
         ocr_service = OCRService()
@@ -277,7 +297,13 @@ async def ocr_receipt(
                 "errors": ["レシートから在庫情報を抽出できませんでした"]
             }
         
-        # 4. 変換テーブル適用
+        # 5. 利用回数をインクリメント（OCR解析成功時）
+        increment_result = await subscription_service.increment_usage(user_id, "ocr", client)
+        if not increment_result.get("success"):
+            logger.warning(f"⚠️ [API] Failed to increment OCR usage: {increment_result.get('error')}")
+            # インクリメント失敗は警告のみ（処理は継続）
+        
+        # 6. 変換テーブル適用
         try:
             # 変換テーブルを適用
             items = await ocr_service.apply_item_mappings(items, client, user_id)
@@ -286,10 +312,10 @@ async def ocr_receipt(
             # 変換テーブル適用が失敗しても、既存の処理は継続
             logger.warning(f"⚠️ [API] Failed to apply item mappings: {e}")
         
-        # 5. データバリデーション
+        # 7. データバリデーション
         validated_items, validation_errors = validate_ocr_items(items)
         
-        # 6. 在庫登録（バリデーション通過したアイテムのみ）
+        # 8. 在庫登録（バリデーション通過したアイテムのみ）
         # 【コメントアウト】フロントエンドで選択したアイテムのみを登録するため、自動登録は無効化
         # registered_count = 0
         # if validated_items:

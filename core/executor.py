@@ -99,6 +99,7 @@ class TaskExecutor:
                 
                 # Process results
                 completed_count = 0
+                failed_tasks = []
                 for task, result in zip(executable_group, group_results):
                     if isinstance(result, AmbiguityDetected):
                         # Ambiguity detected - interrupt execution
@@ -114,6 +115,17 @@ class TaskExecutor:
                         task.status = TaskStatus.FAILED
                         task.error = str(result)
                         task_chain_manager.update_task_status(task.id, TaskStatus.FAILED, error=str(result))
+                        failed_tasks.append(task)
+                        
+                        # USAGE_LIMIT_EXCEEDEDエラーの場合は、即座にエラーを返す
+                        if "USAGE_LIMIT_EXCEEDED" in str(result):
+                            error_message = str(result).replace("USAGE_LIMIT_EXCEEDED: ", "")
+                            # SSEでエラーを送信
+                            task_chain_manager.send_error(error_message)
+                            return ExecutionResult(
+                                status="error",
+                                message=error_message
+                            )
                     else:
                         self.logger.debug(f"✅ [EXECUTOR] Task {task.id} completed successfully")
                         task.status = TaskStatus.COMPLETED
@@ -135,10 +147,11 @@ class TaskExecutor:
                         first_completed_task = completed_tasks[0]
                         task_chain_manager.send_progress(first_completed_task.id, "完了", f"{completed_count}個のタスクが完了しました")
                 
-                # Remove completed tasks from remaining
-                completed_ids = [task.id for task in executable_group]
-                remaining_tasks = [t for t in remaining_tasks if t.id not in completed_ids]
-                self.logger.debug(f"📊 [EXECUTOR] Completed {len(completed_ids)} tasks, {len(remaining_tasks)} remaining")
+                # Remove completed and failed tasks from remaining
+                # 失敗したタスクもremaining_tasksから削除する（Circular dependencyエラーを防ぐため）
+                processed_ids = [task.id for task in executable_group]
+                remaining_tasks = [t for t in remaining_tasks if t.id not in processed_ids]
+                self.logger.debug(f"📊 [EXECUTOR] Processed {len(processed_ids)} tasks ({completed_count} completed, {len(failed_tasks)} failed), {len(remaining_tasks)} remaining")
             
             self.logger.info("✅ [EXECUTOR] ReAct loop completed successfully")
             return ExecutionResult(status="success", outputs=all_results)
@@ -193,6 +206,45 @@ class TaskExecutor:
         """Execute a single task with data injection."""
         try:
             self.logger.info(f"🚀 [EXECUTOR] Starting task {task.id}: {task.service}.{task.method}")
+            
+            # 利用回数制限チェック（献立提案機能）
+            if task.service == "recipe_service" and task.method == "generate_menu_plan":
+                # 献立一括提案の制限チェック
+                from api.utils.subscription_service import SubscriptionService
+                from mcp_servers.utils import get_authenticated_client
+                
+                subscription_service = SubscriptionService()
+                client = get_authenticated_client(user_id, token)
+                
+                is_allowed, limit_info = await subscription_service.check_usage_limit(user_id, "menu_bulk", client)
+                if not is_allowed:
+                    self.logger.warning(f"⚠️ [EXECUTOR] Menu bulk usage limit exceeded for user: {user_id}")
+                    error_msg = limit_info.get("error", "利用回数制限に達しました")
+                    raise Exception(f"USAGE_LIMIT_EXCEEDED: {error_msg}")
+                
+                # 制限チェック通過後、実行前に利用回数をインクリメント
+                increment_result = await subscription_service.increment_usage(user_id, "menu_bulk", client)
+                if not increment_result.get("success"):
+                    self.logger.warning(f"⚠️ [EXECUTOR] Failed to increment menu_bulk usage: {increment_result.get('error')}")
+            
+            elif task.service == "recipe_service" and task.method == "generate_proposals":
+                # 段階的提案の制限チェック
+                from api.utils.subscription_service import SubscriptionService
+                from mcp_servers.utils import get_authenticated_client
+                
+                subscription_service = SubscriptionService()
+                client = get_authenticated_client(user_id, token)
+                
+                is_allowed, limit_info = await subscription_service.check_usage_limit(user_id, "menu_step", client)
+                if not is_allowed:
+                    self.logger.warning(f"⚠️ [EXECUTOR] Menu step usage limit exceeded for user: {user_id}")
+                    error_msg = limit_info.get("error", "利用回数制限に達しました")
+                    raise Exception(f"USAGE_LIMIT_EXCEEDED: {error_msg}")
+                
+                # 制限チェック通過後、実行前に利用回数をインクリメント
+                increment_result = await subscription_service.increment_usage(user_id, "menu_step", client)
+                if not increment_result.get("success"):
+                    self.logger.warning(f"⚠️ [EXECUTOR] Failed to increment menu_step usage: {increment_result.get('error')}")
             
             # Inject data from previous tasks
             injected_params = self._inject_data(task.parameters, previous_results)

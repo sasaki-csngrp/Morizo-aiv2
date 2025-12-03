@@ -171,3 +171,14 @@ class IngredientDeleteResponse(BaseModel):
     deleted_count: int = Field(..., description="削除件数（数量が0に設定された件数）")
     updated_count: int = Field(..., description="更新件数（数量が0以外に更新された件数）")
     failed_items: List[str] = Field(default_factory=list, description="失敗した食材リスト")
+
+
+class UsageLimitExceededResponse(BaseModel):
+    """利用回数制限超過エラーレスポンス"""
+    detail: str = Field(..., description="エラー詳細")
+    error_code: str = Field(..., description="エラーコード")
+    feature: str = Field(..., description="機能タイプ（menu_bulk, menu_step, ocr）")
+    current_count: int = Field(..., description="現在の利用回数")
+    limit: int = Field(..., description="制限回数")
+    plan: str = Field(..., description="現在のプラン（free, pro, ultimate）")
+    reset_at: str = Field(..., description="リセット時刻（ISO形式）")

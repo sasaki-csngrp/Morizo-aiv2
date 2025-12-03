@@ -212,11 +212,25 @@ class TrueReactAgent:
             else:
                 error_msg = f"タスクの実行中にエラーが発生しました: {execution_result.message}"
                 self.logger.error(f"❌ [AGENT] Execution failed: {execution_result.message}")
+                
+                # SSEでエラーを送信
+                if task_chain_manager:
+                    task_chain_manager.send_error(error_msg)
+                
                 return {"response": error_msg}
                 
         except Exception as e:
             self.logger.error(f"❌ [AGENT] Request processing failed: {str(e)}")
-            return {"response": f"リクエストの処理中にエラーが発生しました: {str(e)}"}
+            error_msg = f"リクエストの処理中にエラーが発生しました: {str(e)}"
+            
+            # SSEでエラーを送信（task_chain_managerが利用可能な場合）
+            try:
+                if task_chain_manager:
+                    task_chain_manager.send_error(error_msg)
+            except Exception as sse_error:
+                self.logger.warning(f"⚠️ [AGENT] Failed to send error via SSE: {sse_error}")
+            
+            return {"response": error_msg}
     
     async def handle_user_selection_required(self, candidates: list, context: dict, task_chain_manager: TaskChainManager) -> dict:
         """Handle user selection required (delegates to SelectionHandler)"""
