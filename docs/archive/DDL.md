@@ -53,6 +53,33 @@ CREATE TABLE ocr_item_mappings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(user_id, original_name)  -- 同一ユーザー内で元の名前は一意
 );
+
+-- ユーザーサブスクリプションテーブル（収益化機能用）
+CREATE TABLE user_subscriptions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+    plan_type VARCHAR(20) NOT NULL DEFAULT 'free' CHECK (plan_type IN ('free', 'pro', 'ultimate')),
+    subscription_status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (subscription_status IN ('active', 'expired', 'cancelled')),
+    subscription_id VARCHAR(255), -- ストアのサブスクリプションID
+    platform VARCHAR(10) CHECK (platform IN ('ios', 'android')), -- 'ios' or 'android'
+    purchased_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 利用回数制限テーブル（収益化機能用）
+CREATE TABLE usage_limits (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    date DATE NOT NULL, -- 日本時間の日付（YYYY-MM-DD形式）
+    menu_bulk_count INTEGER NOT NULL DEFAULT 0, -- 献立一括提案の利用回数
+    menu_step_count INTEGER NOT NULL DEFAULT 0, -- 段階的提案の利用回数
+    ocr_count INTEGER NOT NULL DEFAULT 0, -- OCR読み取りの利用回数
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, date) -- 1ユーザー1日1レコード
+);
 ```
 
 ### 3. インデックスと制約
@@ -67,6 +94,11 @@ CREATE INDEX idx_recipe_historys_title ON recipe_historys(title);
 CREATE INDEX idx_ocr_item_mappings_user_id ON ocr_item_mappings(user_id);
 CREATE INDEX idx_ocr_item_mappings_original_name ON ocr_item_mappings(original_name);
 CREATE INDEX idx_ocr_item_mappings_normalized_name ON ocr_item_mappings(normalized_name);
+CREATE INDEX idx_user_subscriptions_user_id ON user_subscriptions(user_id);
+CREATE INDEX idx_user_subscriptions_status ON user_subscriptions(subscription_status);
+CREATE INDEX idx_usage_limits_user_id ON usage_limits(user_id);
+CREATE INDEX idx_usage_limits_date ON usage_limits(date);
+CREATE INDEX idx_usage_limits_user_date ON usage_limits(user_id, date);
 
 -- 更新日時自動更新のトリガー
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -88,6 +120,12 @@ CREATE TRIGGER update_user_settings_updated_at BEFORE UPDATE ON user_settings
 
 CREATE TRIGGER update_ocr_item_mappings_updated_at BEFORE UPDATE ON ocr_item_mappings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_user_subscriptions_updated_at BEFORE UPDATE ON user_subscriptions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_usage_limits_updated_at BEFORE UPDATE ON usage_limits
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
 ### 4. Row Level Security (RLS) 設定
@@ -98,6 +136,8 @@ ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recipe_historys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ocr_item_mappings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usage_limits ENABLE ROW LEVEL SECURITY;
 
 -- ポリシー作成（ユーザーは自分のデータのみアクセス可能）
 CREATE POLICY "Users can view own inventory" ON inventory
@@ -150,6 +190,31 @@ CREATE POLICY "Users can update own ocr_item_mappings" ON ocr_item_mappings
 
 CREATE POLICY "Users can delete own ocr_item_mappings" ON ocr_item_mappings
     FOR DELETE USING (auth.uid() = user_id);
+
+-- user_subscriptionsテーブル用ポリシー
+CREATE POLICY "Users can view own subscription" ON user_subscriptions
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own subscription" ON user_subscriptions
+    FOR UPDATE USING (auth.uid() = user_id);
+
+-- サービスロール用ポリシー（バックエンドから更新可能にする）
+CREATE POLICY "Service role can manage subscriptions" ON user_subscriptions
+    FOR ALL USING (auth.role() = 'service_role');
+
+-- usage_limitsテーブル用ポリシー
+CREATE POLICY "Users can view own usage" ON usage_limits
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own usage" ON usage_limits
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own usage" ON usage_limits
+    FOR UPDATE USING (auth.uid() = user_id);
+
+-- サービスロール用ポリシー
+CREATE POLICY "Service role can manage usage" ON usage_limits
+    FOR ALL USING (auth.role() = 'service_role');
 ```
 
 ## 実行手順
@@ -186,6 +251,23 @@ CREATE POLICY "Users can delete own ocr_item_mappings" ON ocr_item_mappings
 - **normalized_name**: 正規化後の食材名（例: "食パン"、"豆腐"）
 - **user_id**: ユーザーID（ユーザーごとに変換テーブルを管理）
 - **UNIQUE(user_id, original_name)**: 同一ユーザー内で元の名前は一意（同じ元の名前に対して複数の変換を登録できない）
+
+### user_subscriptions テーブル（収益化機能 - サブスクリプション管理）
+- **user_id**: ユーザーID（UNIQUE制約で1ユーザー1プラン）
+- **plan_type**: プランタイプ（'free', 'pro', 'ultimate'）
+- **subscription_status**: サブスクリプション状態（'active', 'expired', 'cancelled'）
+- **subscription_id**: ストアのサブスクリプションID（Google Play / App Store）
+- **platform**: プラットフォーム（'ios', 'android'）
+- **purchased_at**: 購入日時
+- **expires_at**: 有効期限
+
+### usage_limits テーブル（収益化機能 - 利用回数制限）
+- **user_id**: ユーザーID
+- **date**: 日本時間の日付（YYYY-MM-DD形式）
+- **menu_bulk_count**: 献立一括提案の利用回数
+- **menu_step_count**: 段階的提案の利用回数
+- **ocr_count**: OCR読み取りの利用回数
+- **UNIQUE(user_id, date)**: 1ユーザー1日1レコード
 
 #### MVP段階での想定設定例
 ```json
