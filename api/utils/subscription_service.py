@@ -34,6 +34,14 @@ PLAN_LIMITS = {
     }
 }
 
+# 商品IDからプランタイプへのマッピング
+PRODUCT_ID_TO_PLAN = {
+    'morizo_pro_monthly': 'pro',
+    'morizo_pro_yearly': 'pro',
+    'morizo_ultimate_monthly': 'ultimate',
+    'morizo_ultimate_yearly': 'ultimate'
+}
+
 
 def get_jst_date() -> str:
     """

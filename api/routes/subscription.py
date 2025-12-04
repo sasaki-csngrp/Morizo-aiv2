@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 from typing import Dict, Any, Optional
 from config.loggers import GenericLogger
 from ..utils.inventory_auth import get_authenticated_user_and_client
-from ..utils.subscription_service import SubscriptionService, get_service_role_client
+from ..utils.subscription_service import SubscriptionService, get_service_role_client, PRODUCT_ID_TO_PLAN
 from ..models.responses import UsageLimitExceededResponse
 from pydantic import BaseModel, Field
 
@@ -20,7 +20,11 @@ subscription_service = SubscriptionService()
 
 class SubscriptionUpdateRequest(BaseModel):
     """サブスクリプション更新リクエスト"""
-    plan_type: str = Field(..., description="プランタイプ（free, pro, ultimate）")
+    plan_type: Optional[str] = Field(None, description="プランタイプ（free, pro, ultimate）。product_idが指定されている場合は省略可能")
+    product_id: Optional[str] = Field(None, description="商品ID（morizo_pro_monthly等）。plan_typeが指定されていない場合は必須")
+    purchase_token: Optional[str] = Field(None, description="購入トークン（Android用）")
+    receipt_data: Optional[str] = Field(None, description="レシートデータ（iOS用）")
+    package_name: Optional[str] = Field(None, description="パッケージ名（Android用）")
     subscription_id: Optional[str] = Field(None, description="ストアのサブスクリプションID")
     platform: Optional[str] = Field(None, description="プラットフォーム（ios, android）")
     subscription_status: str = Field(default="active", description="サブスクリプション状態（active, expired, cancelled）")
@@ -90,14 +94,32 @@ async def update_subscription(
     """
     try:
         logger.info("🔍 [API] Update subscription request received")
-        logger.debug(f"🔍 [API] Plan type: {request.plan_type}, Platform: {request.platform}")
+        logger.debug(f"🔍 [API] Plan type: {request.plan_type}, Product ID: {request.product_id}, Platform: {request.platform}")
         
         # 認証処理とクライアント作成
         user_id, _ = await get_authenticated_user_and_client(http_request)
         
+        # プランタイプの決定（product_idから導出、または直接指定）
+        plan_type = request.plan_type
+        if not plan_type:
+            # plan_typeが指定されていない場合は、product_idから導出
+            if not request.product_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="plan_typeまたはproduct_idのいずれかが必須です"
+                )
+            
+            plan_type = PRODUCT_ID_TO_PLAN.get(request.product_id)
+            if not plan_type:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"無効な商品IDです: {request.product_id}"
+                )
+            logger.debug(f"🔍 [API] Plan type derived from product_id: {plan_type}")
+        
         # プランタイプのバリデーション
         valid_plan_types = ['free', 'pro', 'ultimate']
-        if request.plan_type not in valid_plan_types:
+        if plan_type not in valid_plan_types:
             raise HTTPException(
                 status_code=400,
                 detail=f"無効なプランタイプです。有効な値: {', '.join(valid_plan_types)}"
@@ -119,7 +141,7 @@ async def update_subscription(
         
         update_data = {
             "user_id": user_id,
-            "plan_type": request.plan_type,
+            "plan_type": plan_type,
             "subscription_status": request.subscription_status,
             "updated_at": datetime.now(ZoneInfo('Asia/Tokyo')).isoformat()
         }
@@ -140,7 +162,7 @@ async def update_subscription(
         
         result = client.table("user_subscriptions").upsert(update_data).execute()
         
-        logger.info(f"✅ [API] Subscription updated: user={user_id}, plan={request.plan_type}")
+        logger.info(f"✅ [API] Subscription updated: user={user_id}, plan={plan_type}")
         
         return {
             "success": True,
