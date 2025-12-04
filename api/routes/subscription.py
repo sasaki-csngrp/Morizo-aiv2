@@ -160,7 +160,11 @@ async def update_subscription(
             from datetime import timedelta
             update_data["expires_at"] = (jst_now + timedelta(days=30)).isoformat()
         
-        result = client.table("user_subscriptions").upsert(update_data).execute()
+        # user_idにUNIQUE制約があるため、on_conflictでuser_idを指定
+        result = client.table("user_subscriptions").upsert(
+            update_data,
+            on_conflict="user_id"
+        ).execute()
         
         logger.info(f"✅ [API] Subscription updated: user={user_id}, plan={plan_type}")
         
@@ -172,8 +176,25 @@ async def update_subscription(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in update_subscription: {e}")
-        raise HTTPException(status_code=500, detail="プラン情報の更新でエラーが発生しました")
+        error_msg = str(e)
+        # 一意制約違反エラーの場合、より詳細なエラーメッセージを記録
+        if "duplicate key" in error_msg.lower() or "unique constraint" in error_msg.lower():
+            logger.error(f"❌ [API] Duplicate key error in update_subscription: {e}")
+            logger.debug(f"🔍 [API] Attempting to update existing subscription for user: {user_id}")
+            # 既存レコードを更新する処理にフォールバック
+            try:
+                result = client.table("user_subscriptions").update(update_data).eq("user_id", user_id).execute()
+                logger.info(f"✅ [API] Subscription updated via fallback: user={user_id}, plan={plan_type}")
+                return {
+                    "success": True,
+                    "message": "プラン情報を更新しました"
+                }
+            except Exception as fallback_error:
+                logger.error(f"❌ [API] Fallback update also failed: {fallback_error}")
+                raise HTTPException(status_code=500, detail="プラン情報の更新でエラーが発生しました")
+        else:
+            logger.error(f"❌ [API] Unexpected error in update_subscription: {e}")
+            raise HTTPException(status_code=500, detail="プラン情報の更新でエラーが発生しました")
 
 
 @router.get("/subscription/usage")
