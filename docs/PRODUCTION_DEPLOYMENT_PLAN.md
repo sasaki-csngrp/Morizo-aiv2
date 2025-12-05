@@ -87,6 +87,59 @@ GCPのファイアウォールルールで以下を設定：
 
 **作業ユーザー**: `sasaki`ユーザーで作業を開始してください。
 
+### 2.0 実行ユーザー権限の分離（セキュリティ強化）
+
+**重要**: セキュリティ強化のため、アプリケーション実行専用の低権限ユーザー（`appuser`）を作成し、アプリケーションをこのユーザーで実行します。これにより、万が一アプリケーションが侵害されても、システム全体への影響を最小限に抑えることができます。
+
+#### 2.0.1 低権限ユーザーの作成
+
+```bash
+# アプリケーション実行用の低権限ユーザーを作成（ホームディレクトリなし、ログインシェルなし）
+sudo useradd -r -s /bin/false appuser
+
+# ユーザーが作成されたことを確認
+id appuser
+```
+
+**注意**:
+- `-r`オプション: システムユーザーとして作成（UID < 1000）
+- `-s /bin/false`オプション: ログインシェルを無効化（セキュリティ向上）
+
+#### 2.0.2 アプリケーションディレクトリの所有権設定
+
+**重要**: この手順は、セクション3.1と4.1でリポジトリをクローンした**後**に実行してください。
+
+```bash
+# /opt/morizoディレクトリの所有権をappuserに変更（sudo権限が必要）
+sudo chown -R appuser:appuser /opt/morizo
+
+# 所有権が正しく設定されたことを確認
+ls -ld /opt/morizo
+ls -la /opt/morizo
+```
+
+#### 2.0.3 SSL証明書の読み取り権限設定
+
+Morizo-webがSSL証明書を読み取れるように、証明書ディレクトリに読み取り権限を設定します。
+
+```bash
+# SSL証明書ディレクトリの読み取り権限を設定（sudo権限が必要）
+# 注意: セキュリティ上の理由から、最小限の権限で設定してください
+sudo chmod 755 /etc/letsencrypt/live/
+sudo chmod 755 /etc/letsencrypt/live/morizo.csngrp.co.jp/
+sudo chmod 644 /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem
+sudo chmod 600 /etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem
+
+# appuserが証明書ファイルを読み取れることを確認
+sudo -u appuser cat /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem > /dev/null && echo "証明書読み取りOK" || echo "証明書読み取りNG"
+```
+
+**注意**:
+- 証明書ファイルはroot所有のままですが、適切なパーミッション設定により`appuser`から読み取ることができます
+- より厳格なセキュリティが必要な場合は、`appuser`を`ssl-cert`グループに追加する方法もあります
+
+---
+
 ### 2.1 システムパッケージのインストール
 
 ```bash
@@ -220,11 +273,10 @@ date
 # デプロイ用ディレクトリの作成（sudo権限が必要）
 sudo mkdir -p /opt/morizo
 
-# ディレクトリの所有権をsasakiユーザーに変更
-sudo chown sasaki:sasaki /opt/morizo
-
 # ディレクトリに移動
 cd /opt/morizo
+
+# 注意: リポジトリをクローンした後、セクション2.0.2で`/opt/morizo`の所有権を`appuser`に変更してください
 
 # 現在のユーザーを確認（sasakiであることを確認）
 whoami
@@ -236,6 +288,8 @@ cd Morizo-aiv2
 # ディレクトリの所有権を確認
 ls -la
 ```
+
+**注意**: リポジトリをクローンした後、セクション2.0.2で`/opt/morizo`の所有権を`appuser`に変更してください。
 
 ### 3.2 Python仮想環境の作成と依存関係のインストール
 
@@ -262,7 +316,7 @@ pip install -r requirements_heavy.txt
 # または、一括インストール（メモリに余裕がある場合）
 # pip install -r requirements.txt
 
-# 仮想環境の所有権を確認（sasakiユーザー所有であることを確認）
+# 仮想環境の所有権を確認（appuserユーザー所有であることを確認）
 ls -la venv/
 ```
 
@@ -323,7 +377,7 @@ mkdir -p recipe_vector_db_main
 mkdir -p recipe_vector_db_sub
 mkdir -p recipe_vector_db_soup
 
-# ディレクトリの所有権を確認（sasakiユーザー所有であることを確認）
+# ディレクトリの所有権を確認（appuserユーザー所有であることを確認）
 ls -ld recipe_vector_db_*
 
 # 既存のベクトルDBデータがある場合、それらをコピー
@@ -337,7 +391,7 @@ ls -ld recipe_vector_db_*
 sudo vi /etc/systemd/system/morizo-aiv2.service
 ```
 
-**重要**: systemdサービスは`sasaki`ユーザーで実行されるため、`/opt/morizo/Morizo-aiv2`ディレクトリとその配下のファイルは`sasaki`ユーザーが読み書きできる必要があります。
+**重要**: systemdサービスは`appuser`ユーザーで実行されるため、`/opt/morizo/Morizo-aiv2`ディレクトリとその配下のファイルは`appuser`ユーザーが読み書きできる必要があります（セクション2.0.2参照）。
 
 以下を記述：
 
@@ -348,12 +402,16 @@ After=network.target
 
 [Service]
 Type=simple
-User=sasaki
+User=appuser
+Group=appuser
 WorkingDirectory=/opt/morizo/Morizo-aiv2
 Environment="PATH=/opt/morizo/Morizo-aiv2/venv/bin"
 ExecStart=/opt/morizo/Morizo-aiv2/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=10
+
+# セキュリティ設定
+PrivateTmp=true
 
 # ログ設定
 StandardOutput=journal
@@ -363,6 +421,11 @@ SyslogIdentifier=morizo-aiv2
 [Install]
 WantedBy=multi-user.target
 ```
+
+**セキュリティ設定の説明**:
+- `User=appuser`: アプリケーションを低権限ユーザーで実行
+- `Group=appuser`: アプリケーションを低権限グループで実行
+- `PrivateTmp=true`: サービス専用の`/tmp`ディレクトリを使用し、他のプロセスから隔離（セキュリティ向上）
 
 ### 3.6 systemdサービスの有効化と起動
 
@@ -382,10 +445,11 @@ sudo systemctl status morizo-aiv2
 # ログの確認（sudo権限が必要）
 sudo journalctl -u morizo-aiv2 -f
 
-# プロセスの所有者を確認（sasakiユーザーで実行されていることを確認）
+# プロセスの所有者を確認（appuserユーザーで実行されていることを確認）
 ps aux | grep uvicorn | grep -v grep
 # または
 ps -ef | grep uvicorn | grep -v grep
+# 出力例: appuser 12345 ... uvicorn main:app ...
 ```
 
 ---
@@ -407,9 +471,11 @@ whoami
 git clone <Morizo-webのリポジトリURL> Morizo-web
 cd Morizo-web
 
-# ディレクトリの所有権を確認（sasakiユーザー所有であることを確認）
+# ディレクトリの所有権を確認（appuserユーザー所有であることを確認）
 ls -la
 ```
+
+**注意**: リポジトリをクローンした後、セクション2.0.2で`/opt/morizo`の所有権を`appuser`に変更してください。
 
 ### 4.2 依存関係のインストール
 
@@ -417,7 +483,7 @@ ls -la
 # npmパッケージのインストール（通常ユーザーで実行）
 npm install
 
-# node_modulesの所有権を確認（sasakiユーザー所有であることを確認）
+# node_modulesの所有権を確認（appuserユーザー所有であることを確認）
 ls -ld node_modules
 ```
 
@@ -506,20 +572,8 @@ app.prepare().then(() => {
 ```
 
 **重要**: 
-- `server.js`ファイルを作成後、`sasaki`ユーザーの所有権であることを確認してください。
-- SSL証明書ファイル（`/etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem`と`fullchain.pem`）は、`sasaki`ユーザーが読み取れる必要があります。必要に応じて証明書ディレクトリの読み取り権限を設定してください：
-
-```bash
-# SSL証明書の読み取り権限を確認
-sudo ls -la /etc/letsencrypt/live/morizo.csngrp.co.jp/
-
-# 証明書ディレクトリに読み取り権限がない場合、以下のコマンドで設定（sudo権限が必要）
-# 注意: セキュリティ上の理由から、最小限の権限で設定してください
-sudo chmod 755 /etc/letsencrypt/live/
-sudo chmod 755 /etc/letsencrypt/live/morizo.csngrp.co.jp/
-sudo chmod 644 /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem
-sudo chmod 600 /etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem
-```
+- `server.js`ファイルを作成後、`appuser`ユーザーの所有権であることを確認してください（セクション2.0.2で`/opt/morizo`の所有権を`appuser`に変更済みの場合、自動的に`appuser`所有になります）。
+- SSL証明書ファイル（`/etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem`と`fullchain.pem`）は、`appuser`ユーザーが読み取れる必要があります。セクション2.0.3で証明書ディレクトリの読み取り権限を設定してください。
 
 `package.json`にstartスクリプトを追加：
 
@@ -538,7 +592,7 @@ sudo chmod 600 /etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem
 sudo vi /etc/systemd/system/morizo-web.service
 ```
 
-**重要**: systemdサービスは`sasaki`ユーザーで実行されるため、`/opt/morizo/Morizo-web`ディレクトリとその配下のファイル、SSL証明書ファイルは`sasaki`ユーザーが読み書きできる必要があります。
+**重要**: systemdサービスは`appuser`ユーザーで実行されるため、`/opt/morizo/Morizo-web`ディレクトリとその配下のファイル、SSL証明書ファイルは`appuser`ユーザーが読み書きできる必要があります（セクション2.0.2、2.0.3参照）。
 
 以下を記述：
 
@@ -549,12 +603,16 @@ After=network.target
 
 [Service]
 Type=simple
-User=sasaki
+User=appuser
+Group=appuser
 WorkingDirectory=/opt/morizo/Morizo-web
 Environment="NODE_ENV=production"
 ExecStart=/usr/bin/npm start
 Restart=always
 RestartSec=10
+
+# セキュリティ設定
+PrivateTmp=true
 
 # ログ設定
 StandardOutput=journal
@@ -564,6 +622,11 @@ SyslogIdentifier=morizo-web
 [Install]
 WantedBy=multi-user.target
 ```
+
+**セキュリティ設定の説明**:
+- `User=appuser`: アプリケーションを低権限ユーザーで実行
+- `Group=appuser`: アプリケーションを低権限グループで実行
+- `PrivateTmp=true`: サービス専用の`/tmp`ディレクトリを使用し、他のプロセスから隔離（セキュリティ向上）
 
 ### 4.7 systemdサービスの有効化と起動
 
@@ -583,8 +646,9 @@ sudo systemctl status morizo-web
 # ログの確認（sudo権限が必要）
 sudo journalctl -u morizo-web -f
 
-# プロセスの所有者を確認（sasakiユーザーで実行されていることを確認）
+# プロセスの所有者を確認（appuserユーザーで実行されていることを確認）
 ps aux | grep morizo-web
+# 出力例: appuser 12345 ... node server.js ...
 ```
 
 ---
@@ -600,8 +664,9 @@ sudo systemctl status morizo-aiv2
 # ローカルでヘルスチェック（通常ユーザーで実行）
 curl http://localhost:8000/health
 
-# プロセスの所有者を確認（sasakiユーザーで実行）
+# プロセスの所有者を確認（appuserユーザーで実行されていることを確認）
 ps aux | grep uvicorn
+# 出力例: appuser 12345 ... uvicorn main:app ...
 
 # ログの確認
 # systemdログ（sudo権限が必要）
@@ -616,8 +681,9 @@ tail -f /opt/morizo/Morizo-aiv2/morizo_ai.log
 # サービスが起動しているか確認（sudo権限が必要）
 sudo systemctl status morizo-web
 
-# プロセスの所有者を確認（ubuntuユーザーで実行）
+# プロセスの所有者を確認（appuserユーザーで実行されていることを確認）
 ps aux | grep node
+# 出力例: appuser 12345 ... node server.js ...
 
 # ブラウザでアクセス
 # https://morizo.csngrp.co.jp
@@ -642,21 +708,18 @@ sudo journalctl -u morizo-web -n 50
 # エラーログを確認（sudo権限が必要）
 sudo journalctl -u morizo-aiv2 -n 100
 
-# ファイルの所有権を確認（sasakiユーザー所有であることを確認）
+# ファイルの所有権を確認（appuserユーザー所有であることを確認）
 cd /opt/morizo/Morizo-aiv2
 ls -la
 
-# 手動で起動してエラーを確認（sasakiユーザーで実行）
-cd /opt/morizo/Morizo-aiv2
-source venv/bin/activate
-python main.py
+# 手動で起動してエラーを確認（appuserユーザーで実行）
+sudo -u appuser bash -c "cd /opt/morizo/Morizo-aiv2 && source venv/bin/activate && python main.py"
 
-# 環境変数が正しく設定されているか確認（sasakiユーザーで実行）
-source venv/bin/activate
-python -c "import os; from dotenv import load_dotenv; load_dotenv(); print(os.getenv('SUPABASE_URL'))"
+# 環境変数が正しく設定されているか確認（appuserユーザーで実行）
+sudo -u appuser bash -c "cd /opt/morizo/Morizo-aiv2 && source venv/bin/activate && python -c \"import os; from dotenv import load_dotenv; load_dotenv(); print(os.getenv('SUPABASE_URL'))\""
 
 # ファイルの所有権が間違っている場合の修正
-# sudo chown -R sasaki:sasaki /opt/morizo/Morizo-aiv2
+# sudo chown -R appuser:appuser /opt/morizo/Morizo-aiv2
 ```
 
 ### 6.2 Morizo-webが起動しない
@@ -665,22 +728,24 @@ python -c "import os; from dotenv import load_dotenv; load_dotenv(); print(os.ge
 # エラーログを確認（sudo権限が必要）
 sudo journalctl -u morizo-web -n 100
 
-# ファイルの所有権を確認（sasakiユーザー所有であることを確認）
+# ファイルの所有権を確認（appuserユーザー所有であることを確認）
 cd /opt/morizo/Morizo-web
 ls -la
 
 # SSL証明書ファイルの読み取り権限を確認
 sudo ls -la /etc/letsencrypt/live/morizo.csngrp.co.jp/
 
-# 手動で起動してエラーを確認（sasakiユーザーで実行）
-cd /opt/morizo/Morizo-web
-npm start
+# appuserが証明書ファイルを読み取れることを確認
+sudo -u appuser cat /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem > /dev/null && echo "証明書読み取りOK" || echo "証明書読み取りNG"
 
-# ビルドエラーの確認（sasakiユーザーで実行）
-npm run build
+# 手動で起動してエラーを確認（appuserユーザーで実行）
+sudo -u appuser bash -c "cd /opt/morizo/Morizo-web && npm start"
+
+# ビルドエラーの確認（appuserユーザーで実行）
+sudo -u appuser bash -c "cd /opt/morizo/Morizo-web && npm run build"
 
 # ファイルの所有権が間違っている場合の修正
-# sudo chown -R sasaki:sasaki /opt/morizo/Morizo-web
+# sudo chown -R appuser:appuser /opt/morizo/Morizo-web
 ```
 
 ### 6.3 SSL証明書の更新
@@ -872,7 +937,7 @@ sudo vi /etc/logrotate.d/morizo-web
     delaycompress
     notifempty
     missingok
-    create 0644 sasaki sasaki
+    create 0644 appuser appuser
     postrotate
         systemctl reload morizo-web > /dev/null 2>&1 || true
     endscript
@@ -884,7 +949,7 @@ sudo vi /etc/logrotate.d/morizo-web
 - **保持期間**: 30日間
 - **圧縮**: 有効（delaycompress）
 - **対象ファイル**: `/opt/morizo/Morizo-web/logs/morizo_web*.log`
-- **所有者**: `sasaki`ユーザー
+- **所有者**: `appuser`ユーザー
 
 **アプリケーションレベルの設定**:
 
@@ -1020,8 +1085,11 @@ ls -la
 - [ ] システムパッケージが最新の状態である
 - [ ] ログファイルに機密情報が出力されていない
 - [ ] ベクトルDBディレクトリのアクセス権限が適切に設定されている
-- [ ] `/opt/morizo`配下のファイル・ディレクトリが`sasaki`ユーザー所有であることを確認
-- [ ] systemdサービスが`sasaki`ユーザーで実行されていることを確認
+- [ ] アプリケーションが`appuser`ユーザーで実行されていることを確認
+- [ ] systemdサービスファイルに`User=appuser`、`Group=appuser`が設定されていることを確認
+- [ ] systemdサービスファイルに`PrivateTmp=true`が設定されていることを確認
+- [ ] `/opt/morizo`配下のファイル・ディレクトリが`appuser`ユーザー所有であることを確認
+- [ ] SSL証明書ファイルが`appuser`ユーザーから読み取れることを確認
 - [ ] rootユーザーでの作業を行っていないことを確認
 - [ ] SSL証明書ファイルの読み取り権限が適切に設定されている
 - [ ] システムのタイムゾーンがJST（Asia/Tokyo）に設定されている（セクション2.6参照）
