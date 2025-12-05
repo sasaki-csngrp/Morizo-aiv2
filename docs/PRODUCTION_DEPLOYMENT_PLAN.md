@@ -105,39 +105,6 @@ id appuser
 - `-r`オプション: システムユーザーとして作成（UID < 1000）
 - `-s /bin/false`オプション: ログインシェルを無効化（セキュリティ向上）
 
-#### 2.0.2 アプリケーションディレクトリの所有権設定
-
-**重要**: この手順は、セクション3.1と4.1でリポジトリをクローンした**後**に実行してください。
-
-```bash
-# /opt/morizoディレクトリの所有権をappuserに変更（sudo権限が必要）
-sudo chown -R appuser:appuser /opt/morizo
-
-# 所有権が正しく設定されたことを確認
-ls -ld /opt/morizo
-ls -la /opt/morizo
-```
-
-#### 2.0.3 SSL証明書の読み取り権限設定
-
-Morizo-webがSSL証明書を読み取れるように、証明書ディレクトリに読み取り権限を設定します。
-
-```bash
-# SSL証明書ディレクトリの読み取り権限を設定（sudo権限が必要）
-# 注意: セキュリティ上の理由から、最小限の権限で設定してください
-sudo chmod 755 /etc/letsencrypt/live/
-sudo chmod 755 /etc/letsencrypt/live/morizo.csngrp.co.jp/
-sudo chmod 644 /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem
-sudo chmod 600 /etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem
-
-# appuserが証明書ファイルを読み取れることを確認
-sudo -u appuser cat /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem > /dev/null && echo "証明書読み取りOK" || echo "証明書読み取りNG"
-```
-
-**注意**:
-- 証明書ファイルはroot所有のままですが、適切なパーミッション設定により`appuser`から読み取ることができます
-- より厳格なセキュリティが必要な場合は、`appuser`を`ssl-cert`グループに追加する方法もあります
-
 ---
 
 ### 2.1 システムパッケージのインストール
@@ -205,7 +172,92 @@ sudo ls -la /etc/letsencrypt/live/morizo.csngrp.co.jp/
 
 **注意**: 
 - SSL証明書の取得には、ドメインがGCP VMのパブリックIPに正しく向いている必要があります。
-- 証明書ファイルはroot所有ですが、Next.jsアプリケーションから読み取れるように、適切な権限設定が必要です（後述）。
+- 証明書ファイルはroot所有ですが、Next.jsアプリケーションから読み取れるように、適切な権限設定が必要です（セクション2.4.1参照）。
+
+### 2.4.1 SSL証明書の読み取り権限設定（appuser用）
+
+**作業ユーザー**: `sasaki`ユーザーで作業します。
+
+**重要**: この手順は、セクション2.4でSSL証明書を取得した**後**に実行してください。
+
+Morizo-webがSSL証明書を読み取れるように、`ssl-cert`グループを作成し、`appuser`を追加します。これが最も確実で安全な方法です。
+
+```bash
+# ssl-certグループが存在するか確認
+getent group ssl-cert
+
+# グループが存在しない場合は作成（sudo権限が必要）
+if ! getent group ssl-cert > /dev/null 2>&1; then
+  sudo groupadd ssl-cert
+  echo "ssl-certグループを作成しました"
+else
+  echo "ssl-certグループは既に存在します"
+fi
+
+# appuserをssl-certグループに追加（sudo権限が必要）
+sudo usermod -aG ssl-cert appuser
+
+# グループの追加を確認
+groups appuser
+# 出力に "ssl-cert" が含まれていることを確認
+
+# 証明書ディレクトリのグループ所有権をssl-certに変更（sudo権限が必要）
+# 注意: Let's Encryptはシンボリックリンクを使用するため、親ディレクトリと実ファイルの両方に権限が必要
+sudo chgrp -R ssl-cert /etc/letsencrypt/live/
+
+# 親ディレクトリ（archive）の権限を変更（sudo権限が必要）
+# archiveディレクトリはデフォルトで700（drwx------）のため、755に変更が必要
+sudo chmod 755 /etc/letsencrypt/archive/
+sudo chgrp ssl-cert /etc/letsencrypt/archive/
+
+# ドメイン配下のディレクトリのグループ所有権を変更（sudo権限が必要）
+sudo chgrp ssl-cert /etc/letsencrypt/archive/morizo.csngrp.co.jp/
+
+# 実ファイルのグループ所有権をssl-certに変更（sudo権限が必要）
+sudo chgrp ssl-cert /etc/letsencrypt/archive/morizo.csngrp.co.jp/*.pem
+
+# 実ファイルの権限を設定（グループ読み取り可能に）（sudo権限が必要）
+sudo chmod 640 /etc/letsencrypt/archive/morizo.csngrp.co.jp/fullchain*.pem
+sudo chmod 640 /etc/letsencrypt/archive/morizo.csngrp.co.jp/privkey*.pem
+sudo chmod 640 /etc/letsencrypt/archive/morizo.csngrp.co.jp/cert*.pem
+sudo chmod 640 /etc/letsencrypt/archive/morizo.csngrp.co.jp/chain*.pem
+
+# appuserが証明書ファイルを読み取れることを確認
+sudo -u appuser cat /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem > /dev/null && echo "証明書読み取りOK" || echo "証明書読み取りNG"
+```
+
+**注意**:
+- `ssl-cert`グループを作成し、証明書ファイルのグループ所有権を`ssl-cert`に変更することで、`appuser`が証明書を読み取れるようになります
+- この方法により、証明書ファイルの所有者（root）は変更せず、グループ権限のみでアクセスを許可します
+- **重要**: Let's Encryptはシンボリックリンクを使用します：
+  - `/etc/letsencrypt/live/` → シンボリックリンク（例: `fullchain.pem` → `../../archive/morizo.csngrp.co.jp/fullchain1.pem`）
+  - `/etc/letsencrypt/archive/` → 実ファイルが保存される場所
+  - シンボリックリンクをたどるには、親ディレクトリ（`archive`）に実行権限（`755`）が必要です
+  - デフォルトでは`archive`ディレクトリが`700`（`drwx------`）のため、`755`に変更する必要があります
+- グループの変更を反映するには、サービスを再起動する必要がある場合があります（セクション4.7参照）
+
+**代替方法（ssl-certグループが利用できない場合）**:
+
+もし`ssl-cert`グループが存在しない、または上記の方法で解決しない場合は、以下の方法を試してください：
+
+```bash
+# SSL証明書ディレクトリの読み取り権限を設定（sudo権限が必要）
+# 注意: セキュリティ上の理由から、最小限の権限で設定してください
+sudo chmod 755 /etc/letsencrypt/live/
+sudo chmod 755 /etc/letsencrypt/live/morizo.csngrp.co.jp/
+sudo chmod 644 /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem
+sudo chmod 600 /etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem
+
+# appuserが証明書ファイルを読み取れることを確認
+sudo -u appuser cat /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem > /dev/null && echo "証明書読み取りOK" || echo "証明書読み取りNG"
+```
+
+**トラブルシューティング**:
+- 「証明書読み取りNG」と表示される場合：
+  1. 証明書ファイルが存在することを確認: `sudo ls -la /etc/letsencrypt/live/morizo.csngrp.co.jp/`
+  2. `ssl-cert`グループが存在することを確認: `getent group ssl-cert`
+  3. グループの変更を反映するため、サービスを再起動: `sudo systemctl restart morizo-web`（セクション4.7参照）
+  4. それでも解決しない場合は、上記の代替方法（chmod）を試す
 
 ### 2.5 スワップ領域の設定（必須）
 
@@ -273,10 +325,12 @@ date
 # デプロイ用ディレクトリの作成（sudo権限が必要）
 sudo mkdir -p /opt/morizo
 
+# リポジトリをクローンするために、一時的にsasakiユーザーに所有権を変更（sudo権限が必要）
+# 注意: セットアップ完了後、セクション3.4.1で`/opt/morizo`の所有権を`appuser`に変更します
+sudo chown sasaki:sasaki /opt/morizo
+
 # ディレクトリに移動
 cd /opt/morizo
-
-# 注意: リポジトリをクローンした後、セクション2.0.2で`/opt/morizo`の所有権を`appuser`に変更してください
 
 # 現在のユーザーを確認（sasakiであることを確認）
 whoami
@@ -289,7 +343,7 @@ cd Morizo-aiv2
 ls -la
 ```
 
-**注意**: リポジトリをクローンした後、セクション2.0.2で`/opt/morizo`の所有権を`appuser`に変更してください。
+**注意**: セットアップ作業（依存関係のインストール、環境変数の設定など）は`sasaki`ユーザーで行います。所有権を`appuser`に変更するのは、セクション3.4.1で行います。
 
 ### 3.2 Python仮想環境の作成と依存関係のインストール
 
@@ -384,6 +438,23 @@ ls -ld recipe_vector_db_*
 # scp -r recipe_vector_db_* sasaki@gcp-vm-instance:/opt/morizo/Morizo-aiv2/
 ```
 
+### 3.4.1 アプリケーションディレクトリの所有権設定
+
+**重要**: すべてのセットアップ作業（リポジトリのクローン、依存関係のインストール、環境変数の設定、ベクトルDBの配置）が完了した後、`/opt/morizo`の所有権を`appuser`に変更します。これにより、アプリケーションを`appuser`で実行できるようになります。
+
+```bash
+# /opt/morizoディレクトリの所有権をappuserに変更（sudo権限が必要）
+sudo chown -R appuser:appuser /opt/morizo
+
+# 所有権が正しく設定されたことを確認
+ls -ld /opt/morizo
+ls -la /opt/morizo
+```
+
+**注意**: 
+- この手順は、セクション3.1〜3.4のすべてのセットアップ作業が完了した後に行います
+- 所有権を変更した後は、`appuser`で実行されるsystemdサービスがファイルにアクセスできるようになります
+
 ### 3.5 systemdサービスファイルの作成
 
 ```bash
@@ -391,7 +462,7 @@ ls -ld recipe_vector_db_*
 sudo vi /etc/systemd/system/morizo-aiv2.service
 ```
 
-**重要**: systemdサービスは`appuser`ユーザーで実行されるため、`/opt/morizo/Morizo-aiv2`ディレクトリとその配下のファイルは`appuser`ユーザーが読み書きできる必要があります（セクション2.0.2参照）。
+**重要**: systemdサービスは`appuser`ユーザーで実行されるため、`/opt/morizo/Morizo-aiv2`ディレクトリとその配下のファイルは`appuser`ユーザーが読み書きできる必要があります（セクション3.4.1参照）。
 
 以下を記述：
 
@@ -471,11 +542,16 @@ whoami
 git clone <Morizo-webのリポジトリURL> Morizo-web
 cd Morizo-web
 
-# ディレクトリの所有権を確認（appuserユーザー所有であることを確認）
+# ディレクトリの所有権を確認
 ls -la
 ```
 
-**注意**: リポジトリをクローンした後、セクション2.0.2で`/opt/morizo`の所有権を`appuser`に変更してください。
+**注意**: 
+- セクション3.4.1で既に`/opt/morizo`の所有権を`appuser`に変更しているため、新しくクローンした`Morizo-web`ディレクトリも`appuser`所有になっているはずです
+- もし所有権が`appuser`でない場合は、以下のコマンドで再設定してください：
+  ```bash
+  sudo chown -R appuser:appuser /opt/morizo/Morizo-web
+  ```
 
 ### 4.2 依存関係のインストール
 
@@ -572,8 +648,8 @@ app.prepare().then(() => {
 ```
 
 **重要**: 
-- `server.js`ファイルを作成後、`appuser`ユーザーの所有権であることを確認してください（セクション2.0.2で`/opt/morizo`の所有権を`appuser`に変更済みの場合、自動的に`appuser`所有になります）。
-- SSL証明書ファイル（`/etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem`と`fullchain.pem`）は、`appuser`ユーザーが読み取れる必要があります。セクション2.0.3で証明書ディレクトリの読み取り権限を設定してください。
+- `server.js`ファイルを作成後、`appuser`ユーザーの所有権であることを確認してください（セクション3.4.1で`/opt/morizo`の所有権を`appuser`に変更済みの場合、自動的に`appuser`所有になります）。
+- SSL証明書ファイル（`/etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem`と`fullchain.pem`）は、`appuser`ユーザーが読み取れる必要があります。セクション2.4.1で証明書ディレクトリの読み取り権限を設定してください。
 
 `package.json`にstartスクリプトを追加：
 
@@ -592,7 +668,7 @@ app.prepare().then(() => {
 sudo vi /etc/systemd/system/morizo-web.service
 ```
 
-**重要**: systemdサービスは`appuser`ユーザーで実行されるため、`/opt/morizo/Morizo-web`ディレクトリとその配下のファイル、SSL証明書ファイルは`appuser`ユーザーが読み書きできる必要があります（セクション2.0.2、2.0.3参照）。
+**重要**: systemdサービスは`appuser`ユーザーで実行されるため、`/opt/morizo/Morizo-web`ディレクトリとその配下のファイル、SSL証明書ファイルは`appuser`ユーザーが読み書きできる必要があります（セクション3.4.1、2.4.1参照）。
 
 以下を記述：
 

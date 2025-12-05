@@ -12,6 +12,10 @@ requests>=2.31.0
 anyio>=4.5.0
 websockets>=15.0.0
 
+# Web検索API関連
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
 # 日付処理
 python-dateutil>=2.8.0
 
