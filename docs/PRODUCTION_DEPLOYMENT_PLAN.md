@@ -64,13 +64,16 @@ whoami
 GCP ファイアウォールルール (ポート443のみ開放)
     ↓
 Ubuntu 24.04 LTS
-    ├── Morizo-web (Next.js) - ポート443で公開
+    ├── nginx (リバースプロキシ) - ポート443で公開（SSL/TLS終端）
+    │   ├── Morizo-web (Next.js) - ポート3000（HTTP、localhostのみ）
+    │   └── Morizo-aiv2 (FastAPI) - ポート8000（localhostのみ）
     └── Morizo-aiv2 (FastAPI) - ポート8000（localhostのみ）
 ```
 
 ### 1.3 ポート設定
 - **外部公開ポート**: 443 (HTTPS)
-- **Morizo-web**: 443ポートでリスニング
+- **nginx**: 443ポートでリスニング（SSL/TLS終端、リバースプロキシ）
+- **Morizo-web**: 3000ポート（HTTP、localhost:3000、nginxからのみアクセス）
 - **Morizo-aiv2**: 8000ポート（localhost:8000、Morizo-webからのみアクセス）
 
 ### 1.4 ファイアウォールルール設定
@@ -125,6 +128,7 @@ sudo apt install -y \
     build-essential \
     certbot \
     openssl \
+    nginx \
     vim
 ```
 
@@ -608,62 +612,196 @@ ls -ld /opt/morizo/Morizo-web/.next
 - ビルド前に、`/opt/morizo/Morizo-web`ディレクトリの所有権が`appuser`であることを確認してください（セクション4.8で設定済みの場合、この手順は不要です）。
 - ビルドが失敗する場合は、依存関係が正しくインストールされているか確認してください（セクション4.2参照）。
 
-### 4.5 Next.jsをHTTPSで起動するための設定
+### 4.5 nginxリバースプロキシの設定
 
-Next.jsを直接HTTPSで起動する場合、カスタムサーバーが必要です。
+**重要**: セキュリティ強化のため、nginxをリバースプロキシとして導入し、SSL/TLS終端をnginxで行います。これにより、Next.jsアプリケーションはHTTP（localhost）で動作し、特権ポートのバインドが不要になります。
 
 **作業ユーザー**: `sasaki`ユーザーで作業します。
 
-`server.js`を作成（プロジェクトルートに）：
+#### 4.5.1 nginxのインストール
 
-```javascript
-const { createServer } = require('https');
-const { parse } = require('url');
-const next = require('next');
-const fs = require('fs');
+```bash
+# nginxのインストール（sudo権限が必要）
+sudo apt update
+sudo apt install -y nginx
 
-const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'morizo.csngrp.co.jp';
-const port = 443;
+# nginxのバージョン確認
+nginx -v
 
-const app = next({ dev, hostname, port });
-const handle = app.getRequestHandler();
-
-const httpsOptions = {
-  key: fs.readFileSync('/etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem'),
-  cert: fs.readFileSync('/etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem'),
-};
-
-app.prepare().then(() => {
-  createServer(httpsOptions, async (req, res) => {
-    try {
-      const parsedUrl = parse(req.url, true);
-      await handle(req, res, parsedUrl);
-    } catch (err) {
-      console.error('Error occurred handling', req.url, err);
-      res.statusCode = 500;
-      res.end('internal server error');
-    }
-  }).listen(port, (err) => {
-    if (err) throw err;
-    console.log(`> Ready on https://${hostname}:${port}`);
-  });
-});
+# nginxの起動確認（sudo権限が必要）
+sudo systemctl status nginx
 ```
 
-**重要**: 
-- `server.js`ファイルを作成後、セクション4.8で`/opt/morizo`の所有権を`appuser`に変更します。
-- SSL証明書ファイル（`/etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem`と`fullchain.pem`）は、`appuser`ユーザーが読み取れる必要があります。セクション2.4.1で証明書ディレクトリの読み取り権限を設定してください。
+#### 4.5.2 nginx設定ファイルの作成
 
-`package.json`にstartスクリプトを追加：
+```bash
+# nginx設定ファイルの作成（sudo権限が必要）
+sudo vi /etc/nginx/sites-available/morizo
+```
+
+以下を記述：
+
+```nginx
+# リバースプロキシ設定
+upstream morizo_web {
+    server 127.0.0.1:3000;
+    keepalive 64;
+}
+
+# HTTPサーバー（HTTPSへのリダイレクト）
+server {
+    listen 80;
+    listen [::]:80;
+    server_name morizo.csngrp.co.jp;
+
+    # Let's Encryptの証明書更新用（.well-known/acme-challenge）
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    # その他すべてのHTTPリクエストをHTTPSにリダイレクト
+    location / {
+        return 301 https://$server_name$request_uri;
+    }
+}
+
+# HTTPSサーバー
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name morizo.csngrp.co.jp;
+
+    # SSL証明書の設定
+    ssl_certificate /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem;
+
+    # SSL/TLS設定（セキュリティ強化）
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_session_tickets off;
+
+    # セキュリティヘッダー
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # ログ設定
+    access_log /var/log/nginx/morizo-access.log;
+    error_log /var/log/nginx/morizo-error.log;
+
+    # クライアントボディサイズの制限（アップロードファイルサイズ制限）
+    client_max_body_size 10M;
+
+    # タイムアウト設定
+    proxy_connect_timeout 60s;
+    proxy_send_timeout 60s;
+    proxy_read_timeout 60s;
+
+    # レート制限（DDoS対策）
+    limit_req_zone $binary_remote_addr zone=general:10m rate=10r/s;
+    limit_req_zone $binary_remote_addr zone=api:10m rate=5r/s;
+
+    # 静的ファイルの直接配信（パフォーマンス向上）
+    location /_next/static/ {
+        alias /opt/morizo/Morizo-web/.next/static/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location /static/ {
+        alias /opt/morizo/Morizo-web/public/static/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # APIエンドポイント（レート制限を適用）
+    location /api/ {
+        limit_req zone=api burst=10 nodelay;
+        proxy_pass http://morizo_web;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # その他のリクエスト（レート制限を適用）
+    location / {
+        limit_req zone=general burst=20 nodelay;
+        proxy_pass http://morizo_web;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+#### 4.5.3 nginx設定ファイルの有効化
+
+```bash
+# シンボリックリンクの作成（sudo権限が必要）
+sudo ln -s /etc/nginx/sites-available/morizo /etc/nginx/sites-enabled/
+
+# デフォルト設定の無効化（オプション、sudo権限が必要）
+sudo rm /etc/nginx/sites-enabled/default
+
+# nginx設定の構文チェック（sudo権限が必要）
+sudo nginx -t
+
+# nginxの再起動（sudo権限が必要）
+sudo systemctl restart nginx
+
+# nginxの状態確認（sudo権限が必要）
+sudo systemctl status nginx
+```
+
+#### 4.5.4 静的ファイルディレクトリの権限設定
+
+```bash
+# 静的ファイルディレクトリの読み取り権限を設定（sudo権限が必要）
+# nginxが静的ファイルを読み取れるようにする
+sudo chmod -R 755 /opt/morizo/Morizo-web/.next/static
+sudo chmod -R 755 /opt/morizo/Morizo-web/public/static
+
+# 所有権の確認（appuserユーザー所有であることを確認）
+ls -ld /opt/morizo/Morizo-web/.next/static
+ls -ld /opt/morizo/Morizo-web/public/static
+```
+
+**注意**:
+- nginxは`www-data`ユーザーで実行されますが、静的ファイルは`appuser`所有のままでも、読み取り権限（755）があればアクセス可能です
+- 必要に応じて、`www-data`ユーザーを`appuser`グループに追加するか、静的ファイルディレクトリのグループ所有権を変更することもできます
+
+#### 4.5.5 Next.jsの起動設定（HTTP、localhost）
+
+**重要**: Next.jsはHTTP（localhost:3000）で起動します。`server.js`ファイルは不要です。
+
+`package.json`の`start`スクリプトを確認：
 
 ```json
 {
   "scripts": {
-    "start": "node server.js"
+    "start": "next start -p 3000"
   }
 }
 ```
+
+**注意**: 
+- `next start`コマンドはデフォルトでポート3000を使用しますが、明示的に`-p 3000`を指定します
+- 環境変数`PORT=3000`を設定することもできます（セクション4.6参照）
 
 ### 4.6 systemdサービスファイルの作成
 
@@ -672,7 +810,7 @@ app.prepare().then(() => {
 sudo vi /etc/systemd/system/morizo-web.service
 ```
 
-**重要**: systemdサービスは`appuser`ユーザーで実行されるため、`/opt/morizo/Morizo-web`ディレクトリとその配下のファイル、SSL証明書ファイルは`appuser`ユーザーが読み書きできる必要があります（セクション4.8、2.4.1参照）。
+**重要**: systemdサービスは`appuser`ユーザーで実行されるため、`/opt/morizo/Morizo-web`ディレクトリとその配下のファイルは`appuser`ユーザーが読み書きできる必要があります（セクション4.8参照）。nginxがSSL/TLS終端を担当するため、Next.jsはHTTP（localhost:3000）で起動し、SSL証明書ファイルへのアクセスは不要です。
 
 以下を記述：
 
@@ -687,13 +825,13 @@ User=appuser
 Group=appuser
 WorkingDirectory=/opt/morizo/Morizo-web
 Environment="NODE_ENV=production"
+Environment="PORT=3000"
 ExecStart=/usr/bin/npm start
 Restart=always
 RestartSec=10
 
 # セキュリティ設定
 PrivateTmp=true
-AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 # ログ設定
 StandardOutput=journal
@@ -708,7 +846,8 @@ WantedBy=multi-user.target
 - `User=appuser`: アプリケーションを低権限ユーザーで実行
 - `Group=appuser`: アプリケーションを低権限グループで実行
 - `PrivateTmp=true`: サービス専用の`/tmp`ディレクトリを使用し、他のプロセスから隔離（セキュリティ向上）
-- `AmbientCapabilities=CAP_NET_BIND_SERVICE`: ポート443（HTTPS）などの特権ポート（1024以下）をバインドするための最小限の権限を付与。`appuser`が通常ユーザーでもポート443でリスニング可能になる
+- `Environment="PORT=3000"`: Next.jsをポート3000（HTTP）で起動（nginxがリバースプロキシとして接続）
+- **注意**: `AmbientCapabilities=CAP_NET_BIND_SERVICE`は不要です。nginxがSSL/TLS終端を担当するため、Next.jsは特権ポートをバインドする必要がありません
 
 ### 4.7 systemdサービスの有効化と起動
 
@@ -730,7 +869,7 @@ sudo journalctl -u morizo-web -f
 
 # プロセスの所有者を確認（appuserユーザーで実行されていることを確認）
 ps aux | grep morizo-web
-# 出力例: appuser 12345 ... node server.js ...
+# 出力例: appuser 12345 ... node ... next start ...
 ```
 
 ### 4.8 アプリケーションディレクトリの所有権設定（全体）
@@ -797,7 +936,16 @@ sudo systemctl status morizo-web
 
 # プロセスの所有者を確認（appuserユーザーで実行されていることを確認）
 ps aux | grep node
-# 出力例: appuser 12345 ... node server.js ...
+# 出力例: appuser 12345 ... node ... next start ...
+
+# nginxの状態確認（sudo権限が必要）
+sudo systemctl status nginx
+
+# nginxのアクセスログ確認（sudo権限が必要）
+sudo tail -f /var/log/nginx/morizo-access.log
+
+# nginxのエラーログ確認（sudo権限が必要）
+sudo tail -f /var/log/nginx/morizo-error.log
 
 # ブラウザでアクセス
 # https://morizo.csngrp.co.jp
@@ -846,12 +994,6 @@ sudo journalctl -u morizo-web -n 100
 cd /opt/morizo/Morizo-web
 ls -la
 
-# SSL証明書ファイルの読み取り権限を確認
-sudo ls -la /etc/letsencrypt/live/morizo.csngrp.co.jp/
-
-# appuserが証明書ファイルを読み取れることを確認
-sudo -u appuser cat /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem > /dev/null && echo "証明書読み取りOK" || echo "証明書読み取りNG"
-
 # 手動で起動してエラーを確認（appuserユーザーで実行）
 sudo -u appuser bash -c "cd /opt/morizo/Morizo-web && npm start"
 
@@ -860,25 +1002,65 @@ sudo -u appuser bash -c "cd /opt/morizo/Morizo-web && npm run build"
 
 # ファイルの所有権が間違っている場合の修正
 # sudo chown -R appuser:appuser /opt/morizo/Morizo-web
+
+# Next.jsがポート3000でリスニングしているか確認
+sudo netstat -tlnp | grep :3000
+# または
+sudo ss -tlnp | grep :3000
 ```
 
-**ポート443の権限エラー（EACCES）が発生する場合**:
+### 6.2.1 nginxが起動しない、またはリバースプロキシが動作しない
 
-エラーログに`Error: listen EACCES: permission denied 0.0.0.0:443`が表示される場合、`appuser`がポート443をバインドする権限がありません。
-
-解決方法：
-1. systemdサービスファイルに`AmbientCapabilities=CAP_NET_BIND_SERVICE`を追加（セクション4.6参照）
-2. サービスファイルを修正後、以下を実行：
 ```bash
-# systemd設定のリロード
-sudo systemctl daemon-reload
+# nginxの状態確認（sudo権限が必要）
+sudo systemctl status nginx
 
-# サービスの再起動
-sudo systemctl restart morizo-web
+# nginxのエラーログを確認（sudo権限が必要）
+sudo tail -n 100 /var/log/nginx/morizo-error.log
 
-# サービスの状態確認
-sudo systemctl status morizo-web
+# nginx設定の構文チェック（sudo権限が必要）
+sudo nginx -t
+
+# nginx設定ファイルの確認
+sudo cat /etc/nginx/sites-available/morizo
+
+# シンボリックリンクの確認
+ls -la /etc/nginx/sites-enabled/morizo
+
+# SSL証明書ファイルの確認（nginxが読み取れることを確認）
+sudo ls -la /etc/letsencrypt/live/morizo.csngrp.co.jp/
+sudo cat /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem > /dev/null && echo "証明書読み取りOK" || echo "証明書読み取りNG"
+
+# nginxの再起動（sudo権限が必要）
+sudo systemctl restart nginx
+
+# Next.jsがポート3000でリスニングしているか確認
+sudo netstat -tlnp | grep :3000
+# または
+sudo ss -tlnp | grep :3000
+
+# nginxからNext.jsへの接続テスト（localhost:3000）
+curl -I http://localhost:3000
 ```
+
+**よくある問題と解決方法**:
+
+1. **nginx設定の構文エラー**:
+   - `sudo nginx -t`で構文チェックを実行
+   - エラーメッセージに従って修正
+
+2. **SSL証明書が見つからない**:
+   - 証明書ファイルのパスを確認: `sudo ls -la /etc/letsencrypt/live/morizo.csngrp.co.jp/`
+   - nginx設定ファイルの証明書パスを確認
+
+3. **Next.jsに接続できない（502 Bad Gateway）**:
+   - Next.jsが起動しているか確認: `sudo systemctl status morizo-web`
+   - Next.jsがポート3000でリスニングしているか確認: `sudo netstat -tlnp | grep :3000`
+   - Next.jsのログを確認: `sudo journalctl -u morizo-web -n 50`
+
+4. **静的ファイルが配信されない**:
+   - 静的ファイルディレクトリの権限を確認: `ls -ld /opt/morizo/Morizo-web/.next/static`
+   - 権限を設定: `sudo chmod -R 755 /opt/morizo/Morizo-web/.next/static`
 
 ### 6.3 SSL証明書の更新
 
@@ -1230,6 +1412,10 @@ ls -la
 ## 10. セキュリティチェックリスト
 
 - [ ] SSL証明書が正しく設定されている
+- [ ] nginxがSSL証明書ファイルを読み取れることを確認（nginxはrootまたはwww-dataユーザーで実行されるため、通常は問題なし）
+- [ ] nginx設定ファイル（`/etc/nginx/sites-available/morizo`）が正しく設定されている
+- [ ] nginx設定の構文チェックが成功している（`sudo nginx -t`）
+- [ ] nginxが起動し、ポート443でリスニングしていることを確認
 - [ ] 環境変数ファイルに機密情報が含まれている（`.gitignore`で除外されていることを確認）
 - [ ] 環境変数ファイルの権限が適切に設定されている（`chmod 600`）
 - [ ] ファイアウォールルールで必要最小限のポートのみ開放（443のみ）
@@ -1239,10 +1425,11 @@ ls -la
 - [ ] アプリケーションが`appuser`ユーザーで実行されていることを確認
 - [ ] systemdサービスファイルに`User=appuser`、`Group=appuser`が設定されていることを確認
 - [ ] systemdサービスファイルに`PrivateTmp=true`が設定されていることを確認
+- [ ] systemdサービスファイルに`AmbientCapabilities=CAP_NET_BIND_SERVICE`が**設定されていない**ことを確認（nginxがSSL/TLS終端を担当するため不要）
 - [ ] `/opt/morizo`配下のファイル・ディレクトリが`appuser`ユーザー所有であることを確認
-- [ ] SSL証明書ファイルが`appuser`ユーザーから読み取れることを確認
+- [ ] Next.jsがHTTP（localhost:3000）で起動していることを確認
+- [ ] 静的ファイルディレクトリの読み取り権限が適切に設定されている（nginxが読み取れること）
 - [ ] rootユーザーでの作業を行っていないことを確認
-- [ ] SSL証明書ファイルの読み取り権限が適切に設定されている
 - [ ] システムのタイムゾーンがJST（Asia/Tokyo）に設定されている（セクション2.6参照）
 - [ ] ログの時刻がJSTで表示されていることを確認（セクション7.0参照）
 
@@ -1273,13 +1460,13 @@ ls -la
    - 定期的なバックアップスクリプトの作成
    - Cloud Storage等への自動バックアップ
 
-6. **nginxリバースプロキシの導入**
-   - Next.jsの前にnginxを配置してパフォーマンス向上
-   - 静的ファイル配信の最適化
-   - SSL/TLS処理の効率化
+6. **nginxリバースプロキシの導入** ✅ **完了**
+   - Next.jsの前にnginxを配置してパフォーマンス向上（セクション4.5参照）
+   - 静的ファイル配信の最適化（セクション4.5参照）
+   - SSL/TLS処理の効率化（セクション4.5参照）
    - 複数アプリケーションの統合管理（Next.js + FastAPI）
-   - セキュリティ強化（DDoS対策、レート制限など）
-   - 詳細なアクセスログ・エラーログの取得
+   - セキュリティ強化（DDoS対策、レート制限など）（セクション4.5参照）
+   - 詳細なアクセスログ・エラーログの取得（セクション4.5参照）
 
 7. **水平スケーリング対応**
    - 複数のNext.jsインスタンスへの負荷分散
@@ -1314,6 +1501,19 @@ ls -la
 
 ## 更新履歴
 
+- 2025-01-XX: nginxリバースプロキシの導入
+  - セクション4.5: 「Next.jsをHTTPSで起動するための設定」を削除し、「nginxリバースプロキシの設定」に置き換え
+    - nginxのインストール手順を追加
+    - nginx設定ファイルの作成手順を追加（SSL/TLS終端、リバースプロキシ、セキュリティヘッダー、レート制限）
+    - Next.jsをHTTP（localhost:3000）で起動する設定に変更
+    - 静的ファイルの直接配信設定を追加
+  - セクション4.6: systemdサービスファイルから`AmbientCapabilities=CAP_NET_BIND_SERVICE`を削除
+  - セクション1.2: ネットワーク構成図にnginxを追加
+  - セクション1.3: ポート設定を更新（nginx: 443、Next.js: 3000）
+  - セクション2.1: システムパッケージのインストールにnginxを追加
+  - セクション6.2.1: nginx関連のトラブルシューティングを追加
+  - セクション10: セキュリティチェックリストにnginx関連の確認項目を追加
+  - セクション11: 「nginxリバースプロキシの導入」を完了マーク
 - 2025-11-21: ログローテーション設定を追加
   - セクション7.3: ログローテーション設定を追加
     - Morizo-aiv2のlogrotate設定（OSレベル）
