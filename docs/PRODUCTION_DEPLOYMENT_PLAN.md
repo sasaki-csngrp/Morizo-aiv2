@@ -326,7 +326,7 @@ date
 sudo mkdir -p /opt/morizo
 
 # リポジトリをクローンするために、一時的にsasakiユーザーに所有権を変更（sudo権限が必要）
-# 注意: セットアップ完了後、セクション3.4.1で`/opt/morizo`の所有権を`appuser`に変更します
+# 注意: セットアップ完了後、セクション4.8で`/opt/morizo`の所有権を`appuser`に変更します
 sudo chown sasaki:sasaki /opt/morizo
 
 # ディレクトリに移動
@@ -343,7 +343,7 @@ cd Morizo-aiv2
 ls -la
 ```
 
-**注意**: セットアップ作業（依存関係のインストール、環境変数の設定など）は`sasaki`ユーザーで行います。所有権を`appuser`に変更するのは、セクション3.4.1で行います。
+**注意**: セットアップ作業（依存関係のインストール、環境変数の設定など）は`sasaki`ユーザーで行います。所有権を`appuser`に変更するのは、セクション4.8で行います。
 
 ### 3.2 Python仮想環境の作成と依存関係のインストール
 
@@ -438,23 +438,6 @@ ls -ld recipe_vector_db_*
 # scp -r recipe_vector_db_* sasaki@gcp-vm-instance:/opt/morizo/Morizo-aiv2/
 ```
 
-### 3.4.1 アプリケーションディレクトリの所有権設定
-
-**重要**: すべてのセットアップ作業（リポジトリのクローン、依存関係のインストール、環境変数の設定、ベクトルDBの配置）が完了した後、`/opt/morizo`の所有権を`appuser`に変更します。これにより、アプリケーションを`appuser`で実行できるようになります。
-
-```bash
-# /opt/morizoディレクトリの所有権をappuserに変更（sudo権限が必要）
-sudo chown -R appuser:appuser /opt/morizo
-
-# 所有権が正しく設定されたことを確認
-ls -ld /opt/morizo
-ls -la /opt/morizo
-```
-
-**注意**: 
-- この手順は、セクション3.1〜3.4のすべてのセットアップ作業が完了した後に行います
-- 所有権を変更した後は、`appuser`で実行されるsystemdサービスがファイルにアクセスできるようになります
-
 ### 3.5 systemdサービスファイルの作成
 
 ```bash
@@ -462,7 +445,7 @@ ls -la /opt/morizo
 sudo vi /etc/systemd/system/morizo-aiv2.service
 ```
 
-**重要**: systemdサービスは`appuser`ユーザーで実行されるため、`/opt/morizo/Morizo-aiv2`ディレクトリとその配下のファイルは`appuser`ユーザーが読み書きできる必要があります（セクション3.4.1参照）。
+**重要**: systemdサービスは`appuser`ユーザーで実行されるため、`/opt/morizo/Morizo-aiv2`ディレクトリとその配下のファイルは`appuser`ユーザーが読み書きできる必要があります（セクション4.8参照）。
 
 以下を記述：
 
@@ -547,11 +530,9 @@ ls -la
 ```
 
 **注意**: 
-- セクション3.4.1で既に`/opt/morizo`の所有権を`appuser`に変更しているため、新しくクローンした`Morizo-web`ディレクトリも`appuser`所有になっているはずです
-- もし所有権が`appuser`でない場合は、以下のコマンドで再設定してください：
-  ```bash
-  sudo chown -R appuser:appuser /opt/morizo/Morizo-web
-  ```
+**注意**: 
+- セットアップ作業（リポジトリのクローン、依存関係のインストール、ビルドなど）は`sasaki`ユーザーで行います
+- 所有権を`appuser`に変更するのは、セクション4.8で行います
 
 ### 4.2 依存関係のインストール
 
@@ -595,14 +576,37 @@ LOG_INITIALIZE_BACKUP=true       # 起動時のログファイルバックアッ
   - **開発環境**: `true`（デフォルト）- サーバー起動ごとにアプリでログをバックアップ＆リフレッシュ
   - **本番環境**: `false` - logrotateに任せるため、アプリでは何もしない
 
-### 4.4 本番ビルド
+### 4.3.1 アプリケーションディレクトリの所有権設定（ビルド前）
+
+**重要**: ビルド（セクション4.4）の**前**に、`/opt/morizo/Morizo-web`の所有権を`appuser`に変更します。これにより、ビルド生成物（`.next`ディレクトリなど）が正しい所有権で作成されます。
 
 ```bash
-# 本番用ビルド
-npm run build
+# /opt/morizo/Morizo-webディレクトリの所有権をappuserに変更（sudo権限が必要）
+sudo chown -R appuser:appuser /opt/morizo/Morizo-web
+
+# 所有権が正しく設定されたことを確認
+ls -ld /opt/morizo/Morizo-web
+ls -la /opt/morizo/Morizo-web | head -10
+```
+
+### 4.4 本番ビルド
+
+**重要**: ビルドは`appuser`ユーザーで実行します。これにより、ビルド生成物（`.next`ディレクトリ）が正しい所有権で作成されます。セクション4.3.1で所有権を変更済みであることを確認してください。
+
+```bash
+# 本番用ビルド（appuserユーザーで実行）
+sudo -u appuser bash -c "cd /opt/morizo/Morizo-web && npm run build"
 
 # ビルドが正常に完了したことを確認
+ls -la /opt/morizo/Morizo-web/.next/BUILD_ID
+
+# 所有権がappuserであることを確認
+ls -ld /opt/morizo/Morizo-web/.next
 ```
+
+**注意**: 
+- ビルド前に、`/opt/morizo/Morizo-web`ディレクトリの所有権が`appuser`であることを確認してください（セクション4.8で設定済みの場合、この手順は不要です）。
+- ビルドが失敗する場合は、依存関係が正しくインストールされているか確認してください（セクション4.2参照）。
 
 ### 4.5 Next.jsをHTTPSで起動するための設定
 
@@ -648,7 +652,7 @@ app.prepare().then(() => {
 ```
 
 **重要**: 
-- `server.js`ファイルを作成後、`appuser`ユーザーの所有権であることを確認してください（セクション3.4.1で`/opt/morizo`の所有権を`appuser`に変更済みの場合、自動的に`appuser`所有になります）。
+- `server.js`ファイルを作成後、セクション4.8で`/opt/morizo`の所有権を`appuser`に変更します。
 - SSL証明書ファイル（`/etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem`と`fullchain.pem`）は、`appuser`ユーザーが読み取れる必要があります。セクション2.4.1で証明書ディレクトリの読み取り権限を設定してください。
 
 `package.json`にstartスクリプトを追加：
@@ -668,7 +672,7 @@ app.prepare().then(() => {
 sudo vi /etc/systemd/system/morizo-web.service
 ```
 
-**重要**: systemdサービスは`appuser`ユーザーで実行されるため、`/opt/morizo/Morizo-web`ディレクトリとその配下のファイル、SSL証明書ファイルは`appuser`ユーザーが読み書きできる必要があります（セクション3.4.1、2.4.1参照）。
+**重要**: systemdサービスは`appuser`ユーザーで実行されるため、`/opt/morizo/Morizo-web`ディレクトリとその配下のファイル、SSL証明書ファイルは`appuser`ユーザーが読み書きできる必要があります（セクション4.8、2.4.1参照）。
 
 以下を記述：
 
@@ -689,6 +693,7 @@ RestartSec=10
 
 # セキュリティ設定
 PrivateTmp=true
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 # ログ設定
 StandardOutput=journal
@@ -703,6 +708,7 @@ WantedBy=multi-user.target
 - `User=appuser`: アプリケーションを低権限ユーザーで実行
 - `Group=appuser`: アプリケーションを低権限グループで実行
 - `PrivateTmp=true`: サービス専用の`/tmp`ディレクトリを使用し、他のプロセスから隔離（セキュリティ向上）
+- `AmbientCapabilities=CAP_NET_BIND_SERVICE`: ポート443（HTTPS）などの特権ポート（1024以下）をバインドするための最小限の権限を付与。`appuser`が通常ユーザーでもポート443でリスニング可能になる
 
 ### 4.7 systemdサービスの有効化と起動
 
@@ -726,6 +732,38 @@ sudo journalctl -u morizo-web -f
 ps aux | grep morizo-web
 # 出力例: appuser 12345 ... node server.js ...
 ```
+
+### 4.8 アプリケーションディレクトリの所有権設定（全体）
+
+**重要**: すべてのセットアップ作業が完了した後、`/opt/morizo`全体の所有権を`appuser`に変更します。これにより、アプリケーションを`appuser`で実行できるようになります。
+
+**注意**: 
+- **Morizo-web**: セクション4.3.1で既に所有権を変更済みの場合は、この手順はスキップできます。
+- **Morizo-aiv2**: セクション3.4（ベクトルDBの配置）の後に所有権を変更するか、このセクションで一括変更します。
+
+**推奨**: 各アプリケーションの所有権は、ビルドやサービスの起動の**前**に変更することを推奨します（Morizo-web: セクション4.3.1、Morizo-aiv2: セクション3.4の後）。
+
+```bash
+# /opt/morizoディレクトリの所有権をappuserに変更（sudo権限が必要）
+sudo chown -R appuser:appuser /opt/morizo
+
+# 所有権が正しく設定されたことを確認
+ls -ld /opt/morizo
+ls -la /opt/morizo
+
+# 各アプリケーションディレクトリの所有権を確認
+ls -ld /opt/morizo/Morizo-aiv2
+ls -ld /opt/morizo/Morizo-web
+```
+
+**注意**: 
+- この手順は、セクション3.1〜3.6とセクション4.1〜4.7のすべてのセットアップ作業が完了した後に行います
+- 所有権を変更した後は、`appuser`で実行されるsystemdサービスがファイルにアクセスできるようになります
+- 所有権を変更した後、サービスを再起動することを推奨します：
+  ```bash
+  sudo systemctl restart morizo-aiv2
+  sudo systemctl restart morizo-web
+  ```
 
 ---
 
@@ -822,6 +860,24 @@ sudo -u appuser bash -c "cd /opt/morizo/Morizo-web && npm run build"
 
 # ファイルの所有権が間違っている場合の修正
 # sudo chown -R appuser:appuser /opt/morizo/Morizo-web
+```
+
+**ポート443の権限エラー（EACCES）が発生する場合**:
+
+エラーログに`Error: listen EACCES: permission denied 0.0.0.0:443`が表示される場合、`appuser`がポート443をバインドする権限がありません。
+
+解決方法：
+1. systemdサービスファイルに`AmbientCapabilities=CAP_NET_BIND_SERVICE`を追加（セクション4.6参照）
+2. サービスファイルを修正後、以下を実行：
+```bash
+# systemd設定のリロード
+sudo systemctl daemon-reload
+
+# サービスの再起動
+sudo systemctl restart morizo-web
+
+# サービスの状態確認
+sudo systemctl status morizo-web
 ```
 
 ### 6.3 SSL証明書の更新
@@ -1100,11 +1156,16 @@ chmod 600 ~/backups/morizo-aiv2/env_backup_*.tar.gz
 
 ## 9. 更新・デプロイ手順
 
+**重要**: 更新作業は`sasaki`ユーザーで行います。更新作業前に所有権を一時的に`sasaki`に変更し、作業完了後に`appuser`に戻します。これはセキュリティの観点から必要な作業です。
+
 ### 9.1 Morizo-aiv2の更新
 
 ```bash
 # サービスを停止（sudo権限が必要）
 sudo systemctl stop morizo-aiv2
+
+# 所有権を一時的にsasakiに変更（更新作業のため、sudo権限が必要）
+sudo chown -R sasaki:sasaki /opt/morizo/Morizo-aiv2
 
 # リポジトリの更新（sasakiユーザーで実行）
 cd /opt/morizo/Morizo-aiv2
@@ -1112,7 +1173,15 @@ git pull
 
 # 依存関係の更新（必要に応じて、sasakiユーザーで実行）
 source venv/bin/activate
-pip install -r requirements.txt
+# メモリ使用量を抑えるため、分割されたrequirementsファイルを使用
+pip install -r requirements_base.txt
+pip install -r requirements_ai.txt
+pip install -r requirements_heavy.txt
+# または、一括インストール（メモリに余裕がある場合）
+# pip install -r requirements.txt
+
+# 所有権をappuserに戻す（セキュリティのため、sudo権限が必要）
+sudo chown -R appuser:appuser /opt/morizo/Morizo-aiv2
 
 # サービスを再起動（sudo権限が必要）
 sudo systemctl start morizo-aiv2
@@ -1120,7 +1189,7 @@ sudo systemctl start morizo-aiv2
 # 状態確認（sudo権限が必要）
 sudo systemctl status morizo-aiv2
 
-# ファイルの所有権を確認（sasakiユーザー所有であることを確認）
+# ファイルの所有権を確認（appuserユーザー所有であることを確認）
 ls -la
 ```
 
@@ -1129,6 +1198,9 @@ ls -la
 ```bash
 # サービスを停止（sudo権限が必要）
 sudo systemctl stop morizo-web
+
+# 所有権を一時的にsasakiに変更（更新作業のため、sudo権限が必要）
+sudo chown -R sasaki:sasaki /opt/morizo/Morizo-web
 
 # リポジトリの更新（sasakiユーザーで実行）
 cd /opt/morizo/Morizo-web
@@ -1140,13 +1212,16 @@ npm install
 # 本番ビルド（sasakiユーザーで実行）
 npm run build
 
+# 所有権をappuserに戻す（セキュリティのため、sudo権限が必要）
+sudo chown -R appuser:appuser /opt/morizo/Morizo-web
+
 # サービスを再起動（sudo権限が必要）
 sudo systemctl start morizo-web
 
 # 状態確認（sudo権限が必要）
 sudo systemctl status morizo-web
 
-# ファイルの所有権を確認（sasakiユーザー所有であることを確認）
+# ファイルの所有権を確認（appuserユーザー所有であることを確認）
 ls -la
 ```
 
