@@ -162,9 +162,41 @@ python3.12 --version
 
 ### 2.4 SSL証明書の取得（Let's Encrypt）
 
+**重要**: nginxが既にインストール・起動している場合、ポート80が使用されているため、`--standalone`モードは使用できません。以下のいずれかの方法を使用してください。
+
+#### 方法1: nginxを一時停止して証明書を取得（初回取得時）
+
 ```bash
+# nginxが起動しているか確認（sudo権限が必要）
+sudo systemctl status nginx
+
+# nginxを一時停止（sudo権限が必要）
+sudo systemctl stop nginx
+
 # Certbotを使用してSSL証明書を取得（sudo権限が必要）
 sudo certbot certonly --standalone -d morizo.csngrp.co.jp
+
+# nginxを再起動（sudo権限が必要）
+sudo systemctl start nginx
+
+# 証明書の場所を確認（通常は以下）
+# /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem
+# /etc/letsencrypt/live/morizo.csngrp.co.jp/privkey.pem
+
+# 証明書の読み取り権限を確認（sasakiユーザーが読み取れることを確認）
+sudo ls -la /etc/letsencrypt/live/morizo.csngrp.co.jp/
+```
+
+#### 方法2: webrootプラグインを使用（nginxを起動したまま証明書を取得・更新）
+
+**推奨**: nginxを起動したまま証明書を取得・更新できるため、この方法を推奨します。
+
+```bash
+# webroot用のディレクトリを作成（sudo権限が必要）
+sudo mkdir -p /var/www/html
+
+# Certbotを使用してSSL証明書を取得（webrootプラグイン、sudo権限が必要）
+sudo certbot certonly --webroot -w /var/www/html -d morizo.csngrp.co.jp
 
 # 証明書の場所を確認（通常は以下）
 # /etc/letsencrypt/live/morizo.csngrp.co.jp/fullchain.pem
@@ -176,7 +208,9 @@ sudo ls -la /etc/letsencrypt/live/morizo.csngrp.co.jp/
 
 **注意**: 
 - SSL証明書の取得には、ドメインがGCP VMのパブリックIPに正しく向いている必要があります。
-- 証明書ファイルはroot所有ですが、Next.jsアプリケーションから読み取れるように、適切な権限設定が必要です（セクション2.4.1参照）。
+- 証明書ファイルはroot所有ですが、nginxが読み取れるように、適切な権限設定が必要です（nginxは通常、rootまたはwww-dataユーザーで実行されるため、通常は問題ありません）。
+- **方法2（webroot）を使用する場合**: nginx設定ファイル（セクション4.5.2）で、`/.well-known/acme-challenge/`のlocationが既に設定されていることを確認してください。
+- **下りポート（アウトバウンド）を閉じている場合**: 証明書の更新時にLet's Encryptのサーバーと通信する必要があるため、HTTPS（ポート443）のアウトバウンド通信が許可されている必要があります。
 
 ### 2.4.1 SSL証明書の読み取り権限設定（appuser用）
 
@@ -207,7 +241,14 @@ groups appuser
 
 # 証明書ディレクトリのグループ所有権をssl-certに変更（sudo権限が必要）
 # 注意: Let's Encryptはシンボリックリンクを使用するため、親ディレクトリと実ファイルの両方に権限が必要
-sudo chgrp -R ssl-cert /etc/letsencrypt/live/
+
+# /etc/letsencrypt/live/ディレクトリの権限とグループ所有権を設定（sudo権限が必要）
+sudo chmod 755 /etc/letsencrypt/live/
+sudo chgrp ssl-cert /etc/letsencrypt/live/
+
+# /etc/letsencrypt/live/morizo.csngrp.co.jp/ディレクトリの権限とグループ所有権を設定（sudo権限が必要）
+sudo chmod 755 /etc/letsencrypt/live/morizo.csngrp.co.jp/
+sudo chgrp ssl-cert /etc/letsencrypt/live/morizo.csngrp.co.jp/
 
 # 親ディレクトリ（archive）の権限を変更（sudo権限が必要）
 # archiveディレクトリはデフォルトで700（drwx------）のため、755に変更が必要
@@ -215,6 +256,7 @@ sudo chmod 755 /etc/letsencrypt/archive/
 sudo chgrp ssl-cert /etc/letsencrypt/archive/
 
 # ドメイン配下のディレクトリのグループ所有権を変更（sudo権限が必要）
+sudo chmod 755 /etc/letsencrypt/archive/morizo.csngrp.co.jp/
 sudo chgrp ssl-cert /etc/letsencrypt/archive/morizo.csngrp.co.jp/
 
 # 実ファイルのグループ所有権をssl-certに変更（sudo権限が必要）
@@ -634,6 +676,39 @@ sudo systemctl status nginx
 
 #### 4.5.2 nginx設定ファイルの作成
 
+**重要**: `limit_req_zone`ディレクティブは`http`ブロック内でのみ使用可能です。`server`ブロック内では使用できません。そのため、レート制限の設定を`/etc/nginx/conf.d/`に分離します。
+
+##### 4.5.2.1 レート制限設定ファイルの作成
+
+**重要**: `limit_req_zone`ディレクティブは`http`ブロック内でのみ使用可能です。`/etc/nginx/conf.d/`ディレクトリのファイルは、`/etc/nginx/nginx.conf`の`http`ブロック内で自動的にインクルードされます。
+
+```bash
+# conf.dディレクトリが存在するか確認（存在しない場合は作成、sudo権限が必要）
+if [ ! -d /etc/nginx/conf.d ]; then
+    sudo mkdir -p /etc/nginx/conf.d
+fi
+
+# /etc/nginx/nginx.confでconf.dがインクルードされているか確認
+sudo grep -q "include /etc/nginx/conf.d/\*.conf;" /etc/nginx/nginx.conf && echo "conf.dは既にインクルードされています" || echo "conf.dのインクルードが必要です"
+
+# レート制限設定ファイルの作成（sudo権限が必要）
+sudo vi /etc/nginx/conf.d/rate-limit.conf
+```
+
+以下を記述：
+
+```nginx
+# レート制限ゾーンの定義（httpブロック内で使用可能）
+limit_req_zone $binary_remote_addr zone=general:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=api:10m rate=5r/s;
+```
+
+**注意**: 
+- `/etc/nginx/nginx.conf`に`include /etc/nginx/conf.d/*.conf;`が含まれていない場合は、`http`ブロック内に追加する必要があります（通常は既に含まれています）。
+- 確認方法: `sudo grep "include.*conf.d" /etc/nginx/nginx.conf`
+
+##### 4.5.2.2 メイン設定ファイルの作成
+
 ```bash
 # nginx設定ファイルの作成（sudo権限が必要）
 sudo vi /etc/nginx/sites-available/morizo
@@ -702,10 +777,6 @@ server {
     proxy_send_timeout 60s;
     proxy_read_timeout 60s;
 
-    # レート制限（DDoS対策）
-    limit_req_zone $binary_remote_addr zone=general:10m rate=10r/s;
-    limit_req_zone $binary_remote_addr zone=api:10m rate=5r/s;
-
     # 静的ファイルの直接配信（パフォーマンス向上）
     location /_next/static/ {
         alias /opt/morizo/Morizo-web/.next/static/;
@@ -713,11 +784,13 @@ server {
         add_header Cache-Control "public, immutable";
     }
 
-    location /static/ {
-        alias /opt/morizo/Morizo-web/public/static/;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
+    # カスタム静的ファイルの直接配信（public/staticディレクトリが存在する場合のみ有効）
+    # 注意: このディレクトリが存在しない場合は、このlocationブロックを削除またはコメントアウトしてください
+    # location /static/ {
+    #     alias /opt/morizo/Morizo-web/public/static/;
+    #     expires 1y;
+    #     add_header Cache-Control "public, immutable";
+    # }
 
     # APIエンドポイント（レート制限を適用）
     location /api/ {
@@ -773,15 +846,35 @@ sudo systemctl status nginx
 ```bash
 # 静的ファイルディレクトリの読み取り権限を設定（sudo権限が必要）
 # nginxが静的ファイルを読み取れるようにする
-sudo chmod -R 755 /opt/morizo/Morizo-web/.next/static
-sudo chmod -R 755 /opt/morizo/Morizo-web/public/static
+
+# .next/staticディレクトリの権限設定（必須）
+if [ -d /opt/morizo/Morizo-web/.next/static ]; then
+    sudo chmod -R 755 /opt/morizo/Morizo-web/.next/static
+    echo ".next/staticディレクトリの権限を設定しました"
+else
+    echo "警告: .next/staticディレクトリが見つかりません（ビルドが必要かもしれません）"
+fi
+
+# public/staticディレクトリの権限設定（オプション、存在する場合のみ）
+if [ -d /opt/morizo/Morizo-web/public/static ]; then
+    sudo chmod -R 755 /opt/morizo/Morizo-web/public/static
+    echo "public/staticディレクトリの権限を設定しました"
+else
+    echo "情報: public/staticディレクトリは存在しません（オプション）"
+fi
 
 # 所有権の確認（appuserユーザー所有であることを確認）
-ls -ld /opt/morizo/Morizo-web/.next/static
-ls -ld /opt/morizo/Morizo-web/public/static
+if [ -d /opt/morizo/Morizo-web/.next/static ]; then
+    ls -ld /opt/morizo/Morizo-web/.next/static
+fi
+if [ -d /opt/morizo/Morizo-web/public/static ]; then
+    ls -ld /opt/morizo/Morizo-web/public/static
+fi
 ```
 
 **注意**:
+- `.next/static`ディレクトリは、Next.jsのビルド後に自動的に作成されます。ビルドが完了していない場合は、セクション4.4でビルドを実行してください。
+- `public/static`ディレクトリは、プロジェクトでカスタム静的ファイルを配置する場合に使用されます。存在しない場合は、nginx設定の`location /static/`ブロックを削除するか、コメントアウトしてください（セクション4.5.2.2参照）。
 - nginxは`www-data`ユーザーで実行されますが、静的ファイルは`appuser`所有のままでも、読み取り権限（755）があればアクセス可能です
 - 必要に応じて、`www-data`ユーザーを`appuser`グループに追加するか、静的ファイルディレクトリのグループ所有権を変更することもできます
 
@@ -1067,12 +1160,55 @@ curl -I http://localhost:3000
 Let's Encryptの証明書は90日で期限切れになるため、自動更新を設定：
 
 ```bash
-# Certbotの自動更新テスト
+# Certbotの自動更新テスト（sudo権限が必要）
 sudo certbot renew --dry-run
 
 # systemdタイマーの設定（通常は自動設定済み）
 sudo systemctl status certbot.timer
+
+# 手動で証明書を更新（sudo権限が必要）
+sudo certbot renew
 ```
+
+**重要**: 
+- **webrootプラグインを使用している場合**: nginxを起動したまま証明書を更新できます（`certbot renew`を実行するだけ）。
+- **standaloneモードを使用している場合**: 証明書更新時はnginxを一時停止する必要があります。自動更新の場合は、certbotのフックスクリプトでnginxを停止・起動する設定が必要です。
+- **推奨**: webrootプラグインを使用することで、nginxを停止せずに証明書を更新できます（セクション2.4参照）。
+
+**証明書更新後のnginx再読み込み**:
+
+証明書が更新された後、nginxに新しい証明書を読み込ませる必要があります：
+
+```bash
+# nginx設定の再読み込み（証明書ファイルの再読み込み、sudo権限が必要）
+sudo systemctl reload nginx
+
+# または、nginxの再起動（sudo権限が必要）
+sudo systemctl restart nginx
+```
+
+**自動更新時のnginx再読み込み設定**:
+
+certbotの更新後に自動的にnginxを再読み込みするように設定：
+
+```bash
+# certbotの更新後フックスクリプトの作成（sudo権限が必要）
+sudo vi /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+```
+
+以下を記述：
+
+```bash
+#!/bin/bash
+systemctl reload nginx
+```
+
+```bash
+# 実行権限を付与（sudo権限が必要）
+sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+```
+
+これにより、証明書が更新された際に自動的にnginxが再読み込みされます。
 
 ### 6.4 ポートが既に使用されている
 
@@ -1205,8 +1341,26 @@ sudo journalctl -u morizo-web -n 100
 **OSレベルのlogrotate設定**:
 
 ```bash
-# logrotate設定ファイルの確認（sudo権限が必要）
-cat /etc/logrotate.d/morizo-aiv2
+# logrotate設定ファイルの作成（sudo権限が必要）
+sudo vi /etc/logrotate.d/morizo-aiv2
+```
+
+以下を記述：
+
+```
+# Morizo AI v2 ログローテーション設定
+/opt/morizo/Morizo-aiv2/morizo_ai*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    missingok
+    create 0644 appuser appuser
+    postrotate
+        systemctl reload morizo-aiv2 > /dev/null 2>&1 || true
+    endscript
+}
 ```
 
 設定内容：
@@ -1214,6 +1368,20 @@ cat /etc/logrotate.d/morizo-aiv2
 - **保持期間**: 30日間
 - **圧縮**: 有効（delaycompress）
 - **対象ファイル**: `/opt/morizo/Morizo-aiv2/morizo_ai*.log`
+- **所有者**: `appuser`ユーザー
+
+**設定の確認**:
+
+```bash
+# logrotate設定ファイルの確認（sudo権限が必要）
+cat /etc/logrotate.d/morizo-aiv2
+
+# logrotate設定のテスト（sudo権限が必要）
+sudo logrotate -d /etc/logrotate.d/morizo-aiv2
+
+# logrotate設定の強制実行（テスト用、sudo権限が必要）
+sudo logrotate -f /etc/logrotate.d/morizo-aiv2
+```
 
 **アプリケーションレベルの設定**:
 
