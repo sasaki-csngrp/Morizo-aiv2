@@ -222,10 +222,12 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
         expires_at = None
         subscription_id = None
         
-        # transaction_idからsubscription_idを取得（新しいWebhook形式）
-        transaction_id = event_data.get("transaction_id")
-        if transaction_id:
-            subscription_id = transaction_id
+        # product_idとapp_user_idからsubscription_idを生成（新しいWebhook形式）
+        product_id = event_data.get("product_id")
+        if product_id and app_user_id:
+            # コロン区切りの場合、先頭部分を取得（例: "morizo_pro_monthly:morizo-pro-monthly" -> "morizo_pro_monthly"）
+            actual_product_id = product_id.split(":")[0] if ":" in product_id else product_id
+            subscription_id = f"{app_user_id}:{actual_product_id}"
         
         # customer_infoからsubscription_idを取得（フォールバック）
         if customer_info and not subscription_id:
