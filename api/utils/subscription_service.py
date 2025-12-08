@@ -202,14 +202,19 @@ class SubscriptionService:
             
             usage = result.data[0]
             
-            self.logger.debug(f"✅ [Subscription] Usage retrieved: menu_bulk={usage.get('menu_bulk_count', 0)}, menu_step={usage.get('menu_step_count', 0)}, ocr={usage.get('ocr_count', 0)}")
+            # 返却する利用回数の値を取得
+            menu_bulk_count = usage.get("menu_bulk_count", 0)
+            menu_step_count = usage.get("menu_step_count", 0)
+            ocr_count = usage.get("ocr_count", 0)
+            
+            self.logger.info(f"✅ [Subscription] Usage retrieved: user_id={user_id}, date={date}, menu_bulk_count={menu_bulk_count}, menu_step_count={menu_step_count}, ocr_count={ocr_count}")
             
             return {
                 "success": True,
                 "date": date,
-                "menu_bulk_count": usage.get("menu_bulk_count", 0),
-                "menu_step_count": usage.get("menu_step_count", 0),
-                "ocr_count": usage.get("ocr_count", 0)
+                "menu_bulk_count": menu_bulk_count,
+                "menu_step_count": menu_step_count,
+                "ocr_count": ocr_count
             }
             
         except Exception as e:

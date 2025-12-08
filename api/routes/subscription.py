@@ -242,14 +242,19 @@ async def get_usage(http_request: Request) -> Dict[str, Any]:
         from ..utils.subscription_service import PLAN_LIMITS
         plan_limits = PLAN_LIMITS.get(plan_type, PLAN_LIMITS['free'])
         
-        logger.info(f"✅ [API] Usage retrieved: date={usage_result.get('date')}")
+        # 返却する利用回数の値を取得
+        menu_bulk_count = usage_result.get("menu_bulk_count", 0)
+        menu_step_count = usage_result.get("menu_step_count", 0)
+        ocr_count = usage_result.get("ocr_count", 0)
+        
+        logger.info(f"✅ [API] Usage retrieved: date={usage_result.get('date')}, menu_bulk_count={menu_bulk_count}, menu_step_count={menu_step_count}, ocr_count={ocr_count}, plan_type={plan_type}")
         
         return {
             "success": True,
             "date": usage_result.get("date"),
-            "menu_bulk_count": usage_result.get("menu_bulk_count", 0),
-            "menu_step_count": usage_result.get("menu_step_count", 0),
-            "ocr_count": usage_result.get("ocr_count", 0),
+            "menu_bulk_count": menu_bulk_count,
+            "menu_step_count": menu_step_count,
+            "ocr_count": ocr_count,
             "plan_type": plan_type,
             "limits": {
                 "menu_bulk": plan_limits.get("menu_bulk", 0),
