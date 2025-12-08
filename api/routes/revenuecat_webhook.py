@@ -222,21 +222,38 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
         expires_at = None
         subscription_id = None
         
-        if customer_info:
+        # transaction_idからsubscription_idを取得（新しいWebhook形式）
+        transaction_id = event_data.get("transaction_id")
+        if transaction_id:
+            subscription_id = transaction_id
+        
+        # customer_infoからsubscription_idを取得（フォールバック）
+        if customer_info and not subscription_id:
             subscriptions = customer_info.get("subscriptions", {})
-            
-            # アクティブなサブスクリプションを探す
             for sub_key, sub_data in subscriptions.items():
                 if sub_data.get("is_active", False):
-                    subscription_status = "active"
+                    subscription_id = sub_key
+                    break
+        
+        # expiration_at_msから有効期限を取得（新しいWebhook形式）
+        expiration_at_ms = event_data.get("expiration_at_ms")
+        if expiration_at_ms:
+            try:
+                expires_at = datetime.fromtimestamp(expiration_at_ms / 1000, tz=ZoneInfo('UTC'))
+            except Exception as e:
+                logger.warning(f"有効期限の解析に失敗 (expiration_at_ms): {expiration_at_ms}, error: {e}")
+        
+        # customer_infoから有効期限を取得（フォールバック）
+        if customer_info and not expires_at:
+            subscriptions = customer_info.get("subscriptions", {})
+            for sub_key, sub_data in subscriptions.items():
+                if sub_data.get("is_active", False):
                     expires_at_str = sub_data.get("expires_date")
                     if expires_at_str:
                         try:
-                            # ISO形式の日時文字列をdatetimeに変換
                             expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
                         except Exception as e:
                             logger.warning(f"有効期限の解析に失敗: {expires_at_str}, error: {e}")
-                    subscription_id = sub_key
                     break
         
         # イベントタイプに応じてステータスを調整
@@ -248,24 +265,10 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
             subscription_status = "active"
         elif event_type == "INITIAL_PURCHASE":
             subscription_status = "active"
-            # expiration_at_msから有効期限を取得
-            expiration_at_ms = event_data.get("expiration_at_ms")
-            if expiration_at_ms:
-                try:
-                    expires_at = datetime.fromtimestamp(expiration_at_ms / 1000, tz=ZoneInfo('UTC'))
-                except Exception as e:
-                    logger.warning(f"有効期限の解析に失敗 (expiration_at_ms): {expiration_at_ms}, error: {e}")
         elif event_type == "TEST":
             # テストイベントの場合、デフォルトでfreeプラン、activeステータス
             plan_type = "free"
             subscription_status = "active"
-            # expiration_at_msから有効期限を取得（テストイベントの場合）
-            expiration_at_ms = event_data.get("expiration_at_ms")
-            if expiration_at_ms:
-                try:
-                    expires_at = datetime.fromtimestamp(expiration_at_ms / 1000, tz=ZoneInfo('UTC'))
-                except Exception as e:
-                    logger.warning(f"有効期限の解析に失敗 (expiration_at_ms): {expiration_at_ms}, error: {e}")
         
         return {
             "app_user_id": app_user_id,
