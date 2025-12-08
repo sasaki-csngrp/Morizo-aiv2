@@ -70,9 +70,36 @@ def get_user_id_from_app_user_id(app_user_id: str) -> Optional[str]:
             logger.error(f"app_user_idがUUID形式ではありません: {app_user_id}")
             return None
         
-        # app_user_idはSupabaseのuser_idと同じと仮定
-        # 必要に応じて、マッピングテーブルを参照する実装に変更可能
-        return app_user_id
+        # Supabaseのauth.usersテーブルでuser_idが存在するか確認
+        client = get_service_role_client()
+        try:
+            # auth.usersテーブルにアクセス（サービスロールキーを使用）
+            # 注意: SupabaseのPythonクライアントでは直接auth.usersにアクセスできないため、
+            # RPC関数を使用するか、usersテーブル（public.users）を参照する必要がある
+            # ここでは、app_user_idをそのままuser_idとして使用し、
+            # データベース更新時に存在チェックを行う
+            
+            # まず、user_subscriptionsテーブルで既存のレコードを確認
+            # （これにより、過去にこのuser_idでサブスクリプションが作成されたことがあるか確認）
+            existing = client.table("user_subscriptions").select("user_id").eq("user_id", app_user_id).limit(1).execute()
+            
+            if existing.data and len(existing.data) > 0:
+                # 既存のレコードがある場合、app_user_idをそのままuser_idとして使用
+                logger.debug(f"既存のuser_subscriptionsレコードが見つかりました: {app_user_id}")
+                return app_user_id
+            
+            # 既存レコードがない場合でも、app_user_idをそのままuser_idとして使用
+            # （アプリ側でRevenueCatのapp_user_idをSupabaseのuser_idに設定している前提）
+            # 実際のユーザーが存在しない場合は、データベース更新時にエラーが発生する
+            logger.debug(f"app_user_idをuser_idとして使用: {app_user_id}")
+            return app_user_id
+            
+        except Exception as e:
+            logger.warning(f"user_idの存在確認中にエラーが発生しました（続行します）: {e}")
+            # エラーが発生しても、app_user_idをそのままuser_idとして使用
+            # （データベース更新時に存在チェックが行われる）
+            return app_user_id
+        
     except Exception as e:
         logger.error(f"user_idの取得に失敗: {e}")
         return None
@@ -143,60 +170,63 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
     RevenueCatイベントを解析して、必要な情報を抽出
     
     Args:
-        event_data: RevenueCatイベントのデータ
-        
+        event_data: RevenueCatイベントのデータ（eventオブジェクトまたは直接イベントデータ）
+    
     Returns:
         Optional[Dict[str, Any]]: 解析結果（失敗時None）
     """
     try:
         event_type = event_data.get("type")
         app_user_id = event_data.get("app_user_id")
-        customer_info = event_data.get("customer_info", {})
         
         if not app_user_id:
             logger.warning("app_user_idが存在しません")
             return None
         
+        # customer_infoが存在する場合（後方互換性のため）
+        customer_info = event_data.get("customer_info", {})
+        
         # エンタイトルメントからプランタイプを判定
-        entitlements = customer_info.get("entitlements", {})
         plan_type = "free"
-        
-        # proエンタイトルメントを確認
-        if "pro" in entitlements:
-            pro_entitlement = entitlements["pro"]
-            if pro_entitlement.get("is_active", False):
-                plan_type = "pro"
-        
-        # ultimateエンタイトルメントを確認（proより優先）
-        if "ultimate" in entitlements:
-            ultimate_entitlement = entitlements["ultimate"]
-            if ultimate_entitlement.get("is_active", False):
-                plan_type = "ultimate"
+        if customer_info:
+            entitlements = customer_info.get("entitlements", {})
+            
+            # proエンタイトルメントを確認
+            if "pro" in entitlements:
+                pro_entitlement = entitlements["pro"]
+                if pro_entitlement.get("is_active", False):
+                    plan_type = "pro"
+            
+            # ultimateエンタイトルメントを確認（proより優先）
+            if "ultimate" in entitlements:
+                ultimate_entitlement = entitlements["ultimate"]
+                if ultimate_entitlement.get("is_active", False):
+                    plan_type = "ultimate"
         
         # サブスクリプション情報を取得
-        subscriptions = customer_info.get("subscriptions", {})
         subscription_status = "expired"
         expires_at = None
         subscription_id = None
         
-        # アクティブなサブスクリプションを探す
-        for sub_key, sub_data in subscriptions.items():
-            if sub_data.get("is_active", False):
-                subscription_status = "active"
-                expires_at_str = sub_data.get("expires_date")
-                if expires_at_str:
-                    try:
-                        # ISO形式の日時文字列をdatetimeに変換
-                        expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
-                    except Exception as e:
-                        logger.warning(f"有効期限の解析に失敗: {expires_at_str}, error: {e}")
-                subscription_id = sub_key
-                break
+        if customer_info:
+            subscriptions = customer_info.get("subscriptions", {})
+            
+            # アクティブなサブスクリプションを探す
+            for sub_key, sub_data in subscriptions.items():
+                if sub_data.get("is_active", False):
+                    subscription_status = "active"
+                    expires_at_str = sub_data.get("expires_date")
+                    if expires_at_str:
+                        try:
+                            # ISO形式の日時文字列をdatetimeに変換
+                            expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+                        except Exception as e:
+                            logger.warning(f"有効期限の解析に失敗: {expires_at_str}, error: {e}")
+                    subscription_id = sub_key
+                    break
         
         # イベントタイプに応じてステータスを調整
         if event_type == "CANCELLATION":
-            # 解約された場合、現在の有効期限までactive、その後expired
-            # ただし、即座にcancelledに設定する方が安全
             subscription_status = "cancelled"
         elif event_type == "EXPIRATION":
             subscription_status = "expired"
@@ -204,6 +234,17 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
             subscription_status = "active"
         elif event_type == "INITIAL_PURCHASE":
             subscription_status = "active"
+        elif event_type == "TEST":
+            # テストイベントの場合、デフォルトでfreeプラン、activeステータス
+            plan_type = "free"
+            subscription_status = "active"
+            # expiration_at_msから有効期限を取得（テストイベントの場合）
+            expiration_at_ms = event_data.get("expiration_at_ms")
+            if expiration_at_ms:
+                try:
+                    expires_at = datetime.fromtimestamp(expiration_at_ms / 1000, tz=ZoneInfo('UTC'))
+                except Exception as e:
+                    logger.warning(f"有効期限の解析に失敗 (expiration_at_ms): {expiration_at_ms}, error: {e}")
         
         return {
             "app_user_id": app_user_id,
@@ -214,7 +255,7 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
             "event_type": event_type
         }
     except Exception as e:
-        logger.error(f"イベントの解析に失敗: {e}")
+        logger.error(f"イベントの解析に失敗: {e}", exc_info=True)
         return None
 
 
@@ -245,8 +286,20 @@ async def revenuecat_webhook(
             )
         
         # リクエストボディを取得
-        event_data = await request.json()
-        logger.info(f"RevenueCat Webhookイベントを受信: {event_data.get('type', 'UNKNOWN')}")
+        request_data = await request.json()
+        logger.debug(f"RevenueCat Webhook受信データ: {request_data}")
+        
+        # RevenueCat Webhookの構造に対応
+        # 構造1: { "api_version": "1.0", "event": { ... } }
+        # 構造2: { "type": "...", "app_user_id": "...", "customer_info": { ... } } (後方互換性)
+        if "event" in request_data:
+            # 新しい構造: eventオブジェクトから情報を取得
+            event_data = request_data["event"]
+            logger.info(f"RevenueCat Webhookイベントを受信 (api_version={request_data.get('api_version', 'unknown')}): {event_data.get('type', 'UNKNOWN')}")
+        else:
+            # 古い構造: 直接イベントデータ
+            event_data = request_data
+            logger.info(f"RevenueCat Webhookイベントを受信: {event_data.get('type', 'UNKNOWN')}")
         
         # イベントを解析
         parsed_event = parse_revenuecat_event(event_data)
