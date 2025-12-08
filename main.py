@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from config.loggers import GenericLogger
 from config.logging import setup_logging, get_log_level
 from api.middleware import AuthenticationMiddleware, LoggingMiddleware
-from api.routes import chat_router, health_router, recipe_router, menu_router, inventory_router, user_router, subscription_router
+from api.routes import chat_router, health_router, recipe_router, menu_router, inventory_router, user_router, subscription_router, revenuecat_webhook_router
 from api.models import ErrorResponse
 
 # 環境変数の読み込み
@@ -111,6 +111,7 @@ app.include_router(menu_router, prefix="/api", tags=["menu"])
 app.include_router(inventory_router, prefix="/api", tags=["inventory"])
 app.include_router(user_router, prefix="/api", tags=["user"])
 app.include_router(subscription_router, prefix="/api", tags=["subscription"])
+app.include_router(revenuecat_webhook_router)
 
 
 # エラーハンドラー

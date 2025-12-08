@@ -26,7 +26,8 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             "/docs", 
             "/openapi.json",
             "/redoc",
-            "/static"  # 静的ファイルは認証不要
+            "/static",  # 静的ファイルは認証不要
+            "/api/revenuecat/webhook"  # RevenueCat Webhookは独自の認証を使用
         }
         
         # AuthHandlerは遅延初期化（環境変数読み込み後）

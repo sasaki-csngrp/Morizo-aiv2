@@ -12,6 +12,7 @@ from .menu import router as menu_router
 from .inventory import router as inventory_router
 from .user import router as user_router
 from .subscription import router as subscription_router
+from .revenuecat_webhook import router as revenuecat_webhook_router
 
 __all__ = [
     'chat_router',
@@ -20,5 +21,6 @@ __all__ = [
     'menu_router',
     'inventory_router',
     'user_router',
-    'subscription_router'
+    'subscription_router',
+    'revenuecat_webhook_router'
 ]
