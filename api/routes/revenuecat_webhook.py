@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, Request, HTTPException, Header, status
 from config.loggers import GenericLogger
-from ..utils.subscription_service import get_service_role_client
+from ..utils.subscription_service import get_service_role_client, PRODUCT_ID_TO_PLAN
 
 # ロガーの設定
 logger = GenericLogger("api", "revenuecat_webhook")
@@ -188,7 +188,21 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
         
         # エンタイトルメントからプランタイプを判定
         plan_type = "free"
-        if customer_info:
+        
+        # product_idからプランタイプを判定（優先）
+        product_id = event_data.get("product_id")
+        if product_id:
+            # コロン区切りの場合、先頭部分を取得（例: "morizo_pro_monthly:morizo-pro-monthly" -> "morizo_pro_monthly"）
+            actual_product_id = product_id.split(":")[0] if ":" in product_id else product_id
+            
+            # PRODUCT_ID_TO_PLANマッピングからプランタイプを取得
+            mapped_plan_type = PRODUCT_ID_TO_PLAN.get(actual_product_id)
+            if mapped_plan_type:
+                plan_type = mapped_plan_type
+                logger.debug(f"product_idからプランタイプを判定: {actual_product_id} -> {plan_type}")
+        
+        # customer_infoからエンタイトルメントを判定（フォールバック）
+        if customer_info and plan_type == "free":
             entitlements = customer_info.get("entitlements", {})
             
             # proエンタイトルメントを確認
@@ -234,6 +248,13 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
             subscription_status = "active"
         elif event_type == "INITIAL_PURCHASE":
             subscription_status = "active"
+            # expiration_at_msから有効期限を取得
+            expiration_at_ms = event_data.get("expiration_at_ms")
+            if expiration_at_ms:
+                try:
+                    expires_at = datetime.fromtimestamp(expiration_at_ms / 1000, tz=ZoneInfo('UTC'))
+                except Exception as e:
+                    logger.warning(f"有効期限の解析に失敗 (expiration_at_ms): {expiration_at_ms}, error: {e}")
         elif event_type == "TEST":
             # テストイベントの場合、デフォルトでfreeプラン、activeステータス
             plan_type = "free"
