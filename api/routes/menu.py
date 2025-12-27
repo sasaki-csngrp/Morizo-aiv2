@@ -30,7 +30,7 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
         
         user_info = getattr(http_request.state, 'user_info', None)
         if not user_info:
-            logger.error("❌ [API] User info not found in request state")
+            logger.error("❌ [API] リクエストステートにユーザー情報が見つかりません")
             raise HTTPException(status_code=401, detail="認証が必要です")
         
         user_id = user_info['user_id']
@@ -86,9 +86,9 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
         # 3. 認証済みSupabaseクライアントの作成
         try:
             client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
+            logger.info(f"✅ [API] ユーザー {user_id} の認証済みクライアントを作成しました")
         except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
+            logger.error(f"❌ [API] 認証済みクライアントの作成に失敗しました: {e}")
             raise HTTPException(status_code=401, detail="認証に失敗しました")
         
         # 4. 各レシピをDBに保存
@@ -158,7 +158,7 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
                 else:
                     failed_count += 1
                     error_msg = result.get("error", "不明なエラー")
-                    logger.error(f"❌ [API] Failed to save {category}: {error_msg}")
+                    logger.error(f"❌ [API] {category} の保存に失敗しました: {error_msg}")
                     
             except Exception as e:
                 failed_count += 1
@@ -188,7 +188,7 @@ async def save_menu(request: MenuSaveRequest, http_request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in save_menu: {e}")
+        logger.error(f"❌ [API] 献立保存処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="献立保存処理でエラーが発生しました")
 
 
@@ -208,7 +208,7 @@ async def get_menu_history(
         
         user_info = getattr(http_request.state, 'user_info', None)
         if not user_info:
-            logger.error("❌ [API] User info not found in request state")
+            logger.error("❌ [API] リクエストステートにユーザー情報が見つかりません")
             raise HTTPException(status_code=401, detail="認証が必要です")
         
         user_id = user_info['user_id']
@@ -217,9 +217,9 @@ async def get_menu_history(
         # 2. 認証済みSupabaseクライアントの作成
         try:
             client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
+            logger.info(f"✅ [API] ユーザー {user_id} の認証済みクライアントを作成しました")
         except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
+            logger.error(f"❌ [API] 認証済みクライアントの作成に失敗しました: {e}")
             raise HTTPException(status_code=401, detail="認証に失敗しました")
         
         # 3. 履歴を取得
@@ -239,7 +239,7 @@ async def get_menu_history(
         
         result = query.order("cooked_at", desc=True).execute()
         
-        logger.debug(f"🔍 [API] Retrieved {len(result.data)} recipe histories from database")
+        logger.debug(f"🔍 [API] データベースから {len(result.data)} 件のレシピ履歴を取得しました")
         
         # 4. 日付ごとにグループ化
         history_by_date = {}
@@ -270,7 +270,7 @@ async def get_menu_history(
                 
                 date_key = cooked_at.date().isoformat()
             except Exception as e:
-                logger.error(f"❌ [API] Failed to parse cooked_at: {cooked_at_str}, error: {e}")
+                logger.error(f"❌ [API] cooked_at の解析に失敗しました: {cooked_at_str}, エラー: {e}")
                 continue
             
             if date_key not in history_by_date:
@@ -339,7 +339,7 @@ async def get_menu_history(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in get_menu_history: {e}")
+        logger.error(f"❌ [API] 履歴取得処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="履歴取得処理でエラーが発生しました")
 
 
@@ -360,7 +360,7 @@ async def update_recipe_rating(
         
         user_info = getattr(http_request.state, 'user_info', None)
         if not user_info:
-            logger.error("❌ [API] User info not found in request state")
+            logger.error("❌ [API] リクエストステートにユーザー情報が見つかりません")
             raise HTTPException(status_code=401, detail="認証が必要です")
         
         user_id = user_info['user_id']
@@ -369,9 +369,9 @@ async def update_recipe_rating(
         # 2. 認証済みSupabaseクライアントの作成
         try:
             client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
+            logger.info(f"✅ [API] ユーザー {user_id} の認証済みクライアントを作成しました")
         except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
+            logger.error(f"❌ [API] 認証済みクライアントの作成に失敗しました: {e}")
             raise HTTPException(status_code=401, detail="認証に失敗しました")
         
         # 3. 空文字列をNoneに変換
@@ -394,7 +394,7 @@ async def update_recipe_rating(
         
         if not result.get("success"):
             error_msg = result.get("error", "Unknown error")
-            logger.error(f"❌ [API] Failed to update recipe rating: {error_msg}")
+            logger.error(f"❌ [API] レシピ評価の更新に失敗しました: {error_msg}")
             raise HTTPException(status_code=404, detail=error_msg)
         
         # 4. 更新後のデータを取得
@@ -422,7 +422,7 @@ async def update_recipe_rating(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in update_recipe_rating: {e}")
+        logger.error(f"❌ [API] 評価更新処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="評価更新処理でエラーが発生しました")
 
 
@@ -441,7 +441,7 @@ async def delete_recipe_history(
         
         user_info = getattr(http_request.state, 'user_info', None)
         if not user_info:
-            logger.error("❌ [API] User info not found in request state")
+            logger.error("❌ [API] リクエストステートにユーザー情報が見つかりません")
             raise HTTPException(status_code=401, detail="認証が必要です")
         
         user_id = user_info['user_id']
@@ -450,9 +450,9 @@ async def delete_recipe_history(
         # 2. 認証済みSupabaseクライアントの作成
         try:
             client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
+            logger.info(f"✅ [API] ユーザー {user_id} の認証済みクライアントを作成しました")
         except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
+            logger.error(f"❌ [API] 認証済みクライアントの作成に失敗しました: {e}")
             raise HTTPException(status_code=401, detail="認証に失敗しました")
         
         # 3. CRUD層で削除
@@ -465,7 +465,7 @@ async def delete_recipe_history(
         
         if not result.get("success"):
             error_msg = result.get("error", "Unknown error")
-            logger.error(f"❌ [API] Failed to delete recipe history: {error_msg}")
+            logger.error(f"❌ [API] レシピ履歴の削除に失敗しました: {error_msg}")
             raise HTTPException(status_code=404, detail=error_msg)
         
         logger.info(f"✅ [API] Recipe history deleted successfully: history_id={history_id}")
@@ -474,6 +474,6 @@ async def delete_recipe_history(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in delete_recipe_history: {e}")
+        logger.error(f"❌ [API] 履歴削除処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="履歴削除処理でエラーが発生しました")
 

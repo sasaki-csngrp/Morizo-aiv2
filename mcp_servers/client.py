@@ -81,7 +81,7 @@ class MCPClient:
         try:
             # 空トークンや無効なトークンのチェック
             if not token or token.strip() == "":
-                self.logger.warning("⚠️ [MCP] Empty or invalid token provided")
+                self.logger.warning("⚠️ [MCP] 空または無効なトークンが提供されました")
                 return False
             
             client = self.get_supabase_client()
@@ -100,7 +100,7 @@ class MCPClient:
         
         client = self.get_supabase_client()
         client.auth.set_session(token)
-        self.logger.debug("🔐 [MCP] Authenticated client created")
+        self.logger.debug("🔐 [MCP] 認証済みクライアントを作成しました")
         return client
     
     async def _get_mcp_client(self, server_name: str):
@@ -115,7 +115,7 @@ class MCPClient:
                 self.logger.debug(f"🔧 [MCP] MCP client created for {server_name} via stdio")
                 
             except Exception as e:
-                self.logger.error(f"❌ [MCP] Failed to create MCP client for {server_name}: {e}")
+                self.logger.error(f"❌ [MCP] {server_name} のMCPクライアント作成に失敗しました: {e}")
                 raise
         
         return self.mcp_clients[server_name]
@@ -129,7 +129,7 @@ class MCPClient:
         try:
             # 認証確認（空トークンの場合は警告して続行）
             if not token or token.strip() == "":
-                self.logger.warning("⚠️ [MCP] No token provided, proceeding without authentication")
+                self.logger.warning("⚠️ [MCP] トークンが提供されていません。認証なしで続行します")
             elif not self.verify_auth_token(token):
                 raise ValueError("Authentication failed")
             
@@ -165,11 +165,11 @@ class MCPClient:
                         text_content = call_result.content[0].text if call_result.content else '{}'
                         actual_result = json.loads(text_content)
                     except (json.JSONDecodeError, IndexError, AttributeError):
-                        actual_result = {'success': False, 'error': 'Failed to parse result'}
+                        actual_result = {'success': False, 'error': '結果の解析に失敗しました'}
                 else:
-                    actual_result = {'success': False, 'error': 'No result data available'}
+                    actual_result = {'success': False, 'error': '結果データが利用できません'}
             
-            self.logger.debug(f"✅ [MCP] Tool completed successfully")
+            self.logger.debug(f"✅ [MCP] ツールが正常に完了しました")
             self.logger.debug(f"🔍 [MCP] Tool name: {tool_name}")
             self.logger.debug(f"📊 [MCP] Result: {actual_result}")
             
@@ -180,7 +180,7 @@ class MCPClient:
             }
             
         except Exception as e:
-            self.logger.error(f"❌ [MCP] Tool {tool_name} failed: {e}")
+            self.logger.error(f"❌ [MCP] ツール {tool_name} が失敗しました: {e}")
             return {
                 "success": False,
                 "error": str(e),

@@ -43,7 +43,7 @@ class InventoryServiceHandler:
                     item_names = [item.get("item_name") for item in inventory_items if item.get("item_name")]
                     
                     await session_service.set_session_context(sse_session_id, "inventory_items", item_names)
-                    self.logger.debug(f"💾 [InventoryServiceHandler] Saved {len(item_names)} inventory items to session")
+                    self.logger.debug(f"💾 [InventoryServiceHandler] セッションに{len(item_names)}件の在庫アイテムを保存しました")
                 
             elif service_method == "inventory_service.add_inventory":
                 response_parts.extend(formatters.format_inventory_add(data))
@@ -55,7 +55,7 @@ class InventoryServiceHandler:
                 response_parts.extend(formatters.format_inventory_delete(data))
         
         except Exception as e:
-            self.logger.error(f"❌ [InventoryServiceHandler] Error handling inventory service {service_method}: {e}")
+            self.logger.error(f"❌ [InventoryServiceHandler] 在庫サービス{service_method}の処理でエラー: {e}")
             response_parts.append(f"データの処理中にエラーが発生しました: {str(e)}")
         
         return response_parts, None
@@ -100,7 +100,7 @@ class RecipeServiceHandler:
                     if isinstance(llm_menu, dict):
                         response_parts.extend(formatters.format_llm_menu(llm_menu))
                 except Exception as e:
-                    self.logger.error(f"❌ [RecipeServiceHandler] Failed to format LLM menu: {e}")
+                    self.logger.error(f"❌ [RecipeServiceHandler] LLMメニューの整形に失敗: {e}")
                 
             elif service_method == "recipe_service.search_menu_from_rag":
                 # RAG献立提案を表示（伝統的な提案）
@@ -109,7 +109,7 @@ class RecipeServiceHandler:
                     if isinstance(rag_menu, dict):
                         response_parts.extend(formatters.format_rag_menu(rag_menu))
                 except Exception as e:
-                    self.logger.error(f"❌ [RecipeServiceHandler] Failed to format RAG menu: {e}")
+                    self.logger.error(f"❌ [RecipeServiceHandler] RAGメニューの整形に失敗: {e}")
                 
             elif service_method == "recipe_service.search_recipes_from_web":
                 # 献立一括提案の場合、task4とtask5の結果を統合する必要がある
@@ -117,11 +117,11 @@ class RecipeServiceHandler:
                 # task5が完了した時点で統合処理を実行する
                 if is_menu_scenario and task_id == "task4":
                     # task4が完了した時点では、まだtask5が完了していないため、何も返さない
-                    self.logger.debug(f"🔍 [RecipeServiceHandler] Task4 completed for menu scenario, waiting for task5")
+                    self.logger.debug(f"🔍 [RecipeServiceHandler] メニューシナリオでTask4が完了、Task5を待機中")
                     return [], None
                 
                 # task4完了時にtask3とtask4の結果を統合して選択UIを表示（段階的提案の場合）
-                self.logger.debug(f"🔍 [RecipeServiceHandler] Task4 completed, integrating with task3 results")
+                self.logger.debug(f"🔍 [RecipeServiceHandler] Task4が完了、Task3の結果と統合中")
                 
                 # resultsからtask3の結果を直接取得
                 task3_result = None
@@ -146,7 +146,7 @@ class RecipeServiceHandler:
                         titles = [c.get("title") for c in candidates_with_urls if c.get("title")]
                         
                         await session_service.add_proposed_recipes(sse_session_id, category, titles)
-                        self.logger.debug(f"💾 [RecipeServiceHandler] Saved {len(titles)} proposed titles to session (category: {category})")
+                        self.logger.debug(f"💾 [RecipeServiceHandler] セッションに{len(titles)}件の提案タイトルを保存しました (category: {category})")
                     
                     # Phase 3C-3: 候補情報をセッションに保存（詳細情報）
                     if sse_session_id and session_service:
@@ -157,16 +157,16 @@ class RecipeServiceHandler:
                             # otherカテゴリの場合はcurrent_stageを"other"に設定
                             if category == "other":
                                 session.set_current_stage("other")
-                                self.logger.debug(f"✅ [RecipeServiceHandler] Set current_stage to 'other' for other category proposal")
+                                self.logger.debug(f"✅ [RecipeServiceHandler] otherカテゴリ提案のためcurrent_stageを'other'に設定")
                             # デバッグログ: 保存する候補のsourceとingredientsを確認
                             for i, candidate in enumerate(candidates_with_urls):
                                 ingredients = candidate.get('ingredients', [])
                                 has_ingredients = 'ingredients' in candidate and ingredients
                                 if has_ingredients:
-                                    self.logger.debug(f"✅ [RecipeServiceHandler] Saving candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}', ingredients={ingredients} ({len(ingredients)} items)")
+                                    self.logger.debug(f"✅ [RecipeServiceHandler] 候補{i+1}を保存中: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}', ingredients={ingredients} ({len(ingredients)}件)")
                                 else:
-                                    self.logger.warning(f"⚠️ [RecipeServiceHandler] Saving candidate {i+1}: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}', ingredients missing or empty (ingredients={ingredients})")
-                            self.logger.debug(f"💾 [RecipeServiceHandler] Saved {len(candidates_with_urls)} {category} candidates to session")
+                                    self.logger.warning(f"⚠️ [RecipeServiceHandler] 候補{i+1}を保存中: title='{candidate.get('title', 'N/A')}', source='{candidate.get('source', 'N/A')}', ingredientsが欠落または空 (ingredients={ingredients})")
+                            self.logger.debug(f"💾 [RecipeServiceHandler] セッションに{len(candidates_with_urls)}件の{category}候補を保存しました")
                     
                     # Phase 3D: セッションから段階情報を取得
                     stage_info = await stage_info_handler.get_stage_info(sse_session_id, session_service)
@@ -183,9 +183,9 @@ class RecipeServiceHandler:
                     # task3の結果が取得できない場合
                     # 献立提案ではtask3（候補生成）が無い構成もあるため、エラーにしない
                     if is_menu_scenario:
-                        self.logger.info(f"ℹ️ [RecipeServiceHandler] Task3 result not found (menu scenario). Generating menu JSON only to avoid duplicate text.")
+                        self.logger.info(f"ℹ️ [RecipeServiceHandler] Task3の結果が見つかりませんでした（メニューシナリオ）。重複テキストを避けるためメニューJSONのみ生成します。")
                         if results:
-                            self.logger.debug(f"🔍 [RecipeServiceHandler] Available task keys in results: {list(results.keys())}")
+                            self.logger.debug(f"🔍 [RecipeServiceHandler] 結果内の利用可能なタスクキー: {list(results.keys())}")
                         
                         # task2とtask3の結果から各レシピごとの食材情報を取得
                         llm_ingredients_used = None
@@ -211,16 +211,16 @@ class RecipeServiceHandler:
                                         task4_result = task_data.get("result", {})
                                         break
                             
-                            self.logger.debug(f"🔍 [RecipeServiceHandler] Task5 completed, checking task4 and task5 results")
-                            self.logger.debug(f"🔍 [RecipeServiceHandler] Task4 result: {task4_result is not None}, Task5 result: {task5_result is not None}")
+                            self.logger.debug(f"🔍 [RecipeServiceHandler] Task5が完了、Task4とTask5の結果を確認中")
+                            self.logger.debug(f"🔍 [RecipeServiceHandler] Task4結果: {task4_result is not None}, Task5結果: {task5_result is not None}")
                             
                             if task4_result and task4_result.get("success") and task5_result and task5_result.get("success"):
                                 # task4とtask5の結果を統合
                                 task4_data = task4_result.get("data", {})
                                 task5_data = task5_result.get("data", {})
                                 
-                                self.logger.debug(f"🔍 [RecipeServiceHandler] Task4 data keys: {list(task4_data.keys()) if isinstance(task4_data, dict) else 'not dict'}")
-                                self.logger.debug(f"🔍 [RecipeServiceHandler] Task5 data keys: {list(task5_data.keys()) if isinstance(task5_data, dict) else 'not dict'}")
+                                self.logger.debug(f"🔍 [RecipeServiceHandler] Task4データキー: {list(task4_data.keys()) if isinstance(task4_data, dict) else 'not dict'}")
+                                self.logger.debug(f"🔍 [RecipeServiceHandler] Task5データキー: {list(task5_data.keys()) if isinstance(task5_data, dict) else 'not dict'}")
                                 
                                 # task4の結果からllm_menuを取得（menu_source="llm"なのでllm_menuのみ）
                                 task4_llm_menu = task4_data.get("llm_menu", {})
@@ -262,15 +262,15 @@ class RecipeServiceHandler:
                                         }
                                     }
                                 }
-                                self.logger.debug(f"✅ [RecipeServiceHandler] Integrated task4 and task5 results for menu scenario")
-                                self.logger.debug(f"🔍 [RecipeServiceHandler] LLM menu main_dish recipes: {len(integrated_web_data['data']['llm_menu'].get('main_dish', {}).get('recipes', []))}")
-                                self.logger.debug(f"🔍 [RecipeServiceHandler] RAG menu main_dish recipes: {len(integrated_web_data['data']['rag_menu'].get('main_dish', {}).get('recipes', []))}")
+                                self.logger.debug(f"✅ [RecipeServiceHandler] メニューシナリオでTask4とTask5の結果を統合しました")
+                                self.logger.debug(f"🔍 [RecipeServiceHandler] LLMメニュー主菜レシピ: {len(integrated_web_data['data']['llm_menu'].get('main_dish', {}).get('recipes', []))}件")
+                                self.logger.debug(f"🔍 [RecipeServiceHandler] RAGメニュー主菜レシピ: {len(integrated_web_data['data']['rag_menu'].get('main_dish', {}).get('recipes', []))}件")
                             else:
-                                self.logger.warning(f"⚠️ [RecipeServiceHandler] Task4 or task5 result is not successful, cannot integrate")
+                                self.logger.warning(f"⚠️ [RecipeServiceHandler] Task4またはTask5の結果が成功していません、統合できません")
                                 if not task4_result:
-                                    self.logger.warning(f"⚠️ [RecipeServiceHandler] Task4 result not found")
+                                    self.logger.warning(f"⚠️ [RecipeServiceHandler] Task4の結果が見つかりませんでした")
                                 if not task5_result:
-                                    self.logger.warning(f"⚠️ [RecipeServiceHandler] Task5 result not found")
+                                    self.logger.warning(f"⚠️ [RecipeServiceHandler] Task5の結果が見つかりませんでした")
                         
                         if results:
                             for task_key, task_data in results.items():
@@ -283,7 +283,7 @@ class RecipeServiceHandler:
                                         llm_side_dish_ingredients = task2_data.get("side_dish_ingredients", [])
                                         llm_soup_ingredients = task2_data.get("soup_ingredients", [])
                                         if llm_ingredients_used or llm_main_dish_ingredients or llm_side_dish_ingredients or llm_soup_ingredients:
-                                            self.logger.debug(f"✅ [RecipeServiceHandler] Found ingredients from task2 (LLM):")
+                                            self.logger.debug(f"✅ [RecipeServiceHandler] Task2 (LLM)から食材を発見:")
                                             self.logger.debug(f"   - ingredients_used: {llm_ingredients_used}")
                                             self.logger.debug(f"   - main_dish_ingredients: {llm_main_dish_ingredients}")
                                             self.logger.debug(f"   - side_dish_ingredients: {llm_side_dish_ingredients}")
@@ -298,7 +298,7 @@ class RecipeServiceHandler:
                                         rag_side_dish_ingredients = task3_data.get("side_dish_ingredients", [])
                                         rag_soup_ingredients = task3_data.get("soup_ingredients", [])
                                         if rag_ingredients_used or rag_main_dish_ingredients or rag_side_dish_ingredients or rag_soup_ingredients:
-                                            self.logger.debug(f"✅ [RecipeServiceHandler] Found ingredients from task3 (RAG):")
+                                            self.logger.debug(f"✅ [RecipeServiceHandler] Task3 (RAG)から食材を発見:")
                                             self.logger.debug(f"   - ingredients_used: {rag_ingredients_used}")
                                             self.logger.debug(f"   - main_dish_ingredients: {rag_main_dish_ingredients}")
                                             self.logger.debug(f"   - side_dish_ingredients: {rag_side_dish_ingredients}")
@@ -322,22 +322,22 @@ class RecipeServiceHandler:
                         )
                     else:
                         # デバッグ: results辞書の内容を確認
-                        self.logger.error(f"❌ [RecipeServiceHandler] Task3 result not found")
-                        self.logger.debug(f"🔍 [RecipeServiceHandler] Available task keys in results: {list(results.keys()) if results else 'results is None or empty'}")
+                        self.logger.error(f"❌ [RecipeServiceHandler] Task3の結果が見つかりませんでした")
+                        self.logger.debug(f"🔍 [RecipeServiceHandler] 結果内の利用可能なタスクキー: {list(results.keys()) if results else 'results is None or empty'}")
                         if results:
                             for task_key, task_data in results.items():
-                                self.logger.debug(f"🔍 [RecipeServiceHandler] Task key: {task_key}, success: {task_data.get('success')}, has result: {'result' in task_data}")
+                                self.logger.debug(f"🔍 [RecipeServiceHandler] タスクキー: {task_key}, success: {task_data.get('success')}, has result: {'result' in task_data}")
                                 if task_key == "task3":
                                     task_data_result = task_data.get("result", {})
-                                    self.logger.debug(f"🔍 [RecipeServiceHandler] Task3 result structure: success={task_data_result.get('success')}, has_data={'data' in task_data_result}, data_keys={list(task_data_result.get('data', {}).keys()) if isinstance(task_data_result.get('data'), dict) else 'data is not dict'}")
+                                    self.logger.debug(f"🔍 [RecipeServiceHandler] Task3結果構造: success={task_data_result.get('success')}, has_data={'data' in task_data_result}, data_keys={list(task_data_result.get('data', {}).keys()) if isinstance(task_data_result.get('data'), dict) else 'data is not dict'}")
                         # 副菜・汁物提案では致命的
-                        self.logger.error(f"❌ [RecipeServiceHandler] FATAL: Task3 result not found for category proposal")
+                        self.logger.error(f"❌ [RecipeServiceHandler] 致命的: カテゴリ提案でTask3の結果が見つかりませんでした")
                         response_parts.append("レシピ提案の結果を取得できませんでした。")
                 
             elif service_method == "recipe_service.generate_proposals":
                 # task3完了時は進捗のみ（選択UIは表示しない）
                 # task4完了後に統合処理を行う
-                self.logger.debug(f"🔍 [RecipeServiceHandler] Task3 completed, waiting for task4 integration")
+                self.logger.debug(f"🔍 [RecipeServiceHandler] Task3が完了、Task4の統合を待機中")
                 
                 # Phase 1F: 提案済みタイトルをセッションに保存
                 if data.get("success") and sse_session_id and session_service:
@@ -349,13 +349,13 @@ class RecipeServiceHandler:
                     category = data_obj.get("category", "main")
                     
                     await session_service.add_proposed_recipes(sse_session_id, category, titles)
-                    self.logger.debug(f"💾 [RecipeServiceHandler] Saved {len(titles)} proposed titles to session (category: {category})")
+                    self.logger.debug(f"💾 [RecipeServiceHandler] セッションに{len(titles)}件の提案タイトルを保存しました (category: {category})")
                 
                 # 何も返さない（進捗状態のみ）
                 pass
         
         except Exception as e:
-            self.logger.error(f"❌ [RecipeServiceHandler] Error handling recipe service {service_method} for task {task_id}: {e}")
+            self.logger.error(f"❌ [RecipeServiceHandler] タスク{task_id}のレシピサービス{service_method}の処理でエラー: {e}")
             response_parts.append(f"データの処理中にエラーが発生しました: {str(e)}")
         
         return response_parts, menu_data

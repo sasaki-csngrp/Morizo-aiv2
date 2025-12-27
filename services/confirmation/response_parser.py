@@ -29,7 +29,7 @@ class UserResponseParser:
             解析結果
         """
         try:
-            self.logger.info(f"🔧 [UserResponseParser] Parsing user response")
+            self.logger.info(f"🔧 [UserResponseParser] ユーザー応答を解析中")
             
             # 1. キャンセル判定（強化版）
             is_cancelled = self.check_cancellation(user_response)
@@ -47,12 +47,12 @@ class UserResponseParser:
                 "raw_response": user_response
             }
             
-            self.logger.info(f"✅ [UserResponseParser] User response parsed successfully")
+            self.logger.info(f"✅ [UserResponseParser] ユーザー応答の解析に成功しました")
             
             return parsed_response
             
         except Exception as e:
-            self.logger.error(f"❌ [UserResponseParser] Error in parse_response: {e}")
+            self.logger.error(f"❌ [UserResponseParser] parse_responseでエラー: {e}")
             return {"is_cancelled": True, "strategy": "by_id", "raw_response": user_response}
     
     def check_cancellation(self, user_response: str) -> bool:
@@ -147,7 +147,7 @@ class UserResponseParser:
         # パターン1: 指定せずに進める
         proceed_keywords = ["いいえ", "そのまま", "提案して", "在庫から", "このまま", "進めて", "指定しない", "2"]
         if any(keyword in user_response for keyword in proceed_keywords):
-            self.logger.info(f"✅ [ResponseParser] User chose to proceed without specifying ingredient")
+            self.logger.info(f"✅ [ResponseParser] ユーザーは食材を指定せずに進むことを選択しました")
             return {
                 "is_confirmed": True,
                 "updated_tasks": original_tasks,  # main_ingredient: null のまま
@@ -158,7 +158,7 @@ class UserResponseParser:
         specify_keywords = ["はい", "指定", "1"]
         if any(keyword in user_response for keyword in specify_keywords):
             # 食材名を抽出（次のユーザー入力を待つ）
-            self.logger.debug(f"🔍 [ResponseParser] User chose to specify ingredient")
+            self.logger.debug(f"🔍 [ResponseParser] ユーザーは食材を指定することを選択しました")
             return {
                 "is_confirmed": False,
                 "updated_tasks": [],
@@ -176,7 +176,7 @@ class UserResponseParser:
                 ambiguity_info.get("task_id"),
                 specified_ingredient
             )
-            self.logger.debug(f"✅ [ResponseParser] Ingredient specified: {specified_ingredient}")
+            self.logger.debug(f"✅ [ResponseParser] 食材が指定されました: {specified_ingredient}")
             return {
                 "is_confirmed": True,
                 "updated_tasks": updated_tasks,
@@ -184,7 +184,7 @@ class UserResponseParser:
             }
         
         # パターン4: 認識できない応答
-        self.logger.warning(f"⚠️ [ResponseParser] Could not understand response: {user_response}")
+        self.logger.warning(f"⚠️ [ResponseParser] 応答を理解できませんでした: {user_response}")
         return {
             "is_confirmed": False,
             "updated_tasks": [],

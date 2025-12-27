@@ -51,11 +51,11 @@ class MenuDataGenerator:
         try:
             # Web検索結果の詳細ログを追加
             self.logger.debug(f"🔍 [MenuDataGenerator] Web data type: {type(web_data)}")
-            self.logger.debug(f"📊 [MenuDataGenerator] Web data content: {json.dumps(web_data, ensure_ascii=False, indent=2)}")
+            self.logger.debug(f"📊 [MenuDataGenerator] Webデータ内容: {json.dumps(web_data, ensure_ascii=False, indent=2)}")
             
             # 修正: success判定を追加
             if not isinstance(web_data, dict) or not web_data.get("success"):
-                self.logger.warning("⚠️ [MenuDataGenerator] web_data is not successful, skipping JSON generation")
+                self.logger.warning("⚠️ [MenuDataGenerator] web_dataが成功していません。JSON生成をスキップします")
                 return None
             
             # 成功時: dataからllm_menuとrag_menuを取得
@@ -97,16 +97,16 @@ class MenuDataGenerator:
             
             # 空のセクションをチェック
             if not self.has_menu_data(menu_data):
-                self.logger.warning("⚠️ [MenuDataGenerator] No recipe data found for JSON generation")
+                self.logger.warning("⚠️ [MenuDataGenerator] JSON生成用のレシピデータが見つかりません")
                 return None
             
             # 生成されたmenu_dataの全文ログを追加
-            self.logger.debug(f"📋 [MenuDataGenerator] Generated menu_data: {json.dumps(menu_data, ensure_ascii=False, indent=2)}")
-            self.logger.info(f"✅ [MenuDataGenerator] Menu data JSON generated successfully")
+            self.logger.debug(f"📋 [MenuDataGenerator] 生成されたmenu_data: {json.dumps(menu_data, ensure_ascii=False, indent=2)}")
+            self.logger.info(f"✅ [MenuDataGenerator] メニューデータJSONの生成に成功しました")
             return menu_data
             
         except Exception as e:
-            self.logger.error(f"❌ [MenuDataGenerator] Error generating menu data JSON: {e}")
+            self.logger.error(f"❌ [MenuDataGenerator] メニューデータJSONの生成でエラーが発生しました: {e}")
             return None
     
     def build_menu_structure(self) -> Dict[str, Any]:
@@ -240,7 +240,7 @@ class MenuDataGenerator:
         # category_ingredientsがある場合はingredientsフィールドを追加（llm_menuとrag_menuの両方）
         if category_ingredients:
             combined_recipe["ingredients"] = category_ingredients
-            self.logger.debug(f"✅ [MenuDataGenerator] Added ingredients to recipe '{combined_title}' (category: {category}, menu_type: {menu_type}): {category_ingredients}")
+            self.logger.debug(f"✅ [MenuDataGenerator] レシピ '{combined_title}' に食材を追加しました (category: {category}, menu_type: {menu_type}): {category_ingredients}")
         
         # innovative または traditional に分類
         target_section = self.classify_recipe(combined_recipe, menu_type)
@@ -290,14 +290,14 @@ class MenuDataGenerator:
                 # image_urlが存在する場合は追加
                 if 'image_url' in recipe and recipe.get('image_url'):
                     url_info["image_url"] = str(recipe['image_url'])
-                    self.logger.debug(f"🖼️ [MenuDataGenerator] Added image_url to URL: {url_info['image_url']}")
+                    self.logger.debug(f"🖼️ [MenuDataGenerator] URLにimage_urlを追加しました: {url_info['image_url']}")
                 
                 urls.append(url_info)
             
             # 複数URLがある場合の処理（必要に応じて拡張）
             
         except Exception as e:
-            self.logger.error(f"❌ [MenuDataGenerator] Error extracting recipe URLs: {e}")
+            self.logger.error(f"❌ [MenuDataGenerator] レシピURLの抽出でエラーが発生しました: {e}")
         
         return urls
     

@@ -36,11 +36,11 @@ class MenuFormatter:
             献立形式の辞書
         """
         try:
-            logger.info(f"🔄 [RAG] Converting results to menu format")
-            logger.debug(f"📊 [RAG] Results count: {len(rag_results)}")
-            logger.debug(f"📊 [RAG] RAG results: {rag_results}")
-            logger.debug(f"📊 [RAG] Inventory items: {inventory_items}")
-            logger.debug(f"📊 [RAG] Menu type: {menu_type}")
+            logger.info(f"🔄 [RAG] 結果を献立形式に変換中")
+            logger.debug(f"📊 [RAG] 結果数: {len(rag_results)}")
+            logger.debug(f"📊 [RAG] RAG結果: {rag_results}")
+            logger.debug(f"📊 [RAG] 在庫食材: {inventory_items}")
+            logger.debug(f"📊 [RAG] 献立タイプ: {menu_type}")
             
             # レシピをカテゴリ別に分類
             categorized_recipes = self._categorize_recipes(rag_results)
@@ -93,15 +93,15 @@ class MenuFormatter:
                 "selected": selected_menu
             }
             
-            logger.debug(f"📊 [RAG] Selected menu: {selected_menu}")
+            logger.debug(f"📊 [RAG] 選択された献立: {selected_menu}")
             
             return result
             
         except Exception as e:
-            logger.error(f"❌ [RAG] Menu format conversion error: {e}")
-            logger.error(f"❌ [RAG] RAG results: {rag_results}")
-            logger.error(f"❌ [RAG] Inventory items: {inventory_items}")
-            logger.error(f"❌ [RAG] Menu type: {menu_type}")
+            logger.error(f"❌ [RAG] 献立形式変換エラー: {e}")
+            logger.error(f"❌ [RAG] RAG結果: {rag_results}")
+            logger.error(f"❌ [RAG] 在庫食材: {inventory_items}")
+            logger.error(f"❌ [RAG] 献立タイプ: {menu_type}")
             raise
     
     def _categorize_recipes(self, rag_results: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
@@ -290,12 +290,12 @@ class MenuFormatter:
             献立形式の辞書
         """
         try:
-            logger.info(f"🔄 [RAG] Converting categorized results to menu format")
-            logger.debug(f"📊 [RAG] Main dishes: {len(categorized_results.get('main', []))}")
-            logger.debug(f"📊 [RAG] Side dishes: {len(categorized_results.get('sub', []))}")
-            logger.debug(f"📊 [RAG] Soups: {len(categorized_results.get('soup', []))}")
-            logger.debug(f"📊 [RAG] Inventory items: {inventory_items}")
-            logger.debug(f"📊 [RAG] Menu type: {menu_type}")
+            logger.info(f"🔄 [RAG] カテゴリ別結果を献立形式に変換中")
+            logger.debug(f"📊 [RAG] 主菜: {len(categorized_results.get('main', []))}件")
+            logger.debug(f"📊 [RAG] 副菜: {len(categorized_results.get('sub', []))}件")
+            logger.debug(f"📊 [RAG] 汁物: {len(categorized_results.get('soup', []))}件")
+            logger.debug(f"📊 [RAG] 在庫食材: {inventory_items}")
+            logger.debug(f"📊 [RAG] 献立タイプ: {menu_type}")
             
             # カテゴリ別レシピを献立形式に変換
             categorized_recipes = {
@@ -355,15 +355,15 @@ class MenuFormatter:
                 "selected": selected_menu
             }
             
-            logger.debug(f"📊 [RAG] Selected menu: {selected_menu}")
+            logger.debug(f"📊 [RAG] 選択された献立: {selected_menu}")
             
             return result
             
         except Exception as e:
-            logger.error(f"❌ [RAG] Categorized menu format conversion error: {e}")
-            logger.error(f"❌ [RAG] Categorized results: {categorized_results}")
-            logger.error(f"❌ [RAG] Inventory items: {inventory_items}")
-            logger.error(f"❌ [RAG] Menu type: {menu_type}")
+            logger.error(f"❌ [RAG] カテゴリ別献立形式変換エラー: {e}")
+            logger.error(f"❌ [RAG] カテゴリ別結果: {categorized_results}")
+            logger.error(f"❌ [RAG] 在庫食材: {inventory_items}")
+            logger.error(f"❌ [RAG] 献立タイプ: {menu_type}")
             raise
     
     def _is_menu_balanced(self, menu: Dict[str, Any]) -> bool:

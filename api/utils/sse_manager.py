@@ -122,7 +122,7 @@ class SSESender:
                 self.logger.debug(f"📊 [SSE] Menu data included in response: {len(str(menu_data))} characters")
                 self.logger.debug(f"🔍 [SSE] Menu data preview: {str(menu_data)[:200]}...")
             else:
-                self.logger.debug(f"⚠️ [SSE] No menu data provided")
+                self.logger.debug(f"⚠️ [SSE] メニューデータが提供されていません")
             
             # confirmation_dataがある場合は追加
             if confirmation_data:
@@ -130,7 +130,7 @@ class SSESender:
                 event_data["result"]["confirmation_session_id"] = confirmation_data.get("confirmation_session_id")
                 self.logger.debug(f"🔍 [SSE] Confirmation data included: {confirmation_data}")
             else:
-                self.logger.debug(f"⚠️ [SSE] No confirmation data provided")
+                self.logger.debug(f"⚠️ [SSE] 確認データが提供されていません")
             
             # 実際の送信処理を追加
             await self._send_to_session(session_id, event_data)
@@ -157,7 +157,7 @@ class SSESender:
     async def _send_to_session(self, session_id: str, event_data: dict):
         """セッション内の全接続にメッセージを送信"""
         if session_id not in self._connections:
-            self.logger.warning(f"⚠️ [SSE] Session {session_id} not found for message sending")
+            self.logger.warning(f"⚠️ [SSE] メッセージ送信のためのセッション {session_id} が見つかりません")
             return
         
         message = f"data: {json.dumps(event_data)}\n\n"

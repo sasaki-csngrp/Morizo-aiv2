@@ -68,7 +68,7 @@ class HelpStateManager:
             ヘルプ状態（"overview", "detail_1-4", または None）
         """
         try:
-            self.session_service.logger.debug(f"🔍 [SESSION] Getting help state: sse_session_id={sse_session_id}, user_id={user_id}")
+            self.session_service.logger.debug(f"🔍 [SESSION] ヘルプ状態取得中: sse_session_id={sse_session_id}, user_id={user_id}")
             
             # まず指定されたセッションIDで検索
             if sse_session_id:
@@ -92,7 +92,7 @@ class HelpStateManager:
                             return help_state
             
             if sse_session_id:
-                self.session_service.logger.warning(f"⚠️ [SESSION] Session not found for help state retrieval: {sse_session_id}")
+                self.session_service.logger.warning(f"⚠️ [SESSION] ヘルプ状態取得のためのセッションが見つかりません: {sse_session_id}")
             else:
                 self.session_service.logger.info(f"ℹ️ [SESSION] No help state found")
                 self.session_service.logger.debug(f"🔍 [SESSION] User ID: {user_id}")

@@ -67,10 +67,10 @@ async def _get_authenticated_client_safe(user_id: str, token: str = None) -> Cli
     logger.debug(f"🔐 [RECIPE] Getting authenticated client for user_id={user_id}")
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [RECIPE] Authenticated client created successfully for user: {user_id}")
+        logger.info(f"🔐 [RECIPE] ユーザー {user_id} の認証済みクライアントを作成しました")
         return client
     except Exception as e:
-        logger.error(f"❌ [RECIPE] Failed to get authenticated client: {e}")
+        logger.error(f"❌ [RECIPE] 認証済みクライアントの取得に失敗しました: {e}")
         raise
 
 
@@ -82,7 +82,7 @@ def _log_function_start(func_name: str, params: Dict[str, Any]) -> None:
         func_name: 関数名
         params: パラメータの辞書
     """
-    logger.info(f"🔧 [RECIPE] Starting {func_name}")
+    logger.info(f"🔧 [RECIPE] {func_name} を開始します")
     for key, value in params.items():
         if key == "token" and value:
             logger.debug(f"  - {key}: ***")
@@ -99,9 +99,9 @@ def _log_function_end(func_name: str, result: Dict[str, Any]) -> None:
         result: 結果の辞書
     """
     if result.get("success"):
-        logger.info(f"✅ [RECIPE] {func_name} completed successfully")
+        logger.info(f"✅ [RECIPE] {func_name} が正常に完了しました")
     else:
-        logger.error(f"❌ [RECIPE] {func_name} failed: {result.get('error')}")
+        logger.error(f"❌ [RECIPE] {func_name} が失敗しました: {result.get('error')}")
 
 
 # ============================================================================
@@ -304,5 +304,5 @@ async def generate_proposals(
 
 
 if __name__ == "__main__":
-    logger.debug("🚀 Starting Recipe MCP Server")
+    logger.debug("🚀 レシピMCPサーバーを起動中")
     mcp.run()

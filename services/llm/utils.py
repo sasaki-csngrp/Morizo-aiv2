@@ -77,7 +77,7 @@ class ResponseProcessorUtils:
             return ""
             
         except Exception as e:
-            self.logger.error(f"❌ [ResponseProcessorUtils] Error extracting actual menu title: {e}")
+            self.logger.error(f"❌ [ResponseProcessorUtils] 実際のメニュータイトルの抽出でエラー: {e}")
             return ""
     
     def extract_domain(self, url: str) -> str:

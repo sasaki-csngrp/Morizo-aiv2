@@ -47,7 +47,7 @@ class ResponseProcessor:
             解析されたタスクリスト
         """
         try:
-            self.logger.debug(f"🔧 [ResponseProcessor] Parsing LLM response")
+            self.logger.debug(f"🔧 [ResponseProcessor] LLMレスポンスを解析中")
             
             # JSON部分を抽出（```json```で囲まれている場合がある）
             if "```json" in response:
@@ -67,26 +67,26 @@ class ResponseProcessor:
             except json.JSONDecodeError:
                 # {{形式のレスポンスを正規化して再試行
                 normalized_json = json_str.replace("{{", "{").replace("}}", "}")
-                self.logger.warning(f"⚠️ [ResponseProcessor] JSON parse failed, trying normalized format ({{{{ -> {{)")
+                self.logger.warning(f"⚠️ [ResponseProcessor] JSON解析に失敗、正規化形式を試行中 ({{{{ -> {{)")
                 try:
                     result = json.loads(normalized_json)
                 except json.JSONDecodeError as e:
                     # 正規化後も失敗した場合は、元のエラーをログに記録
-                    self.logger.error(f"❌ [ResponseProcessor] JSON parsing failed even after normalization: {e}")
-                    self.logger.error(f"Response content: {response}")
+                    self.logger.error(f"❌ [ResponseProcessor] 正規化後もJSON解析に失敗: {e}")
+                    self.logger.error(f"レスポンス内容: {response}")
                     return []
             
             tasks = result.get("tasks", [])
             
-            self.logger.debug(f"✅ [ResponseProcessor] Parsed {len(tasks)} tasks from LLM response")
+            self.logger.debug(f"✅ [ResponseProcessor] LLMレスポンスから{len(tasks)}件のタスクを解析しました")
             return tasks
             
         except json.JSONDecodeError as e:
-            self.logger.error(f"❌ [ResponseProcessor] JSON parsing failed: {e}")
-            self.logger.error(f"Response content: {response}")
+            self.logger.error(f"❌ [ResponseProcessor] JSON解析に失敗: {e}")
+            self.logger.error(f"レスポンス内容: {response}")
             return []
         except Exception as e:
-            self.logger.error(f"❌ [ResponseProcessor] Error parsing LLM response: {e}")
+            self.logger.error(f"❌ [ResponseProcessor] LLMレスポンスの解析でエラー: {e}")
             return []
     
     def convert_to_task_format(self, tasks: List[Dict[str, Any]], user_id: str) -> List[Dict[str, Any]]:
@@ -101,7 +101,7 @@ class ResponseProcessor:
             変換されたタスクリスト
         """
         try:
-            self.logger.debug(f"🔧 [ResponseProcessor] Converting {len(tasks)} tasks to ActionPlanner format")
+            self.logger.debug(f"🔧 [ResponseProcessor] {len(tasks)}件のタスクをActionPlanner形式に変換中")
             
             converted_tasks = []
             for task in tasks:
@@ -118,11 +118,11 @@ class ResponseProcessor:
                 }
                 converted_tasks.append(converted_task)
             
-            self.logger.debug(f"✅ [ResponseProcessor] Converted {len(converted_tasks)} tasks successfully")
+            self.logger.debug(f"✅ [ResponseProcessor] {len(converted_tasks)}件のタスクの変換に成功しました")
             return converted_tasks
             
         except Exception as e:
-            self.logger.error(f"❌ [ResponseProcessor] Error converting tasks: {e}")
+            self.logger.error(f"❌ [ResponseProcessor] タスクの変換でエラー: {e}")
             return []
     
     async def format_final_response(self, results: Dict[str, Any], sse_session_id: str = None) -> tuple[str, Optional[Dict[str, Any]]]:
@@ -147,7 +147,7 @@ class ResponseProcessor:
             return self._handle_empty_response(response_parts, menu_data)
             
         except Exception as e:
-            self.logger.error(f"❌ [ResponseProcessor] Error in format_final_response: {e}")
+            self.logger.error(f"❌ [ResponseProcessor] format_final_responseでエラー: {e}")
             return "タスクが完了しましたが、レスポンスの生成に失敗しました。", None
     
     async def _build_response_parts(self, results: Dict[str, Any], is_menu_scenario: bool, sse_session_id: str = None) -> tuple[List[str], Optional[Dict[str, Any]]]:
@@ -188,7 +188,7 @@ class ResponseProcessor:
                     menu_data = menu
                     
             except Exception as e:
-                self.logger.error(f"❌ [ResponseProcessor] Error processing task {task_id}: {e}")
+                self.logger.error(f"❌ [ResponseProcessor] タスク{task_id}の処理でエラー: {e}")
                 continue
         
         return response_parts, menu_data
@@ -251,14 +251,14 @@ class ResponseProcessor:
             return "こんにちは！何かお手伝いできることはありますか？", None
         
         final_response = "\n".join(response_parts)
-        self.logger.debug(f"🔧 [ResponseProcessor] Final response: {final_response}")
-        self.logger.debug(f"✅ [ResponseProcessor] Response formatted successfully")
+        self.logger.debug(f"🔧 [ResponseProcessor] 最終レスポンス: {final_response}")
+        self.logger.debug(f"✅ [ResponseProcessor] レスポンスの整形に成功しました")
         
         # JSON形式のレシピデータがある場合は、レスポンスに含める
         if menu_data:
-            self.logger.debug(f"📊 [ResponseProcessor] Menu data JSON generated: {len(str(menu_data))} characters")
-            self.logger.debug(f"🔍 [ResponseProcessor] Menu data preview: {str(menu_data)[:200]}...")
+            self.logger.debug(f"📊 [ResponseProcessor] メニューデータJSONを生成: {len(str(menu_data))}文字")
+            self.logger.debug(f"🔍 [ResponseProcessor] メニューデータプレビュー: {str(menu_data)[:200]}...")
         else:
-            self.logger.debug(f"⚠️ [ResponseProcessor] No menu data generated")
+            self.logger.debug(f"⚠️ [ResponseProcessor] メニューデータが生成されませんでした")
         
         return final_response, menu_data

@@ -42,7 +42,7 @@ class RequestAnalyzer:
             }
         """
         try:
-            self.logger.debug(f"🔍 [RequestAnalyzer] Analyzing request: '{request}'")
+            self.logger.debug(f"🔍 [RequestAnalyzer] リクエストを分析中: '{request}'")
             
             # セッションコンテキストのデフォルト値
             if session_context is None:
@@ -63,12 +63,12 @@ class RequestAnalyzer:
                 "ambiguities": ambiguities
             }
             
-            self.logger.debug(f"✅ [RequestAnalyzer] Analysis result: pattern={pattern}, ambiguities={len(ambiguities)}")
+            self.logger.debug(f"✅ [RequestAnalyzer] 分析結果: pattern={pattern}, ambiguities={len(ambiguities)}")
             
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ [RequestAnalyzer] Error in analyze: {e}")
+            self.logger.error(f"❌ [RequestAnalyzer] analyzeでエラー: {e}")
             raise
     
     def _detect_pattern(

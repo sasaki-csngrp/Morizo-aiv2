@@ -105,15 +105,14 @@ class IntegrationTestClient:
         self.base_url = base_url
         self.session = requests.Session()
         
-        # Supabase認証でJWTトークンを動的に取得
-        try:
-            auth_util = AuthUtil()
-            self.jwt_token = auth_util.get_auth_token()
-            print(f"🔐 動的取得したJWTトークン: {self.jwt_token[:20]}...")
-        except Exception as e:
-            print(f"❌ Supabase認証に失敗しました: {e}")
-            print("💡 SUPABASE_URL, SUPABASE_KEY, SUPABASE_EMAIL, SUPABASE_PASSWORD を .env に設定してください")
-            raise
+        # .envからJWTトークンを取得
+        self.jwt_token = os.getenv('TEST_USER_JWT_TOKEN')
+        if not self.jwt_token:
+            print("❌ TEST_USER_JWT_TOKEN が設定されていません")
+            print("💡 TEST_USER_JWT_TOKEN を .env に設定してください")
+            raise ValueError("TEST_USER_JWT_TOKEN is required")
+        
+        print(f"🔐 使用するJWTトークン: {self.jwt_token[:20]}...")
         
         self.session.headers.update({
             "Authorization": f"Bearer {self.jwt_token}",

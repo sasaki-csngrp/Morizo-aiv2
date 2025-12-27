@@ -178,7 +178,7 @@ class PromptManager:
             動的プロンプト
         """
         try:
-            self.logger.info(f"🔧 [PromptManager] Creating dynamic prompt")
+            self.logger.info(f"🔧 [PromptManager] 動的プロンプトを作成中")
             
             dynamic_prompt = f"""
 {base_prompt}
@@ -191,11 +191,11 @@ class PromptManager:
 - リクエスト時刻: {user_context.get('timestamp', 'N/A')}
 """
             
-            self.logger.info(f"✅ [PromptManager] Dynamic prompt created successfully")
+            self.logger.info(f"✅ [PromptManager] 動的プロンプトの作成に成功しました")
             
             return dynamic_prompt
             
         except Exception as e:
-            self.logger.error(f"❌ [PromptManager] Error in create_dynamic_prompt: {e}")
+            self.logger.error(f"❌ [PromptManager] create_dynamic_promptでエラー: {e}")
             return base_prompt
 

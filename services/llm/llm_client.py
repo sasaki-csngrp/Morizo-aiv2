@@ -33,10 +33,10 @@ class LLMClient:
         # OpenAIクライアントを初期化
         if self.openai_api_key:
             self.openai_client = AsyncOpenAI(api_key=self.openai_api_key)
-            self.logger.debug(f"✅ [LLMClient] OpenAI client initialized with model: {self.openai_model}")
+            self.logger.debug(f"✅ [LLMClient] OpenAIクライアントを初期化しました: モデル={self.openai_model}")
         else:
             self.openai_client = None
-            self.logger.warning("⚠️ [LLMClient] OPENAI_API_KEY not found, LLM calls will be disabled")
+            self.logger.warning("⚠️ [LLMClient] OPENAI_API_KEYが見つかりません。LLM呼び出しは無効になります")
     
     async def call_openai_api(self, prompt: str) -> str:
         """
@@ -52,7 +52,7 @@ class LLMClient:
             if not self.openai_client:
                 raise Exception("OpenAI client not initialized")
             
-            self.logger.debug(f"🔧 [LLMClient] Calling OpenAI API with model: {self.openai_model}")
+            self.logger.debug(f"🔧 [LLMClient] OpenAI APIを呼び出し中: モデル={self.openai_model}")
             
             # プロンプトとトークン数をログ出力（5行省略表示）
             log_prompt_with_tokens(prompt, max_tokens=self.MAX_TOKENS, logger_name="service.llm")
@@ -68,15 +68,15 @@ class LLMClient:
             )
             
             content = response.choices[0].message.content
-            self.logger.debug(f"✅ [LLMClient] OpenAI API response received: {len(content)} characters")
+            self.logger.debug(f"✅ [LLMClient] OpenAI APIレスポンスを受信しました: {len(content)}文字")
             
             # LLMレスポンスを改行付きでログ出力
-            self.logger.debug(f"📄 [LLMClient] LLM Response:\n{content}")
+            self.logger.debug(f"📄 [LLMClient] LLMレスポンス:\n{content}")
             
             return content
             
         except Exception as e:
-            self.logger.error(f"❌ [LLMClient] OpenAI API call failed: {e}")
+            self.logger.error(f"❌ [LLMClient] OpenAI API呼び出しに失敗しました: {e}")
             raise
     
     def get_fallback_tasks(self, user_id: str) -> List[Dict[str, Any]]:
@@ -89,7 +89,7 @@ class LLMClient:
         Returns:
             フォールバックタスクリスト
         """
-        self.logger.debug(f"🔄 [LLMClient] Using fallback tasks for user: {user_id}")
+        self.logger.debug(f"🔄 [LLMClient] フォールバックタスクを使用中: ユーザー={user_id}")
         
         return [
             {

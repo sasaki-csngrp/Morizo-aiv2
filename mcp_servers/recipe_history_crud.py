@@ -67,12 +67,12 @@ class RecipeHistoryCRUD:
             
             result = client.table("recipe_historys").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
             
-            self.logger.info(f"✅ [CRUD] Retrieved recipe histories successfully")
+            self.logger.info(f"✅ [CRUD] レシピ履歴の取得に成功しました")
             self.logger.debug(f"📊 [CRUD] Retrieved {len(result.data)} recipe histories")
             return {"success": True, "data": result.data}
             
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to get recipe histories: {e}")
+            self.logger.error(f"❌ [CRUD] レシピ履歴の取得に失敗しました: {e}")
             return {"success": False, "error": str(e)}
     
     async def get_history_by_id(self, client: Client, user_id: str, history_id: str) -> Dict[str, Any]:
@@ -84,13 +84,13 @@ class RecipeHistoryCRUD:
             result = client.table("recipe_historys").select("*").eq("user_id", user_id).eq("id", history_id).execute()
             
             if result.data:
-                self.logger.info(f"✅ [CRUD] Recipe history retrieved successfully")
+                self.logger.info(f"✅ [CRUD] レシピ履歴の取得に成功しました")
                 return {"success": True, "data": result.data[0]}
             else:
-                return {"success": False, "error": "Recipe history not found"}
+                return {"success": False, "error": "レシピ履歴が見つかりませんでした"}
                 
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to get recipe history by ID: {e}")
+            self.logger.error(f"❌ [CRUD] IDによるレシピ履歴の取得に失敗しました: {e}")
             return {"success": False, "error": str(e)}
     
     async def update_history_by_id(
@@ -135,19 +135,19 @@ class RecipeHistoryCRUD:
             self.logger.debug(f"🔍 [CRUD] Update data: {update_data}")
             
             if not update_data:
-                return {"success": False, "error": "No update data provided"}
+                return {"success": False, "error": "更新データが提供されていません"}
             
             # データベース更新
             result = client.table("recipe_historys").update(update_data).eq("user_id", user_id).eq("id", history_id).execute()
             
             if result.data:
-                self.logger.info(f"✅ [CRUD] Recipe history updated successfully")
+                self.logger.info(f"✅ [CRUD] レシピ履歴の更新に成功しました")
                 return {"success": True, "data": result.data[0]}
             else:
-                return {"success": False, "error": "Recipe history not found"}
+                return {"success": False, "error": "レシピ履歴が見つかりませんでした"}
                 
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to update recipe history by ID: {e}")
+            self.logger.error(f"❌ [CRUD] IDによるレシピ履歴の更新に失敗しました: {e}")
             return {"success": False, "error": str(e)}
     
     async def delete_history_by_id(self, client: Client, user_id: str, history_id: str) -> Dict[str, Any]:
@@ -162,10 +162,10 @@ class RecipeHistoryCRUD:
                 self.logger.info(f"✅ [CRUD] Recipe history deleted successfully")
                 return {"success": True, "data": result.data[0]}
             else:
-                return {"success": False, "error": "Recipe history not found"}
+                return {"success": False, "error": "レシピ履歴が見つかりませんでした"}
                 
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to delete recipe history by ID: {e}")
+            self.logger.error(f"❌ [CRUD] IDによるレシピ履歴の削除に失敗しました: {e}")
             return {"success": False, "error": str(e)}
     
     async def get_recent_recipe_titles(
@@ -247,7 +247,7 @@ class RecipeHistoryCRUD:
             return {"success": True, "data": all_titles}
             
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to get recent recipe titles: {e}")
+            self.logger.error(f"❌ [CRUD] 最近のレシピタイトルの取得に失敗しました: {e}")
             return {"success": False, "error": str(e), "data": []}
     
     async def update_ingredients_deleted(
@@ -268,7 +268,7 @@ class RecipeHistoryCRUD:
                 start_datetime = datetime.combine(date_obj, datetime.min.time())
                 end_datetime = datetime.combine(date_obj, datetime.max.time())
             except ValueError:
-                return {"success": False, "error": "Invalid date format (YYYY-MM-DD required)"}
+                return {"success": False, "error": "無効な日付形式です（YYYY-MM-DD形式が必要です）"}
             
             # 指定日付のレシピ履歴を取得
             result = client.table("recipe_historys")\
@@ -297,7 +297,7 @@ class RecipeHistoryCRUD:
             return {"success": True, "data": update_result.data, "updated_count": updated_count}
             
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to update ingredients_deleted flag: {e}")
+            self.logger.error(f"❌ [CRUD] ingredients_deleted フラグの更新に失敗しました: {e}")
             return {"success": False, "error": str(e)}
 
 

@@ -43,7 +43,7 @@ async def adopt_recipe(request: RecipeAdoptionRequest, http_request: Request):
         # 2. ユーザー情報の取得（ミドルウェアから）
         user_info = getattr(http_request.state, 'user_info', None)
         if not user_info:
-            logger.error("❌ [API] User info not found in request state")
+            logger.error("❌ [API] リクエストステートにユーザー情報が見つかりません")
             raise HTTPException(status_code=401, detail="認証が必要です")
             
         user_id = user_info['user_id']
@@ -59,9 +59,9 @@ async def adopt_recipe(request: RecipeAdoptionRequest, http_request: Request):
         # 4. 認証済みSupabaseクライアントの作成
         try:
             client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
+            logger.info(f"✅ [API] ユーザー {user_id} の認証済みクライアントを作成しました")
         except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
+            logger.error(f"❌ [API] 認証済みクライアントの作成に失敗しました: {e}")
             raise HTTPException(status_code=401, detail="認証に失敗しました")
         
         # 5. 各レシピを順次保存
@@ -113,7 +113,7 @@ async def adopt_recipe(request: RecipeAdoptionRequest, http_request: Request):
                     ))
                 else:
                     error_msg = result.get("error", "不明なエラー")
-                    logger.error(f"❌ [API] Failed to save recipe {i+1}: {error_msg}")
+                    logger.error(f"❌ [API] レシピ {i+1} の保存に失敗しました: {error_msg}")
                     failed_recipes.append(f"Recipe {i+1}: {error_msg}")
                     
             except Exception as e:
@@ -150,7 +150,7 @@ async def adopt_recipe(request: RecipeAdoptionRequest, http_request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in adopt_recipe: {e}")
+        logger.error(f"❌ [API] レシピ採用処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="レシピ採用処理でエラーが発生しました")
 
 @router.get("/recipe/ingredients/delete-candidates/{date}", response_model=IngredientDeleteCandidatesResponse)
@@ -168,7 +168,7 @@ async def get_ingredient_delete_candidates(
         
         user_info = getattr(http_request.state, 'user_info', None)
         if not user_info:
-            logger.error("❌ [API] User info not found in request state")
+            logger.error("❌ [API] リクエストステートにユーザー情報が見つかりません")
             raise HTTPException(status_code=401, detail="認証が必要です")
         
         user_id = user_info['user_id']
@@ -177,9 +177,9 @@ async def get_ingredient_delete_candidates(
         # 2. 認証済みSupabaseクライアントの作成
         try:
             client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
+            logger.info(f"✅ [API] ユーザー {user_id} の認証済みクライアントを作成しました")
         except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
+            logger.error(f"❌ [API] 認証済みクライアントの作成に失敗しました: {e}")
             raise HTTPException(status_code=401, detail="認証に失敗しました")
         
         # 3. 日付の検証と変換
@@ -201,7 +201,7 @@ async def get_ingredient_delete_candidates(
             .or_("ingredients_deleted.is.null,ingredients_deleted.eq.false")\
             .execute()
         
-        logger.debug(f"🔍 [API] Retrieved {len(result.data)} recipe histories for date: {date}")
+        logger.debug(f"🔍 [API] 日付 {date} のレシピ履歴 {len(result.data)} 件を取得しました")
         
         # 5. 各レシピのingredientsを集約（重複除去）
         all_ingredients = []
@@ -217,7 +217,7 @@ async def get_ingredient_delete_candidates(
                         if isinstance(ingredients_list, list):
                             all_ingredients.extend(ingredients_list)
                     except json.JSONDecodeError:
-                        logger.warning(f"⚠️ [API] Failed to parse ingredients JSON: {ingredients}")
+                        logger.warning(f"⚠️ [API] ingredients JSON の解析に失敗しました: {ingredients}")
         
         # 重複除去（順序を保持）
         unique_ingredients = list(dict.fromkeys(all_ingredients))
@@ -229,7 +229,7 @@ async def get_ingredient_delete_candidates(
         inventory_result = await inventory_crud.get_all_items(client, user_id)
         
         if not inventory_result.get("success"):
-            logger.error(f"❌ [API] Failed to get inventory list: {inventory_result.get('error')}")
+            logger.error(f"❌ [API] 在庫一覧の取得に失敗しました: {inventory_result.get('error')}")
             raise HTTPException(status_code=500, detail="在庫情報の取得に失敗しました")
         
         inventory_items = inventory_result.get("data", [])
@@ -341,7 +341,7 @@ async def get_ingredient_delete_candidates(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in get_ingredient_delete_candidates: {e}")
+        logger.error(f"❌ [API] 削除候補取得処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="削除候補の取得処理でエラーが発生しました")
 
 
@@ -360,7 +360,7 @@ async def delete_ingredients(
         
         user_info = getattr(http_request.state, 'user_info', None)
         if not user_info:
-            logger.error("❌ [API] User info not found in request state")
+            logger.error("❌ [API] リクエストステートにユーザー情報が見つかりません")
             raise HTTPException(status_code=401, detail="認証が必要です")
         
         user_id = user_info['user_id']
@@ -369,9 +369,9 @@ async def delete_ingredients(
         # 2. 認証済みSupabaseクライアントの作成
         try:
             client = get_authenticated_client(user_id, token)
-            logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
+            logger.info(f"✅ [API] ユーザー {user_id} の認証済みクライアントを作成しました")
         except Exception as e:
-            logger.error(f"❌ [API] Failed to create authenticated client: {e}")
+            logger.error(f"❌ [API] 認証済みクライアントの作成に失敗しました: {e}")
             raise HTTPException(status_code=401, detail="認証に失敗しました")
         
         # 3. 在庫一覧を取得
@@ -379,7 +379,7 @@ async def delete_ingredients(
         inventory_result = await inventory_crud.get_all_items(client, user_id)
         
         if not inventory_result.get("success"):
-            logger.error(f"❌ [API] Failed to get inventory list: {inventory_result.get('error')}")
+            logger.error(f"❌ [API] 在庫一覧の取得に失敗しました: {inventory_result.get('error')}")
             raise HTTPException(status_code=500, detail="在庫情報の取得に失敗しました")
         
         inventory_items = inventory_result.get("data", [])
@@ -411,10 +411,10 @@ async def delete_ingredients(
                         
                         if result.get("success"):
                             deleted_count += 1
-                            logger.debug(f"✅ [API] Deleted inventory item: {inventory_id}")
+                            logger.debug(f"✅ [API] 在庫アイテムを削除しました: {inventory_id}")
                         else:
                             failed_items.append(f"{item_name} (ID: {inventory_id})")
-                            logger.error(f"❌ [API] Failed to delete inventory item: {inventory_id}")
+                            logger.error(f"❌ [API] 在庫アイテムの削除に失敗しました: {inventory_id}")
                     else:
                         # 数量更新の場合
                         result = await inventory_crud.update_item_by_id(
@@ -426,10 +426,10 @@ async def delete_ingredients(
                         
                         if result.get("success"):
                             updated_count += 1
-                            logger.debug(f"✅ [API] Updated inventory item: {inventory_id}, quantity={target_quantity}")
+                            logger.debug(f"✅ [API] 在庫アイテムを更新しました: {inventory_id}, 数量={target_quantity}")
                         else:
                             failed_items.append(f"{item_name} (ID: {inventory_id})")
-                            logger.error(f"❌ [API] Failed to update inventory item: {inventory_id}")
+                            logger.error(f"❌ [API] 在庫アイテムの更新に失敗しました: {inventory_id}")
                 else:
                     # 食材名で検索（複数在庫がある場合はすべて更新）
                     matched_items = []
@@ -444,7 +444,7 @@ async def delete_ingredients(
                     
                     if not matched_items:
                         failed_items.append(f"{item_name} (在庫に存在しません)")
-                        logger.warning(f"⚠️ [API] Inventory item not found: {item_name}")
+                        logger.warning(f"⚠️ [API] 在庫アイテムが見つかりませんでした: {item_name}")
                         continue
                     
                     # すべてのマッチした在庫を更新または削除
@@ -460,10 +460,10 @@ async def delete_ingredients(
                             
                             if result.get("success"):
                                 deleted_count += 1
-                                logger.info(f"✅ [API] Deleted inventory item: {inv_id}")
+                                logger.info(f"✅ [API] 在庫アイテムを削除しました: {inv_id}")
                             else:
                                 failed_items.append(f"{item_name} (ID: {inv_id})")
-                                logger.error(f"❌ [API] Failed to delete inventory item: {inv_id}")
+                                logger.error(f"❌ [API] 在庫アイテムの削除に失敗しました: {inv_id}")
                         else:
                             # 数量更新の場合
                             result = await inventory_crud.update_item_by_id(
@@ -475,10 +475,10 @@ async def delete_ingredients(
                             
                             if result.get("success"):
                                 updated_count += 1
-                                logger.info(f"✅ [API] Updated inventory item: {inv_id}, quantity={target_quantity}")
+                                logger.info(f"✅ [API] 在庫アイテムを更新しました: {inv_id}, 数量={target_quantity}")
                             else:
                                 failed_items.append(f"{item_name} (ID: {inv_id})")
-                                logger.error(f"❌ [API] Failed to update inventory item: {inv_id}")
+                                logger.error(f"❌ [API] 在庫アイテムの更新に失敗しました: {inv_id}")
                             
             except Exception as e:
                 failed_items.append(f"{ingredient_item.item_name} (エラー: {str(e)})")
@@ -494,7 +494,7 @@ async def delete_ingredients(
         )
         
         if not update_result.get("success"):
-            logger.warning(f"⚠️ [API] Failed to update ingredients_deleted flag: {update_result.get('error')}")
+            logger.warning(f"⚠️ [API] ingredients_deleted フラグの更新に失敗しました: {update_result.get('error')}")
         
         logger.debug(f"✅ [API] Ingredient delete completed: deleted={deleted_count}, updated={updated_count}, failed={len(failed_items)}")
         
@@ -508,5 +508,5 @@ async def delete_ingredients(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in delete_ingredients: {e}")
+        logger.error(f"❌ [API] 食材削除処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="食材削除処理でエラーが発生しました")

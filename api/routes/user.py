@@ -53,7 +53,7 @@ async def delete_user_account(http_request: Request) -> Dict[str, Any]:
       - OCRマッピング（ocr_item_mappingsテーブル）
     """
     try:
-        logger.info("🔍 [API] User account deletion request received")
+        logger.info("🔍 [API] ユーザーアカウント削除リクエストを受信しました")
         
         # 1. 認証処理とユーザー情報取得
         user_id, _ = await get_authenticated_user_and_client(http_request)
@@ -62,9 +62,9 @@ async def delete_user_account(http_request: Request) -> Dict[str, Any]:
         # 2. Service Role Keyを使用してAdminクライアントを作成
         try:
             admin_client = get_service_role_client()
-            logger.info("✅ [API] Admin client created successfully")
+            logger.info("✅ [API] 管理者クライアントの作成に成功しました")
         except ValueError as e:
-            logger.error(f"❌ [API] Failed to create admin client: {e}")
+            logger.error(f"❌ [API] 管理者クライアントの作成に失敗しました: {e}")
             raise HTTPException(
                 status_code=500, 
                 detail="サーバー設定エラー: 管理者権限の取得に失敗しました"
@@ -103,7 +103,7 @@ async def delete_user_account(http_request: Request) -> Dict[str, Any]:
                         detail="ユーザーが見つかりませんでした"
                     )
                 else:
-                    error_msg = f"Failed to delete user: {response.status_code} - {response.text}"
+                    error_msg = f"ユーザー削除に失敗しました: {response.status_code} - {response.text}"
                     logger.error(f"❌ [API] {error_msg}")
                     raise HTTPException(
                         status_code=500,
@@ -113,7 +113,7 @@ async def delete_user_account(http_request: Request) -> Dict[str, Any]:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"❌ [API] Failed to delete user account: {e}")
+            logger.error(f"❌ [API] ユーザーアカウントの削除に失敗しました: {e}")
             raise HTTPException(
                 status_code=500,
                 detail="アカウント削除処理でエラーが発生しました"
@@ -129,7 +129,7 @@ async def delete_user_account(http_request: Request) -> Dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in delete_user_account: {e}")
+        logger.error(f"❌ [API] アカウント削除処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(
             status_code=500,
             detail="アカウント削除処理でエラーが発生しました"

@@ -38,8 +38,8 @@ class LLMConstraintSolver:
             最適な献立選択結果
         """
         try:
-            logger.info(f"🤖 [RAG] Solving menu constraints with LLM")
-            logger.debug(f"🔍 [RAG] Candidates count: {len(menu_candidates)}")
+            logger.info(f"🤖 [RAG] LLMで献立制約を解決中")
+            logger.debug(f"🔍 [RAG] 候補数: {len(menu_candidates)}")
             
             # LLMプロンプトを生成
             prompt = self._create_constraint_solving_prompt(menu_candidates, inventory_items, menu_type)
@@ -57,11 +57,11 @@ class LLMConstraintSolver:
             return selected_menu
             
         except Exception as e:
-            logger.error(f"❌ [RAG] LLM constraint solving error: {e}")
-            logger.error(f"❌ [RAG] Error details: {str(e)}")
+            logger.error(f"❌ [RAG] LLM制約解決エラー: {e}")
+            logger.error(f"❌ [RAG] エラー詳細: {str(e)}")
             # エラー時は最初の候補を返す
             fallback = menu_candidates[0] if menu_candidates else {}
-            logger.debug(f"🔄 [RAG] Using fallback menu: {fallback}")
+            logger.debug(f"🔄 [RAG] フォールバック献立を使用: {fallback}")
             return fallback
     
     def _create_constraint_solving_prompt(
@@ -130,6 +130,6 @@ class LLMConstraintSolver:
                 return {}
                 
         except Exception as e:
-            logger.error(f"❌ [RAG] Failed to parse LLM response: {e}")
-            logger.error(f"❌ [RAG] Response content: {llm_response}")
+            logger.error(f"❌ [RAG] LLMレスポンスの解析に失敗: {e}")
+            logger.error(f"❌ [RAG] レスポンス内容: {llm_response}")
             return {}

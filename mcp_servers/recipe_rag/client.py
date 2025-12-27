@@ -298,8 +298,8 @@ class RecipeRAGClient:
             検索結果のリスト
         """
         try:
-            logger.debug(f"🔍 [RAG] Searching {category} candidates")
-            logger.debug(f"🔍 [RAG] Limit: {limit}")
+            logger.debug(f"🔍 [RAG] {category}候補を検索中")
+            logger.debug(f"🔍 [RAG] 検索上限: {limit}")
             
             # 適切なベクトルストアを選択
             if category not in ["main", "sub", "soup", "other"]:
@@ -313,7 +313,7 @@ class RecipeRAGClient:
             # 副菜・汁物の場合、主菜で使った食材を除外
             if category in ["sub", "soup"] and used_ingredients:
                 search_query = [ing for ing in search_query if ing not in used_ingredients]
-                logger.debug(f"🔍 [RAG] Excluded {len(used_ingredients)} used ingredients from search query")
+                logger.debug(f"🔍 [RAG] 検索クエリから使用済み食材{len(used_ingredients)}件を除外")
             
             # 主要食材の処理（主菜の場合のみ有効）
             rag_main_ingredient = None
@@ -322,7 +322,7 @@ class RecipeRAGClient:
                 rag_main_ingredient = main_ingredient
             elif main_ingredient and category in ["sub", "soup"]:
                 # 副菜・汁物ではmain_ingredientは使用しない（プランナーの誤認識を無視）
-                logger.info(f"⚠️ [RAG] Ignoring main_ingredient '{main_ingredient}' for {category} category")
+                logger.info(f"⚠️ [RAG] {category}カテゴリでは主要食材'{main_ingredient}'を無視します")
                 rag_main_ingredient = None
             
             # RAG検索（除外レシピを渡す）
@@ -338,10 +338,10 @@ class RecipeRAGClient:
                     ingredients = self._extract_ingredients_from_content(content)
                     result["ingredients"] = ingredients
             
-            logger.debug(f"✅ [RAG] Found {category} candidates")
-            logger.debug(f"📊 [RAG] Found {len(results)} {category} candidates")
+            logger.debug(f"✅ [RAG] {category}候補を発見")
+            logger.debug(f"📊 [RAG] {category}候補{len(results)}件を発見")
             return results
             
         except Exception as e:
-            logger.error(f"❌ [RAG] Failed to search {category} candidates: {e}")
+            logger.error(f"❌ [RAG] {category}候補の検索に失敗: {e}")
             return []

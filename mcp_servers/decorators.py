@@ -33,20 +33,20 @@ def authenticated_tool(func: Callable) -> Callable:
         
         # user_idが空文字列の場合は認証をスキップ
         if not user_id or user_id == "":
-            logger.debug(f"🔐 [RECIPE] Skipping authentication for {func.__name__} (user_id is empty)")
+            logger.debug(f"🔐 [RECIPE] {func.__name__}の認証をスキップします（user_idが空です）")
             return await func(*args, **kwargs)
         
         try:
-            logger.debug(f"🔐 [RECIPE] Getting authenticated client for user_id={user_id}")
+            logger.debug(f"🔐 [RECIPE] 認証済みクライアントを取得中: user_id={user_id}")
             client = get_authenticated_client(user_id, token)
-            logger.info(f"🔐 [RECIPE] Authenticated client created successfully for user: {user_id}")
+            logger.info(f"🔐 [RECIPE] ユーザー{user_id}の認証済みクライアントを作成しました")
             
             # clientをkwargsに追加（関数がclient引数を受け取る場合に備える）
             kwargs['client'] = client
             
             return await func(*args, **kwargs)
         except Exception as e:
-            logger.error(f"❌ [RECIPE] Authentication failed for {func.__name__}: {e}")
+            logger.error(f"❌ [RECIPE] {func.__name__}の認証に失敗: {e}")
             return {"success": False, "error": f"Authentication failed: {str(e)}"}
     
     return wrapper
@@ -61,7 +61,7 @@ def logged_tool(func: Callable) -> Callable:
     @wraps(func)
     async def wrapper(*args, **kwargs):
         func_name = func.__name__
-        logger.info(f"🔧 [RECIPE] Starting {func_name}")
+        logger.info(f"🔧 [RECIPE] {func_name}を開始")
         
         # パラメータをログ出力（tokenはマスク）
         log_params = {}
@@ -75,22 +75,22 @@ def logged_tool(func: Callable) -> Callable:
         if args:
             log_params['args'] = args[:2] if len(args) > 2 else args  # 最初の2つだけ
         
-        logger.debug(f"🔍 [RECIPE] Parameters: {log_params}")
+        logger.debug(f"🔍 [RECIPE] パラメータ: {log_params}")
         
         try:
             result = await func(*args, **kwargs)
             
             if isinstance(result, dict):
                 if result.get("success"):
-                    logger.info(f"✅ [RECIPE] {func_name} completed successfully")
+                    logger.info(f"✅ [RECIPE] {func_name}が正常に完了しました")
                 else:
-                    logger.error(f"❌ [RECIPE] {func_name} failed: {result.get('error')}")
+                    logger.error(f"❌ [RECIPE] {func_name}が失敗: {result.get('error')}")
             else:
-                logger.info(f"✅ [RECIPE] {func_name} completed")
+                logger.info(f"✅ [RECIPE] {func_name}が完了しました")
             
             return result
         except Exception as e:
-            logger.error(f"❌ [RECIPE] {func_name} raised exception: {e}")
+            logger.error(f"❌ [RECIPE] {func_name}で例外が発生: {e}")
             raise
     
     return wrapper
@@ -108,9 +108,9 @@ def error_handled_tool(func: Callable) -> Callable:
             return await func(*args, **kwargs)
         except Exception as e:
             func_name = func.__name__
-            logger.error(f"❌ [RECIPE] Error in {func_name}: {e}")
+            logger.error(f"❌ [RECIPE] {func_name}でエラー: {e}")
             import traceback
-            logger.error(f"❌ [RECIPE] Traceback: {traceback.format_exc()}")
+            logger.error(f"❌ [RECIPE] トレースバック: {traceback.format_exc()}")
             return {"success": False, "error": str(e)}
     
     return wrapper

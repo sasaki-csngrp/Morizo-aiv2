@@ -35,18 +35,18 @@ class TaskExecutor:
             ExecutionResult with status and outputs
         """
         try:
-            self.logger.info(f"🔄 [EXECUTOR] Starting ReAct loop with {len(tasks)} tasks")
-            self.logger.debug(f"🔍 [EXECUTOR] User ID: {user_id}")
+            self.logger.info(f"🔄 [EXECUTOR] ReActループを開始します: {len(tasks)}件のタスク")
+            self.logger.debug(f"🔍 [EXECUTOR] ユーザーID: {user_id}")
             
             # 【新規追加】実行前に曖昧性チェック
             if self.confirmation_service:
-                self.logger.info(f"🔍 [EXECUTOR] Checking for ambiguity before execution")
+                self.logger.info(f"🔍 [EXECUTOR] 実行前に曖昧性をチェック中")
                 
                 # ConfirmationServiceで曖昧性チェック
                 ambiguity_result = await self.confirmation_service.detect_ambiguity(tasks, user_id, token)
                 
                 if ambiguity_result.requires_confirmation:
-                    self.logger.info(f"⚠️ [EXECUTOR] Ambiguity detected, requesting confirmation")
+                    self.logger.info(f"⚠️ [EXECUTOR] 曖昧性が検出されました。確認を要求します")
                     
                     # 最初の曖昧なタスクの情報を取得
                     first_ambiguous_task = ambiguity_result.ambiguous_tasks[0]
@@ -62,10 +62,10 @@ class TaskExecutor:
                         message=first_ambiguous_task.details["message"]
                     )
                 
-                self.logger.info(f"✅ [EXECUTOR] No ambiguity detected, proceeding with execution")
+                self.logger.info(f"✅ [EXECUTOR] 曖昧性は検出されませんでした。実行を続行します")
             
             # Log task dependency graph
-            self.logger.debug(f"📊 [EXECUTOR] Task dependency graph:")
+            self.logger.debug(f"📊 [EXECUTOR] タスク依存関係グラフ:")
             for task in tasks:
                 deps_str = f"deps: {task.dependencies}" if task.dependencies else "no dependencies"
                 self.logger.debug(f"  - {task.id}: {task.service}.{task.method} ({deps_str})")
@@ -76,21 +76,21 @@ class TaskExecutor:
             
             while remaining_tasks:
                 iteration += 1
-                self.logger.debug(f"🔄 [EXECUTOR] ReAct iteration {iteration}: {len(remaining_tasks)} tasks remaining")
+                self.logger.debug(f"🔄 [EXECUTOR] ReAct反復 {iteration}: 残り{len(remaining_tasks)}件のタスク")
                 # Find executable group (tasks with resolved dependencies)
                 executable_group = self._find_executable_group(remaining_tasks, all_results)
                 
                 if not executable_group:
                     # Check if we have remaining tasks but no executable ones
                     if remaining_tasks:
-                        self.logger.error(f"❌ [EXECUTOR] Circular dependency detected in task graph")
+                        self.logger.error(f"❌ [EXECUTOR] タスクグラフで循環依存が検出されました")
                         raise CircularDependencyError("Circular dependency detected in task graph")
-                    self.logger.info(f"✅ [EXECUTOR] All tasks completed")
+                    self.logger.info(f"✅ [EXECUTOR] すべてのタスクが完了しました")
                     break
                 
                 # Log executable group
                 group_task_ids = [task.id for task in executable_group]
-                self.logger.debug(f"⚡ [EXECUTOR] Executing group {iteration}: {group_task_ids}")
+                self.logger.debug(f"⚡ [EXECUTOR] グループ {iteration} を実行中: {group_task_ids}")
                 for task in executable_group:
                     self.logger.debug(f"  - {task.id}: {task.service}.{task.method}")
                 
@@ -103,7 +103,7 @@ class TaskExecutor:
                 for task, result in zip(executable_group, group_results):
                     if isinstance(result, AmbiguityDetected):
                         # Ambiguity detected - interrupt execution
-                        self.logger.warning(f"⚠️ [EXECUTOR] Ambiguity detected in task {task.id}: {result.message}")
+                        self.logger.warning(f"⚠️ [EXECUTOR] タスク {task.id} で曖昧性が検出されました: {result.message}")
                         return ExecutionResult(
                             status="needs_confirmation",
                             confirmation_context=result.context,
@@ -111,7 +111,7 @@ class TaskExecutor:
                         )
                     
                     if isinstance(result, Exception):
-                        self.logger.error(f"❌ [EXECUTOR] Task {task.id} failed: {str(result)}")
+                        self.logger.error(f"❌ [EXECUTOR] タスク {task.id} が失敗しました: {str(result)}")
                         task.status = TaskStatus.FAILED
                         task.error = str(result)
                         task_chain_manager.update_task_status(task.id, TaskStatus.FAILED, error=str(result))
@@ -127,7 +127,7 @@ class TaskExecutor:
                                 message=error_message
                             )
                     else:
-                        self.logger.debug(f"✅ [EXECUTOR] Task {task.id} completed successfully")
+                        self.logger.debug(f"✅ [EXECUTOR] タスク {task.id} が正常に完了しました")
                         task.status = TaskStatus.COMPLETED
                         task.result = result
                         all_results[task.id] = result
@@ -151,9 +151,9 @@ class TaskExecutor:
                 # 失敗したタスクもremaining_tasksから削除する（Circular dependencyエラーを防ぐため）
                 processed_ids = [task.id for task in executable_group]
                 remaining_tasks = [t for t in remaining_tasks if t.id not in processed_ids]
-                self.logger.debug(f"📊 [EXECUTOR] Processed {len(processed_ids)} tasks ({completed_count} completed, {len(failed_tasks)} failed), {len(remaining_tasks)} remaining")
+                self.logger.debug(f"📊 [EXECUTOR] タスクを処理しました: {len(processed_ids)}件 ({completed_count}件完了, {len(failed_tasks)}件失敗), 残り{len(remaining_tasks)}件")
             
-            self.logger.info("✅ [EXECUTOR] ReAct loop completed successfully")
+            self.logger.info("✅ [EXECUTOR] ReActループが正常に完了しました")
             return ExecutionResult(status="success", outputs=all_results)
             
         except AmbiguityDetected as e:
@@ -163,7 +163,7 @@ class TaskExecutor:
                 message=e.message
             )
         except Exception as e:
-            self.logger.error(f"Task execution failed: {str(e)}")
+            self.logger.error(f"タスク実行に失敗しました: {str(e)}")
             return ExecutionResult(status="error", message=str(e))
     
     def _find_executable_group(self, tasks: List[Task], completed_results: Dict[str, Any]) -> List[Task]:
@@ -205,7 +205,7 @@ class TaskExecutor:
     async def _execute_single_task(self, task: Task, user_id: str, previous_results: Dict[str, Any], token: str, task_chain_manager: TaskChainManager = None) -> Any:
         """Execute a single task with data injection."""
         try:
-            self.logger.info(f"🚀 [EXECUTOR] Starting task {task.id}: {task.service}.{task.method}")
+            self.logger.info(f"🚀 [EXECUTOR] タスク {task.id} を開始します: {task.service}.{task.method}")
             
             # 利用回数制限チェック（献立提案機能）
             if task.service == "recipe_service" and task.method == "generate_menu_plan":
@@ -225,7 +225,7 @@ class TaskExecutor:
                 # 制限チェック通過後、実行前に利用回数をインクリメント
                 increment_result = await subscription_service.increment_usage(user_id, "menu_bulk", client)
                 if not increment_result.get("success"):
-                    self.logger.warning(f"⚠️ [EXECUTOR] Failed to increment menu_bulk usage: {increment_result.get('error')}")
+                    self.logger.warning(f"⚠️ [EXECUTOR] menu_bulk 利用回数のインクリメントに失敗しました: {increment_result.get('error')}")
             
             elif task.service == "recipe_service" and task.method == "generate_proposals":
                 # 段階的提案の制限チェック
@@ -244,7 +244,7 @@ class TaskExecutor:
                 # 制限チェック通過後、実行前に利用回数をインクリメント
                 increment_result = await subscription_service.increment_usage(user_id, "menu_step", client)
                 if not increment_result.get("success"):
-                    self.logger.warning(f"⚠️ [EXECUTOR] Failed to increment menu_step usage: {increment_result.get('error')}")
+                    self.logger.warning(f"⚠️ [EXECUTOR] menu_step 利用回数のインクリメントに失敗しました: {increment_result.get('error')}")
             
             # Inject data from previous tasks
             injected_params = self._inject_data(task.parameters, previous_results)
@@ -299,22 +299,22 @@ class TaskExecutor:
                                         "category_detail": url_info.get("category_detail", ""),
                                         "category": url_info.get("category", "")
                                     }
-                            self.logger.debug(f"🔍 [EXECUTOR] Found {len(rag_results)} URLs from _rag_urls in task3 result")
+                            self.logger.debug(f"🔍 [EXECUTOR] task3の結果から_rag_urlsで{len(rag_results)}件のURLを発見しました")
                     
                     if rag_results:
                         injected_params["rag_results"] = rag_results
-                        self.logger.debug(f"🔍 [EXECUTOR] Added rag_results for {len(rag_results)} RAG candidates with URLs")
+                        self.logger.debug(f"🔍 [EXECUTOR] URL付きRAG候補{len(rag_results)}件のrag_resultsを追加しました")
             
             result = await self.service_coordinator.execute_service(
                 task.service, task.method, injected_params, token
             )
             
             self.logger.debug(f"📤 [EXECUTOR] Task {task.id} output result: {result}")
-            self.logger.debug(f"✅ [EXECUTOR] Task {task.id} completed successfully")
+            self.logger.debug(f"✅ [EXECUTOR] タスク {task.id} が正常に完了しました")
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ [EXECUTOR] Task {task.id} failed: {str(e)}")
+            self.logger.error(f"❌ [EXECUTOR] タスク {task.id} が失敗しました: {str(e)}")
             raise
     
     def _inject_data(self, parameters: Dict[str, Any], previous_results: Dict[str, Any]) -> Dict[str, Any]:
@@ -551,5 +551,5 @@ class TaskExecutor:
             return result_list
             
         except Exception as e:
-            self.logger.error(f"❌ [EXECUTOR] Error in _resolve_concatenation: {e}")
+            self.logger.error(f"❌ [EXECUTOR] _resolve_concatenation でエラーが発生しました: {e}")
             return None

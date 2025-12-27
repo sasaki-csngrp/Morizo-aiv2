@@ -38,7 +38,7 @@ class RecipeFormatter(BaseFormatter):
                 response_parts.append("レシピデータの形式が正しくありません。")
                 
         except Exception as e:
-            self.logger.error(f"❌ [RecipeFormatter] Error in format_web_recipes: {e}")
+            self.logger.error(f"❌ [RecipeFormatter] format_web_recipesでエラー: {e}")
             response_parts.append("レシピデータの処理中にエラーが発生しました。")
         
         return response_parts
@@ -152,6 +152,6 @@ class RecipeFormatter(BaseFormatter):
                 response_parts.append("もう一度お試しください。")
                 
         except Exception as e:
-            self.logger.error(f"❌ [RecipeFormatter] Error in format_main_dish_proposals: {e}")
+            self.logger.error(f"❌ [RecipeFormatter] format_main_dish_proposalsでエラー: {e}")
         return response_parts
 

@@ -54,12 +54,12 @@ USE_PERPLEXITY_SEARCH = os.getenv('USE_PERPLEXITY_SEARCH', 'False').lower() in (
 try:
     if USE_PERPLEXITY_SEARCH:
         search_client = PerplexitySearchClient()
-        logger.info("🔍 [WEB] Using Perplexity Search (global)")
+        logger.info("🔍 [WEB] Perplexity検索を使用中（グローバル）")
     else:
         search_client = GoogleSearchClient()
-        logger.info("🔍 [WEB] Using Google Search (global)")
+        logger.info("🔍 [WEB] Google検索を使用中（グローバル）")
 except Exception as e:
-    logger.warning(f"⚠️ [WEB] Failed to initialize search client: {e}, falling back to Google Search")
+    logger.warning(f"⚠️ [WEB] 検索クライアントの初期化に失敗しました: {e}、Google検索にフォールバックします")
     search_client = GoogleSearchClient()
 
 # 検索クライアントのインスタンス（再利用のため）
@@ -74,13 +74,13 @@ def _get_or_create_perplexity_client() -> Any:
     if _perplexity_search_client is None:
         try:
             _perplexity_search_client = PerplexitySearchClient()
-            logger.info("✅ [WEB] Perplexity Search client initialized successfully")
+            logger.info("✅ [WEB] Perplexity検索クライアントの初期化に成功しました")
         except ValueError as e:
-            logger.error(f"❌ [WEB] Perplexity API key not configured: {e}")
+            logger.error(f"❌ [WEB] Perplexity APIキーが設定されていません: {e}")
             logger.warning(f"⚠️ [WEB] Falling back to Google Search (may use mock data)")
             return _get_or_create_google_client()
         except Exception as e:
-            logger.error(f"❌ [WEB] Failed to initialize Perplexity client: {e}")
+            logger.error(f"❌ [WEB] Perplexityクライアントの初期化に失敗しました: {e}")
             logger.warning(f"⚠️ [WEB] Falling back to Google Search (may use mock data)")
             return _get_or_create_google_client()
     

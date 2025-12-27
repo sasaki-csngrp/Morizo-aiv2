@@ -37,7 +37,7 @@ async def get_inventory_list(
         sort_order: ソート順序 (asc, desc)
     """
     try:
-        logger.info(f"🔍 [API] Inventory list request received: sort_by={sort_by}, sort_order={sort_order}")
+        logger.info(f"🔍 [API] 在庫一覧リクエストを受信しました: sort_by={sort_by}, sort_order={sort_order}")
         
         # 1. 認証処理とクライアント作成
         user_id, client = await get_authenticated_user_and_client(http_request)
@@ -49,10 +49,10 @@ async def get_inventory_list(
         result = await crud.get_all_items(client, user_id, sort_by=sort_by, sort_order=sort_order)
         
         if not result.get("success"):
-            logger.error(f"❌ [API] Failed to get inventory list: {result.get('error')}")
+            logger.error(f"❌ [API] 在庫一覧の取得に失敗しました: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "在庫取得処理でエラーが発生しました"))
         
-        logger.info(f"✅ [API] Retrieved {len(result.get('data', []))} inventory items")
+        logger.info(f"✅ [API] 在庫アイテム {len(result.get('data', []))} 件を取得しました")
         
         return {
             "success": True,
@@ -62,7 +62,7 @@ async def get_inventory_list(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in get_inventory_list: {e}")
+        logger.error(f"❌ [API] 在庫一覧取得処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="在庫取得処理でエラーが発生しました")
 
 
@@ -70,7 +70,7 @@ async def get_inventory_list(
 async def add_inventory_item(request: InventoryRequest, http_request: Request):
     """在庫アイテムを追加するエンドポイント"""
     try:
-        logger.info("🔍 [API] Inventory add request received")
+        logger.info("🔍 [API] 在庫追加リクエストを受信しました")
         logger.debug(f"🔍 [API] Item name: {request.item_name}")
         
         # 1. 認証処理とクライアント作成
@@ -91,10 +91,10 @@ async def add_inventory_item(request: InventoryRequest, http_request: Request):
         )
         
         if not result.get("success"):
-            logger.error(f"❌ [API] Failed to add inventory: {result.get('error')}")
+            logger.error(f"❌ [API] 在庫追加に失敗しました: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "在庫追加処理でエラーが発生しました"))
         
-        logger.info(f"✅ [API] Inventory item added: {result.get('data', {}).get('id')}")
+        logger.info(f"✅ [API] 在庫アイテムを追加しました: {result.get('data', {}).get('id')}")
         
         return {
             "success": True,
@@ -104,7 +104,7 @@ async def add_inventory_item(request: InventoryRequest, http_request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in add_inventory_item: {e}")
+        logger.error(f"❌ [API] 在庫追加処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="在庫追加処理でエラーが発生しました")
 
 
@@ -116,7 +116,7 @@ async def update_inventory_item(
 ):
     """在庫アイテムを更新するエンドポイント"""
     try:
-        logger.info("🔍 [API] Inventory update request received")
+        logger.info("🔍 [API] 在庫更新リクエストを受信しました")
         logger.debug(f"🔍 [API] Item ID: {item_id}")
         
         # 1. 認証処理とクライアント作成
@@ -138,10 +138,10 @@ async def update_inventory_item(
         )
         
         if not result.get("success"):
-            logger.error(f"❌ [API] Failed to update inventory: {result.get('error')}")
+            logger.error(f"❌ [API] 在庫更新に失敗しました: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "在庫更新処理でエラーが発生しました"))
         
-        logger.info(f"✅ [API] Inventory item updated: {item_id}")
+        logger.info(f"✅ [API] 在庫アイテムを更新しました: {item_id}")
         
         return {
             "success": True,
@@ -151,7 +151,7 @@ async def update_inventory_item(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in update_inventory_item: {e}")
+        logger.error(f"❌ [API] 在庫更新処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="在庫更新処理でエラーが発生しました")
 
 
@@ -159,7 +159,7 @@ async def update_inventory_item(
 async def delete_inventory_item(item_id: str, http_request: Request):
     """在庫アイテムを削除するエンドポイント"""
     try:
-        logger.info("🔍 [API] Inventory delete request received")
+        logger.info("🔍 [API] 在庫削除リクエストを受信しました")
         logger.debug(f"🔍 [API] Item ID: {item_id}")
         
         # 1. 認証処理とクライアント作成
@@ -172,10 +172,10 @@ async def delete_inventory_item(item_id: str, http_request: Request):
         result = await crud.delete_item_by_id(client, user_id, item_id)
         
         if not result.get("success"):
-            logger.error(f"❌ [API] Failed to delete inventory: {result.get('error')}")
+            logger.error(f"❌ [API] 在庫削除に失敗しました: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "在庫削除処理でエラーが発生しました"))
         
-        logger.info(f"✅ [API] Inventory item deleted: {item_id}")
+        logger.info(f"✅ [API] 在庫アイテムを削除しました: {item_id}")
         
         return {
             "success": True,
@@ -185,7 +185,7 @@ async def delete_inventory_item(item_id: str, http_request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in delete_inventory_item: {e}")
+        logger.error(f"❌ [API] 在庫削除処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="在庫削除処理でエラーが発生しました")
 
 @router.post("/inventory/upload-csv", response_model=CSVUploadResponse)
@@ -195,7 +195,7 @@ async def upload_csv_inventory(
 ):
     """CSVファイルから在庫データを一括登録"""
     try:
-        logger.info("🔍 [API] CSV upload request received")
+        logger.info("🔍 [API] CSVアップロードリクエストを受信しました")
         logger.debug(f"🔍 [API] Filename: {file.filename}")
         
         # 1. 認証処理とクライアント作成
@@ -231,7 +231,7 @@ async def upload_csv_inventory(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in upload_csv_inventory: {e}")
+        logger.error(f"❌ [API] CSVアップロード処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="CSVアップロード処理でエラーが発生しました")
 
 
@@ -242,7 +242,7 @@ async def ocr_receipt(
 ):
     """レシート画像をOCR解析して在庫データを抽出・登録"""
     try:
-        logger.info("🔍 [API] OCR receipt request received")
+        logger.info("🔍 [API] OCRレシートリクエストを受信しました")
         logger.debug(f"🔍 [API] Filename: {image.filename}")
         
         # 1. 認証処理とクライアント作成
@@ -300,17 +300,17 @@ async def ocr_receipt(
         # 5. 利用回数をインクリメント（OCR解析成功時）
         increment_result = await subscription_service.increment_usage(user_id, "ocr", client)
         if not increment_result.get("success"):
-            logger.warning(f"⚠️ [API] Failed to increment OCR usage: {increment_result.get('error')}")
+            logger.warning(f"⚠️ [API] OCR利用回数のインクリメントに失敗しました: {increment_result.get('error')}")
             # インクリメント失敗は警告のみ（処理は継続）
         
         # 6. 変換テーブル適用
         try:
             # 変換テーブルを適用
             items = await ocr_service.apply_item_mappings(items, client, user_id)
-            logger.debug(f"✅ [API] Applied item mappings to {len(items)} items")
+            logger.debug(f"✅ [API] {len(items)} 件のアイテムにマッピングを適用しました")
         except Exception as e:
             # 変換テーブル適用が失敗しても、既存の処理は継続
-            logger.warning(f"⚠️ [API] Failed to apply item mappings: {e}")
+            logger.warning(f"⚠️ [API] アイテムマッピングの適用に失敗しました: {e}")
         
         # 7. データバリデーション
         validated_items, validation_errors = validate_ocr_items(items)
@@ -352,7 +352,7 @@ async def ocr_receipt(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in ocr_receipt: {e}")
+        logger.error(f"❌ [API] OCR処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="OCR処理でエラーが発生しました")
 
 
@@ -363,7 +363,7 @@ async def add_ocr_mapping(
 ):
     """OCR変換テーブルに登録"""
     try:
-        logger.info("🔍 [API] OCR mapping request received")
+        logger.info("🔍 [API] OCRマッピングリクエストを受信しました")
         logger.debug(f"🔍 [API] Mapping: '{request.original_name}' -> '{request.normalized_name}'")
         
         # 1. 認証処理とクライアント作成
@@ -382,7 +382,7 @@ async def add_ocr_mapping(
         
         if not result.get("success"):
             error_message = result.get("error", "変換テーブルへの登録に失敗しました")
-            logger.error(f"❌ [API] Failed to add OCR mapping: {error_message}")
+            logger.error(f"❌ [API] OCRマッピングの追加に失敗しました: {error_message}")
             raise HTTPException(status_code=500, detail=error_message)
         
         mapping_id = result.get("data", {}).get("id") if result.get("data") else None
@@ -398,6 +398,6 @@ async def add_ocr_mapping(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in add_ocr_mapping: {e}")
+        logger.error(f"❌ [API] OCRマッピング追加処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="変換テーブル登録処理でエラーが発生しました")
 

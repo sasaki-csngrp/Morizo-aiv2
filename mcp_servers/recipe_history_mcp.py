@@ -60,21 +60,21 @@ async def history_add(
     Returns:
         Dict[str, Any]: 保存結果
     """
-    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_add")
-    logger.debug(f"🔍 [RECIPE_HISTORY] User ID: {user_id}, title: {title}")
+    logger.info(f"🔧 [RECIPE_HISTORY] history_add を開始します")
+    logger.debug(f"🔍 [RECIPE_HISTORY] ユーザーID: {user_id}, タイトル: {title}")
     
     try:
         client = get_authenticated_client(user_id)
-        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE_HISTORY] ユーザー {user_id} の認証済みクライアントを作成しました")
         
         result = await crud.add_history(client, user_id, title, source, url)
-        logger.info(f"✅ [RECIPE_HISTORY] history_add completed successfully")
+        logger.info(f"✅ [RECIPE_HISTORY] history_add が正常に完了しました")
         logger.debug(f"📊 [RECIPE_HISTORY] Add result: {result}")
         
         return result
         
     except Exception as e:
-        logger.error(f"❌ [RECIPE_HISTORY] Error in history_add: {e}")
+        logger.error(f"❌ [RECIPE_HISTORY] history_add でエラーが発生しました: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -89,21 +89,21 @@ async def history_list(user_id: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: レシピ履歴のリスト
     """
-    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_list")
-    logger.debug(f"🔍 [RECIPE_HISTORY] User ID: {user_id}")
+    logger.info(f"🔧 [RECIPE_HISTORY] history_list を開始します")
+    logger.debug(f"🔍 [RECIPE_HISTORY] ユーザーID: {user_id}")
     
     try:
         client = get_authenticated_client(user_id)
-        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE_HISTORY] ユーザー {user_id} の認証済みクライアントを作成しました")
         
         result = await crud.list_history(client, user_id)
-        logger.info(f"✅ [RECIPE_HISTORY] history_list completed successfully")
+        logger.info(f"✅ [RECIPE_HISTORY] history_list が正常に完了しました")
         logger.debug(f"📊 [RECIPE_HISTORY] List result: {result}")
         
         return result
         
     except Exception as e:
-        logger.error(f"❌ [RECIPE_HISTORY] Error in history_list: {e}")
+        logger.error(f"❌ [RECIPE_HISTORY] history_list でエラーが発生しました: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -144,21 +144,21 @@ async def history_update_by_id(
     Returns:
         Dict[str, Any]: 更新結果
     """
-    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_update_by_id")
-    logger.debug(f"🔍 [RECIPE_HISTORY] User ID: {user_id}, history_id: {history_id}")
+    logger.info(f"🔧 [RECIPE_HISTORY] history_update_by_id を開始します")
+    logger.debug(f"🔍 [RECIPE_HISTORY] ユーザーID: {user_id}, 履歴ID: {history_id}")
     
     try:
         client = get_authenticated_client(user_id)
-        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE_HISTORY] ユーザー {user_id} の認証済みクライアントを作成しました")
         
         result = await crud.update_history_by_id(client, user_id, history_id, title, source, url)
-        logger.info(f"✅ [RECIPE_HISTORY] history_update_by_id completed successfully")
+        logger.info(f"✅ [RECIPE_HISTORY] history_update_by_id が正常に完了しました")
         logger.debug(f"📊 [RECIPE_HISTORY] Update by id result: {result}")
         
         return result
         
     except Exception as e:
-        logger.error(f"❌ [RECIPE_HISTORY] Error in history_update_by_id: {e}")
+        logger.error(f"❌ [RECIPE_HISTORY] history_update_by_id でエラーが発生しました: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -174,21 +174,21 @@ async def history_delete_by_id(user_id: str, history_id: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: 削除結果
     """
-    logger.info(f"🔧 [RECIPE_HISTORY] Starting history_delete_by_id")
-    logger.debug(f"🔍 [RECIPE_HISTORY] User ID: {user_id}, history_id: {history_id}")
+    logger.info(f"🔧 [RECIPE_HISTORY] history_delete_by_id を開始します")
+    logger.debug(f"🔍 [RECIPE_HISTORY] ユーザーID: {user_id}, 履歴ID: {history_id}")
     
     try:
         client = get_authenticated_client(user_id)
-        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE_HISTORY] ユーザー {user_id} の認証済みクライアントを作成しました")
         
         result = await crud.delete_history_by_id(client, user_id, history_id)
-        logger.info(f"✅ [RECIPE_HISTORY] history_delete_by_id completed successfully")
+        logger.info(f"✅ [RECIPE_HISTORY] history_delete_by_id が正常に完了しました")
         logger.debug(f"📊 [RECIPE_HISTORY] Delete by id result: {result}")
         
         return result
         
     except Exception as e:
-        logger.error(f"❌ [RECIPE_HISTORY] Error in history_delete_by_id: {e}")
+        logger.error(f"❌ [RECIPE_HISTORY] history_delete_by_id でエラーが発生しました: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -211,24 +211,24 @@ async def history_get_recent_titles(
     Returns:
         Dict[str, Any]: レシピタイトルのリスト
     """
-    logger.debug(f"🔧 [RECIPE_HISTORY] Starting history_get_recent_titles")
-    logger.debug(f"🔍 [RECIPE_HISTORY] User ID: {user_id}, category: {category}, days: {days}")
+    logger.debug(f"🔧 [RECIPE_HISTORY] history_get_recent_titles を開始します")
+    logger.debug(f"🔍 [RECIPE_HISTORY] ユーザーID: {user_id}, カテゴリ: {category}, 日数: {days}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [RECIPE_HISTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [RECIPE_HISTORY] ユーザー {user_id} の認証済みクライアントを作成しました")
         
         result = await crud.get_recent_recipe_titles(client, user_id, category, days)
-        logger.debug(f"✅ [RECIPE_HISTORY] history_get_recent_titles completed successfully")
+        logger.debug(f"✅ [RECIPE_HISTORY] history_get_recent_titles が正常に完了しました")
         logger.debug(f"📊 [RECIPE_HISTORY] Recent titles result: {result}")
         
         return result
         
     except Exception as e:
-        logger.error(f"❌ [RECIPE_HISTORY] Error in history_get_recent_titles: {e}")
+        logger.error(f"❌ [RECIPE_HISTORY] history_get_recent_titles でエラーが発生しました: {e}")
         return {"success": False, "error": str(e), "data": []}
 
 
 if __name__ == "__main__":
-    logger.debug("🚀 Starting Recipe History MCP Server")
+    logger.debug("🚀 レシピ履歴MCPサーバーを起動中")
     mcp.run()

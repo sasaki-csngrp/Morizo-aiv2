@@ -53,7 +53,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             # リクエスト情報のログ
             self.logger.info(
                 f"🔍 [API] {request.method} {request.url.path} "
-                f"User: {user_id} "
+                f"ユーザー: {user_id} "
                 f"IP: {request.client.host if request.client else 'unknown'}"
             )
             
@@ -72,9 +72,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             status_emoji = "✅" if response.status_code < 400 else "❌"
             self.logger.info(
                 f"{status_emoji} [API] {request.method} {request.url.path} "
-                f"Status: {response.status_code} "
-                f"Time: {process_time:.3f}s "
-                f"User: {user_id}"
+                f"ステータス: {response.status_code} "
+                f"処理時間: {process_time:.3f}s "
+                f"ユーザー: {user_id}"
             )
             
         except Exception as e:

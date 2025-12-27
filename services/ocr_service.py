@@ -38,7 +38,7 @@ class OCRService:
     ) -> Dict[str, Any]:
         """レシート画像を解析して在庫情報を抽出"""
         try:
-            self.logger.info("🔍 [OCR] Starting receipt image analysis")
+            self.logger.info("🔍 [OCR] レシート画像解析を開始しました")
             
             # 画像をbase64エンコード
             base64_image = base64.b64encode(image_bytes).decode('utf-8')
@@ -286,7 +286,7 @@ class OCRService:
                     
         except Exception as e:
             # 変換テーブル適用が失敗しても、既存の処理は継続
-            self.logger.warning(f"⚠️ [OCR] Failed to apply item mappings: {e}")
+            self.logger.warning(f"⚠️ [OCR] アイテムマッピングの適用に失敗しました: {e}")
         
         return items
     

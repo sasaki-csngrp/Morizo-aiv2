@@ -46,37 +46,37 @@ logger.error("❌ [ERROR] これはERRORログのテストです（テスト用�
 async def lifespan(app: FastAPI):
     """アプリケーションのライフサイクル管理"""
     # 起動時の処理
-    logger.info("🚀 [API] Morizo AI v2 starting...")
+    logger.info("🚀 [API] Morizo AI v2を起動中...")
     
     try:
         # サービスの初期化
-        logger.info("🔧 [API] Initializing services...")
+        logger.info("🔧 [API] サービスを初期化中...")
         
         # Core層の初期化確認
         from core.agent import TrueReactAgent
         agent = TrueReactAgent()
-        logger.info("✅ [API] Core layer initialized")
+        logger.info("✅ [API] コア層を初期化しました")
         
         # Service層の初期化確認
         from services.tool_router import ToolRouter
         tool_router = ToolRouter()
-        logger.info("✅ [API] Service layer initialized")
+        logger.info("✅ [API] サービス層を初期化しました")
         
         # MCP層の初期化確認
         from mcp_servers.client import MCPClient
         mcp_client = MCPClient()
-        logger.info("✅ [API] MCP layer initialized")
+        logger.info("✅ [API] MCP層を初期化しました")
         
-        logger.info("🎉 [API] All services initialized successfully")
+        logger.info("🎉 [API] すべてのサービスの初期化が完了しました")
         
     except Exception as e:
-        logger.error(f"❌ [API] Service initialization failed: {e}")
+        logger.error(f"❌ [API] サービスの初期化に失敗しました: {e}")
         raise
     
     yield
     
     # 終了時の処理
-    logger.info("🛑 [API] Morizo AI v2 shutting down...")
+    logger.info("🛑 [API] Morizo AI v2をシャットダウン中...")
 
 
 # FastAPIアプリケーションの作成
@@ -118,8 +118,8 @@ app.include_router(revenuecat_webhook_router)
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """バリデーションエラーの処理"""
-    logger.error(f"❌ [API] Validation error: {exc.errors()}")
-    logger.error(f"❌ [API] Request body: {await request.body()}")
+    logger.error(f"❌ [API] バリデーションエラー: {exc.errors()}")
+    logger.error(f"❌ [API] リクエストボディ: {await request.body()}")
     
     return JSONResponse(
         status_code=422,
@@ -135,7 +135,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc: HTTPException):
     """HTTPエラーの処理"""
-    logger.error(f"❌ [API] HTTP error: {exc.status_code} - {exc.detail}")
+    logger.error(f"❌ [API] HTTPエラー: {exc.status_code} - {exc.detail}")
     
     return JSONResponse(
         status_code=exc.status_code,
@@ -151,7 +151,7 @@ async def http_exception_handler(request, exc: HTTPException):
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc: Exception):
     """一般的なエラーの処理"""
-    logger.error(f"❌ [API] Unhandled exception: {exc}")
+    logger.error(f"❌ [API] 未処理の例外: {exc}")
     
     return JSONResponse(
         status_code=500,
@@ -186,5 +186,5 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     reload = os.getenv("RELOAD", "false").lower() == "true"
     
-    logger.info(f"🚀 [API] Starting Morizo AI v2 on {host}:{port} (reload={reload})...")
+    logger.info(f"🚀 [API] Morizo AI v2を起動中: {host}:{port} (reload={reload})...")
     uvicorn.run(app, host=host, port=port, reload=reload)

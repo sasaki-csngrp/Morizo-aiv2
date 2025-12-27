@@ -87,10 +87,10 @@ class TrueReactAgent:
             self._set_selection_handler_callbacks()
         
         try:
-            self.logger.info(f"🎯 [AGENT] Starting request processing")
+            self.logger.info(f"🎯 [AGENT] リクエスト処理を開始します")
             self.logger.debug(f"🔍 [AGENT] User ID: {user_id}")
             self.logger.info(f"📝 [AGENT] User request: '{user_request}'")
-            self.logger.debug(f"🔄 [AGENT] Is confirmation response: {is_confirmation_response}")
+            self.logger.debug(f"🔄 [AGENT] 確認応答か: {is_confirmation_response}")
             
             # ============================================================
             # ヘルプ機能の処理（通常のタスク処理より優先）
@@ -137,10 +137,10 @@ class TrueReactAgent:
             
             # Initialize task chain manager
             task_chain_manager = TaskChainManager(sse_session_id)
-            self.logger.info(f"🔗 [AGENT] TaskChainManager initialized")
+            self.logger.info(f"🔗 [AGENT] TaskChainManagerを初期化しました")
             
             # Step 1: Planning - Generate task list
-            self.logger.info(f"📋 [AGENT] Starting planning phase...")
+            self.logger.info(f"📋 [AGENT] プランニングフェーズを開始します...")
             tasks = await self.action_planner.plan(user_request, user_id, sse_session_id)
             
             # Inject session context for additional proposals
@@ -156,14 +156,14 @@ class TrueReactAgent:
                             task.parameters[key] = context_value
                             self.logger.debug(f"💾 [AGENT] Injected session context: {context_key} = {context_value}")
             task_chain_manager.set_tasks(tasks)
-            self.logger.info(f"✅ [AGENT] Planning phase completed: {len(tasks)} tasks generated")
+            self.logger.info(f"✅ [AGENT] プランニングフェーズが完了しました: {len(tasks)} 件のタスクを生成しました")
             
             # Step 2: Execution - Execute tasks
-            self.logger.info(f"⚙️ [AGENT] Starting execution phase...")
+            self.logger.info(f"⚙️ [AGENT] 実行フェーズを開始します...")
             execution_result = await self.task_executor.execute(
                 tasks, user_id, task_chain_manager, token
             )
-            self.logger.info(f"✅ [AGENT] Execution phase completed: status={execution_result.status}")
+            self.logger.info(f"✅ [AGENT] 実行フェーズが完了しました: status={execution_result.status}")
             
             # Step 3: Handle confirmation if needed
             if execution_result.status == "needs_confirmation":
@@ -186,14 +186,14 @@ class TrueReactAgent:
             
             # Step 4: Format final response
             if execution_result.status == "success":
-                self.logger.info(f"📄 [AGENT] Starting response formatting...")
+                self.logger.info(f"📄 [AGENT] レスポンスフォーマット処理を開始します...")
                 final_response, menu_data = await self.response_formatter.format(execution_result.outputs, sse_session_id)
-                self.logger.debug(f"🔍 [AGENT] Menu data received: {menu_data is not None}")
+                self.logger.debug(f"🔍 [AGENT] メニューデータ受信: {menu_data is not None}")
                 if menu_data:
                     self.logger.debug(f"📊 [AGENT] Menu data size: {len(str(menu_data))} characters")
                 task_chain_manager.send_complete(final_response, menu_data)
-                self.logger.info(f"✅ [AGENT] Response formatting completed")
-                self.logger.info(f"🎉 [AGENT] Request processing completed successfully")
+                self.logger.info(f"✅ [AGENT] レスポンスフォーマット処理が完了しました")
+                self.logger.info(f"🎉 [AGENT] リクエスト処理が正常に完了しました")
                 
                 # Return selection UI data if needed
                 if menu_data and isinstance(menu_data, dict) and menu_data.get("requires_selection"):
@@ -211,7 +211,7 @@ class TrueReactAgent:
                     return {"response": final_response}
             else:
                 error_msg = f"タスクの実行中にエラーが発生しました: {execution_result.message}"
-                self.logger.error(f"❌ [AGENT] Execution failed: {execution_result.message}")
+                self.logger.error(f"❌ [AGENT] 実行が失敗しました: {execution_result.message}")
                 
                 # SSEでエラーを送信
                 if task_chain_manager:
@@ -220,7 +220,7 @@ class TrueReactAgent:
                 return {"response": error_msg}
                 
         except Exception as e:
-            self.logger.error(f"❌ [AGENT] Request processing failed: {str(e)}")
+            self.logger.error(f"❌ [AGENT] リクエスト処理が失敗しました: {str(e)}")
             error_msg = f"リクエストの処理中にエラーが発生しました: {str(e)}"
             
             # SSEでエラーを送信（task_chain_managerが利用可能な場合）
@@ -228,7 +228,7 @@ class TrueReactAgent:
                 if task_chain_manager:
                     task_chain_manager.send_error(error_msg)
             except Exception as sse_error:
-                self.logger.warning(f"⚠️ [AGENT] Failed to send error via SSE: {sse_error}")
+                self.logger.warning(f"⚠️ [AGENT] SSE経由でのエラー送信に失敗しました: {sse_error}")
             
             return {"response": error_msg}
     
@@ -347,6 +347,6 @@ class TrueReactAgent:
             await self.session_service.set_help_state(
                 sse_session_id, user_id, "overview"
             )
-        self.logger.info(f"📖 [HELP] Starting help mode")
+        self.logger.info(f"📖 [HELP] ヘルプモードを開始します")
         return help_handler.generate_overview()
     

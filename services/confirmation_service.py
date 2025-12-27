@@ -65,7 +65,7 @@ class ConfirmationService:
             確認プロセス結果
         """
         try:
-            self.logger.debug(f"🔧 [ConfirmationService] Processing confirmation for task: {ambiguity_info.task_id}")
+            self.logger.debug(f"🔧 [ConfirmationService] タスク{ambiguity_info.task_id}の確認を処理中")
             
             # ユーザー応答の解析
             parsed_response = self.response_parser.parse_response(user_response)
@@ -79,12 +79,12 @@ class ConfirmationService:
                 confirmation_context=context
             )
             
-            self.logger.info(f"✅ [ConfirmationService] Confirmation processed successfully")
+            self.logger.info(f"✅ [ConfirmationService] 確認の処理に成功しました")
             
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ [ConfirmationService] Error in process_confirmation: {e}")
+            self.logger.error(f"❌ [ConfirmationService] process_confirmationでエラー: {e}")
             return ConfirmationResult(is_cancelled=True, updated_tasks=[], confirmation_context={})
     
     async def maintain_task_chain(
@@ -103,10 +103,10 @@ class ConfirmationService:
             更新されたタスクリスト（Taskオブジェクトのリスト）
         """
         try:
-            self.logger.debug(f"🔧 [ConfirmationService] Maintaining task chain for {len(original_tasks)} tasks")
+            self.logger.debug(f"🔧 [ConfirmationService] {len(original_tasks)}件のタスクのタスクチェーンを維持中")
             
             if confirmation_result.is_cancelled:
-                self.logger.info(f"⚠️ [ConfirmationService] Task chain cancelled by user")
+                self.logger.info(f"⚠️ [ConfirmationService] ユーザーによってタスクチェーンがキャンセルされました")
                 return []
             
             # 文脈補完：元のタスク情報とユーザーの回答を統合
@@ -149,12 +149,12 @@ class ConfirmationService:
                 
                 updated_tasks.append(updated_task)
             
-            self.logger.debug(f"✅ [ConfirmationService] Task chain maintained successfully: {len(updated_tasks)} tasks")
+            self.logger.debug(f"✅ [ConfirmationService] タスクチェーンの維持に成功: {len(updated_tasks)}件のタスク")
             
             return updated_tasks
             
         except Exception as e:
-            self.logger.error(f"❌ [ConfirmationService] Error in maintain_task_chain: {e}")
+            self.logger.error(f"❌ [ConfirmationService] maintain_task_chainでエラー: {e}")
             return original_tasks
     
     async def _update_tasks(
@@ -175,7 +175,7 @@ class ConfirmationService:
             更新されたタスクリスト（Taskオブジェクトのリスト）
         """
         try:
-            self.logger.info(f"🔧 [ConfirmationService] Updating tasks")
+            self.logger.info(f"🔧 [ConfirmationService] タスクを更新中")
             
             # 循環インポートを避けるため、関数内でインポート
             from core.models import Task
@@ -223,10 +223,10 @@ class ConfirmationService:
                 )
                 updated_tasks.append(updated_task)
             
-            self.logger.debug(f"✅ [ConfirmationService] Tasks updated successfully: {len(updated_tasks)} tasks")
+            self.logger.debug(f"✅ [ConfirmationService] タスクの更新に成功: {len(updated_tasks)}件のタスク")
             
             return updated_tasks
             
         except Exception as e:
-            self.logger.error(f"❌ [ConfirmationService] Error in _update_tasks: {e}")
+            self.logger.error(f"❌ [ConfirmationService] _update_tasksでエラー: {e}")
             return []

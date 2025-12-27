@@ -45,7 +45,7 @@ class SelectionHandler:
             pause_result = task_chain_manager.pause_task_for_user_selection(task_id, context)
             
             if not pause_result["success"]:
-                raise Exception(f"Failed to pause task: {pause_result['error']}")
+                raise Exception(f"タスクの一時停止に失敗しました: {pause_result['error']}")
             
             self.logger.info(f"⏸️ [SELECTION] Task {task_id} paused for user selection")
             
@@ -61,7 +61,7 @@ class SelectionHandler:
             return response
             
         except Exception as e:
-            self.logger.error(f"❌ [SELECTION] Failed to handle user selection required: {e}")
+            self.logger.error(f"❌ [SELECTION] ユーザー選択要求の処理に失敗しました: {e}")
             return {
                 "success": False,
                 "error": str(e),
@@ -98,8 +98,8 @@ class SelectionHandler:
             # セッションを取得
             session = await self.session_service.get_session(sse_session_id, user_id)
             if not session:
-                self.logger.error(f"❌ [SELECTION] Session not found: {sse_session_id}")
-                return {"success": False, "error": "Session not found"}
+                self.logger.error(f"❌ [SELECTION] セッションが見つかりませんでした: {sse_session_id}")
+                return {"success": False, "error": "セッションが見つかりませんでした"}
             
             # 選択されたレシピ情報を取得（StageManager経由）
             selected_recipe = await self.stage_manager.get_selected_recipe_from_task(task_id, selection, sse_session_id)
@@ -170,7 +170,7 @@ class SelectionHandler:
             
             elif next_stage == "completed":
                 # 完了
-                self.logger.info(f"✅ [SELECTION] All stages completed")
+                self.logger.info(f"✅ [SELECTION] すべての段階が完了しました")
                 
                 # otherカテゴリの場合は単体動作として完了
                 if current_stage == "other":
@@ -292,7 +292,7 @@ class SelectionHandler:
                     else:
                         stage_for_titles = current_stage if current_stage in ["main", "sub", "soup"] else "main"
                         proposed_titles = old_session.get_proposed_recipes(stage_for_titles)
-                    self.logger.debug(f"🔍 [SELECTION] Retrieved from old session: main_ingredient={main_ingredient}, current_stage={current_stage}, category_detail_keyword={category_detail_keyword}, proposed_titles[{stage_for_titles}] count={len(proposed_titles)}")
+                    self.logger.debug(f"🔍 [SELECTION] 古いセッションから取得しました: main_ingredient={main_ingredient}, current_stage={current_stage}, category_detail_keyword={category_detail_keyword}, proposed_titles[{stage_for_titles}] count={len(proposed_titles)}")
                     
                     # 新しいセッションにコンテキストをコピー
                     new_session = await self.session_service.get_session(sse_session_id, user_id)
@@ -318,7 +318,7 @@ class SelectionHandler:
                             if actual_stage != current_stage:
                                 self.logger.warning(f"⚠️ [SELECTION] current_stage mismatch: expected '{current_stage}', got '{actual_stage}'")
                     except Exception as e:
-                        self.logger.error(f"❌ [SELECTION] Failed to copy current_stage: {e}")
+                        self.logger.error(f"❌ [SELECTION] current_stage のコピーに失敗しました: {e}")
                         pass
                     try:
                         # used_ingredients（主菜→副菜、などの除外に必要）
@@ -343,7 +343,7 @@ class SelectionHandler:
                         else:
                             self.logger.warning(f"⚠️ [SELECTION] stage_manager not available, skipping selected recipes copy")
                     except Exception as e:
-                        self.logger.warning(f"⚠️ [SELECTION] Failed to copy selected recipes: {e}")
+                        self.logger.warning(f"⚠️ [SELECTION] 選択されたレシピのコピーに失敗しました: {e}")
                         pass
                     
                     # 提案済みタイトルも新しいセッションにコピー（カテゴリ別）
@@ -458,7 +458,7 @@ class SelectionHandler:
                 }
             
         except Exception as e:
-            self.logger.error(f"❌ [SELECTION] Failed to handle additional proposal request: {e}")
+            self.logger.error(f"❌ [SELECTION] 追加提案要求の処理に失敗しました: {e}")
             return {
                 "success": False,
                 "error": str(e)

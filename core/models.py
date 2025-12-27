@@ -174,8 +174,8 @@ class TaskChainManager:
     
     def send_complete(self, final_response: str, menu_data: Optional[Dict[str, Any]] = None, confirmation_data: Optional[Dict[str, Any]] = None) -> None:
         """Send completion notification via SSE."""
-        self.logger.debug(f"🔍 [TaskChainManager] send_complete method called")
-        self.logger.debug(f"🔍 [TaskChainManager] Menu data received: {menu_data is not None}")
+        self.logger.debug(f"🔍 [TaskChainManager] send_completeメソッドが呼び出されました")
+        self.logger.debug(f"🔍 [TaskChainManager] メニューデータ受信: {menu_data is not None}")
         if menu_data:
             self.logger.debug(f"📊 [TaskChainManager] Menu data size: {len(str(menu_data))} characters")
         
@@ -191,12 +191,12 @@ class TaskChainManager:
                 loop = asyncio.get_event_loop()
                 
                 # デバッグログ: SSEマネージャーに渡すmenu_dataの値を確認
-                self.logger.debug(f"🔍 [TaskChainManager] About to call SSE send_complete with menu_data: {menu_data is not None}")
+                self.logger.debug(f"🔍 [TaskChainManager] SSE send_completeを呼び出します menu_data: {menu_data is not None}")
                 if menu_data:
                     self.logger.debug(f"📊 [TaskChainManager] Menu data content preview: {str(menu_data)[:200]}...")
                 
                 # デバッグログ: confirmation_dataの値を確認
-                self.logger.debug(f"🔍 [TaskChainManager] About to call SSE send_complete with confirmation_data: {confirmation_data is not None}")
+                self.logger.debug(f"🔍 [TaskChainManager] SSE send_completeを呼び出します confirmation_data: {confirmation_data is not None}")
                 if confirmation_data:
                     self.logger.debug(f"🔍 [TaskChainManager] Confirmation data: {confirmation_data}")
                 
@@ -209,7 +209,7 @@ class TaskChainManager:
                         menu_data,
                         confirmation_data
                     ))
-                    self.logger.info(f"✅ [TaskChainManager] SSE send_complete completed successfully")
+                    self.logger.info(f"✅ [TaskChainManager] SSE send_complete が正常に完了しました")
                 except RuntimeError as e:
                     if "cannot be called from a running event loop" in str(e) or "this event loop is already running" in str(e):
                         # イベントループが実行中の場合は、タスクとしてスケジュール
@@ -224,15 +224,15 @@ class TaskChainManager:
                             ))
                             self.logger.info(f"✅ [TaskChainManager] SSE send_complete scheduled as task")
                         except Exception as task_error:
-                            self.logger.error(f"❌ [TaskChainManager] SSE send_complete task creation failed: {task_error}")
+                            self.logger.error(f"❌ [TaskChainManager] SSE send_complete タスク作成に失敗しました: {task_error}")
                     else:
-                        self.logger.error(f"❌ [TaskChainManager] SSE send_complete runtime error: {e}")
+                        self.logger.error(f"❌ [TaskChainManager] SSE send_complete ランタイムエラー: {e}")
                 except Exception as e:
-                    self.logger.error(f"❌ [TaskChainManager] SSE send_complete failed: {e}")
+                    self.logger.error(f"❌ [TaskChainManager] SSE send_complete に失敗しました: {e}")
                 
             except Exception as e:
                 # SSE送信エラーはログに記録するが、処理は継続
-                self.logger.error(f"❌ [TaskChainManager] SSE complete send failed: {e}")
+                self.logger.error(f"❌ [TaskChainManager] SSE完了送信に失敗しました: {e}")
     
     def send_error(self, error_message: str, error_details: Optional[Dict[str, Any]] = None) -> None:
         """Send error message via SSE."""
@@ -256,10 +256,10 @@ class TaskChainManager:
                         self.sse_session_id, 
                         error_message
                     ))
-                self.logger.error(f"❌ [TaskChainManager] Sent error to SSE: {error_message}")
+                self.logger.error(f"❌ [TaskChainManager] SSEにエラーを送信しました: {error_message}")
             except Exception as e:
                 # SSE送信エラーはログに記録するが、処理は継続
-                self.logger.error(f"❌ [TaskChainManager] SSE error send failed: {e}")
+                self.logger.error(f"❌ [TaskChainManager] SSEエラー送信に失敗しました: {e}")
     
     def update_task_status(self, task_id: str, status: TaskStatus, result: Any = None, error: str = None) -> None:
         """Update task status and result."""

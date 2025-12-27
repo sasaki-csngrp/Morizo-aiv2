@@ -88,7 +88,7 @@ class ToolRouter:
                 raise ToolNotFoundError(f"Unknown tool: {tool_name}")
             
             # 2. ログ出力
-            self.logger.debug(f"🔧 [ToolRouter] Routing tool: {tool_name}")
+            self.logger.debug(f"🔧 [ToolRouter] ツールをルーティング中: {tool_name}")
             
             # 3. パラメータマッピング処理
             mapped_parameters = self._map_parameters(tool_name, parameters)
@@ -98,14 +98,14 @@ class ToolRouter:
             
             # 4. 結果の検証とログ
             if result.get("success"):
-                self.logger.debug(f"✅ [ToolRouter] Tool {tool_name} completed successfully")
+                self.logger.debug(f"✅ [ToolRouter] ツール {tool_name} が正常に完了しました")
             else:
-                self.logger.warning(f"⚠️ [ToolRouter] Tool {tool_name} failed: {result.get('error')}")
+                self.logger.warning(f"⚠️ [ToolRouter] ツール {tool_name} が失敗しました: {result.get('error')}")
             
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ [ToolRouter] Tool {tool_name} routing failed: {e}")
+            self.logger.error(f"❌ [ToolRouter] ツール {tool_name} のルーティングに失敗しました: {e}")
             return {
                 "success": False,
                 "error": str(e),
@@ -135,7 +135,7 @@ class ToolRouter:
             # 1. サービス名・メソッド名からMCPツール名を取得
             tool_name = self.service_method_mapping.get((service, method))
             if not tool_name:
-                self.logger.error(f"❌ [ToolRouter] Unknown service method: {service}.{method}")
+                self.logger.error(f"❌ [ToolRouter] 未知のサービスメソッド: {service}.{method}")
                 return {
                     "success": False,
                     "error": f"Unknown service method: {service}.{method}",
@@ -157,7 +157,7 @@ class ToolRouter:
                     tool_name = "inventory_update_by_name"
                 # by_idの場合は元のtool_name（inventory_update_by_id）を使用
                 
-                self.logger.debug(f"🔧 [ToolRouter] Strategy '{strategy}' → tool: {tool_name}")
+                self.logger.debug(f"🔧 [ToolRouter] 戦略 '{strategy}' → ツール: {tool_name}")
             
             # 3. strategy判定ロジック（inventory_service.delete_inventoryの場合）
             if service == "inventory_service" and method == "delete_inventory":
@@ -173,10 +173,10 @@ class ToolRouter:
                     tool_name = "inventory_delete_by_name"
                 # by_idの場合は元のtool_name（inventory_delete_by_id）を使用
                 
-                self.logger.debug(f"🔧 [ToolRouter] Strategy '{strategy}' → tool: {tool_name}")
+                self.logger.debug(f"🔧 [ToolRouter] 戦略 '{strategy}' → ツール: {tool_name}")
             
             # 4. ログ出力
-            self.logger.debug(f"🔧 [ToolRouter] Routing service method: {service}.{method} → {tool_name}")
+            self.logger.debug(f"🔧 [ToolRouter] サービスメソッドをルーティング中: {service}.{method} → {tool_name}")
             
             # 5. 既存のroute_toolメソッドを使用してMCPツールを実行
             result = await self.route_tool(tool_name, parameters, token)
@@ -190,7 +190,7 @@ class ToolRouter:
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ [ToolRouter] Service method routing failed: {service}.{method} - {e}")
+            self.logger.error(f"❌ [ToolRouter] サービスメソッドのルーティングに失敗しました: {service}.{method} - {e}")
             return {
                 "success": False,
                 "error": str(e),
@@ -222,13 +222,13 @@ class ToolRouter:
             Dict[str, Any]: {"success": bool, "data": List[str]}
         """
         try:
-            self.logger.info(f"🔧 [ToolRouter] Handling session_get_proposed_titles")
+            self.logger.info(f"🔧 [ToolRouter] session_get_proposed_titlesを処理中")
             
             sse_session_id = parameters.get("sse_session_id")
             category = parameters.get("category", "main")
             
             if not sse_session_id:
-                self.logger.error(f"❌ [ToolRouter] Missing sse_session_id parameter")
+                self.logger.error(f"❌ [ToolRouter] sse_session_idパラメータが不足しています")
                 return {"success": False, "error": "Missing sse_session_id parameter", "data": []}
             
             # SessionServiceから提案済みタイトルを取得
@@ -236,11 +236,11 @@ class ToolRouter:
             
             titles = await session_service.get_proposed_recipes(sse_session_id, category)
             
-            self.logger.debug(f"✅ [ToolRouter] Retrieved {len(titles)} proposed titles from session")
+            self.logger.debug(f"✅ [ToolRouter] セッションから{len(titles)}件の提案済みタイトルを取得しました")
             return {"success": True, "result": {"data": titles}}
             
         except Exception as e:
-            self.logger.error(f"❌ [ToolRouter] Error in _handle_session_get_proposed_titles: {e}")
+            self.logger.error(f"❌ [ToolRouter] _handle_session_get_proposed_titlesでエラーが発生しました: {e}")
             return {"success": False, "error": str(e), "result": {"data": []}}
     
     def get_available_tools(self) -> List[str]:
@@ -329,7 +329,7 @@ class ToolRouter:
         if tool_name.startswith("inventory_"):
             if "item_identifier" in mapped:
                 mapped["item_name"] = mapped.pop("item_identifier")
-                self.logger.debug(f"🔧 [ToolRouter] Mapped item_identifier to item_name: {mapped['item_name']}")
+                self.logger.debug(f"🔧 [ToolRouter] item_identifierをitem_nameにマッピングしました: {mapped['item_name']}")
             
             # updatesパラメータを展開
             if "updates" in mapped:

@@ -44,7 +44,7 @@ async def get_plan(http_request: Request) -> Dict[str, Any]:
         }
     """
     try:
-        logger.info("🔍 [API] Get plan request received")
+        logger.info("🔍 [API] プラン取得リクエストを受信しました")
         
         # 認証処理とクライアント作成
         user_id, client = await get_authenticated_user_and_client(http_request)
@@ -53,7 +53,7 @@ async def get_plan(http_request: Request) -> Dict[str, Any]:
         result = await subscription_service.get_user_plan(user_id, client)
         
         if not result.get("success"):
-            logger.error(f"❌ [API] Failed to get plan: {result.get('error')}")
+            logger.error(f"❌ [API] プラン情報の取得に失敗しました: {result.get('error')}")
             raise HTTPException(
                 status_code=500,
                 detail=result.get("error", "プラン情報の取得に失敗しました")
@@ -70,7 +70,7 @@ async def get_plan(http_request: Request) -> Dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in get_plan: {e}")
+        logger.error(f"❌ [API] プラン情報取得処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="プラン情報の取得でエラーが発生しました")
 
 
@@ -93,7 +93,7 @@ async def update_subscription(
         }
     """
     try:
-        logger.info("🔍 [API] Update subscription request received")
+        logger.info("🔍 [API] サブスクリプション更新リクエストを受信しました")
         logger.debug(f"🔍 [API] Plan type: {request.plan_type}, Product ID: {request.product_id}, Platform: {request.platform}")
         
         # 認証処理とクライアント作成
@@ -179,7 +179,7 @@ async def update_subscription(
         error_msg = str(e)
         # 一意制約違反エラーの場合、より詳細なエラーメッセージを記録
         if "duplicate key" in error_msg.lower() or "unique constraint" in error_msg.lower():
-            logger.error(f"❌ [API] Duplicate key error in update_subscription: {e}")
+            logger.error(f"❌ [API] update_subscription で重複キーエラーが発生しました: {e}")
             logger.debug(f"🔍 [API] Attempting to update existing subscription for user: {user_id}")
             # 既存レコードを更新する処理にフォールバック
             try:
@@ -193,7 +193,7 @@ async def update_subscription(
                 logger.error(f"❌ [API] Fallback update also failed: {fallback_error}")
                 raise HTTPException(status_code=500, detail="プラン情報の更新でエラーが発生しました")
         else:
-            logger.error(f"❌ [API] Unexpected error in update_subscription: {e}")
+            logger.error(f"❌ [API] サブスクリプション更新処理で予期しないエラーが発生しました: {e}")
             raise HTTPException(status_code=500, detail="プラン情報の更新でエラーが発生しました")
 
 
@@ -219,7 +219,7 @@ async def get_usage(http_request: Request) -> Dict[str, Any]:
         }
     """
     try:
-        logger.info("🔍 [API] Get usage request received")
+        logger.info("🔍 [API] 利用状況取得リクエストを受信しました")
         
         # 認証処理とクライアント作成
         user_id, client = await get_authenticated_user_and_client(http_request)
@@ -232,7 +232,7 @@ async def get_usage(http_request: Request) -> Dict[str, Any]:
         usage_result = await subscription_service.get_usage_limits(user_id, None, client)
         
         if not usage_result.get("success"):
-            logger.error(f"❌ [API] Failed to get usage: {usage_result.get('error')}")
+            logger.error(f"❌ [API] 利用回数の取得に失敗しました: {usage_result.get('error')}")
             raise HTTPException(
                 status_code=500,
                 detail=usage_result.get("error", "利用回数の取得に失敗しました")
@@ -266,6 +266,6 @@ async def get_usage(http_request: Request) -> Dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [API] Unexpected error in get_usage: {e}")
+        logger.error(f"❌ [API] 利用回数取得処理で予期しないエラーが発生しました: {e}")
         raise HTTPException(status_code=500, detail="利用回数の取得でエラーが発生しました")
 

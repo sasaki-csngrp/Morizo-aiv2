@@ -81,7 +81,7 @@ class SessionCRUDManager:
             セッション（存在しない場合はNone）
         """
         try:
-            self.session_service.logger.debug(f"🔧 [SessionService] Getting session: {session_id}")
+            self.session_service.logger.debug(f"🔧 [SessionService] セッション取得中: {session_id}")
             
             session = None
             
@@ -101,7 +101,7 @@ class SessionCRUDManager:
                 session.last_accessed = datetime.now()
                 self.session_service.logger.debug(f"✅ [SessionService] Session retrieved successfully")
             else:
-                self.session_service.logger.warning(f"⚠️ [SessionService] Session not found: {session_id}")
+                self.session_service.logger.warning(f"⚠️ [SessionService] セッションが見つかりません: {session_id}")
             
             return session
             

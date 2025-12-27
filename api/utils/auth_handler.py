@@ -22,7 +22,7 @@ class AuthHandler:
         self.supabase_url = os.getenv("SUPABASE_URL")
         self.supabase_key = os.getenv("SUPABASE_KEY")
         
-        self.logger.debug(f"🔍 [Auth] Environment variables check:")
+        self.logger.debug(f"🔍 [Auth] 環境変数の確認:")
         self.logger.debug(f"  SUPABASE_URL: {'SET' if self.supabase_url else 'NOT SET'}")
         self.logger.debug(f"  SUPABASE_KEY: {'SET' if self.supabase_key else 'NOT SET'}")
         
@@ -34,16 +34,16 @@ class AuthHandler:
         # Supabaseクライアントの初期化
         if self.supabase_url and self.supabase_key:
             self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
-            self.logger.info("✅ [Auth] Supabase client initialized")
+            self.logger.info("✅ [Auth] Supabaseクライアントを初期化しました")
         else:
             self.supabase = None
-            self.logger.warning("⚠️ [Auth] Supabase credentials not found")
+            self.logger.warning("⚠️ [Auth] Supabase認証情報が見つかりません")
     
     async def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         """トークンを検証してユーザー情報を取得"""
         try:
             if not self.supabase:
-                self.logger.error("❌ [Auth] Supabase client not available")
+                self.logger.error("❌ [Auth] Supabaseクライアントが利用できません")
                 return None
             
             # Supabaseでトークンを検証
@@ -57,10 +57,10 @@ class AuthHandler:
                     "last_sign_in": response.user.last_sign_in_at
                 }
                 
-                self.logger.info(f"✅ [Auth] Token verified for user: {user_info['user_id']}")
+                self.logger.info(f"✅ [Auth] トークン検証完了 ユーザー: {user_info['user_id']}")
                 return user_info
             else:
-                self.logger.warning("⚠️ [Auth] Invalid token")
+                self.logger.warning("⚠️ [Auth] 無効なトークンです")
                 return None
                 
         except Exception as e:

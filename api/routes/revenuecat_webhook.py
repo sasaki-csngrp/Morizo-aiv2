@@ -36,11 +36,11 @@ def verify_webhook_auth(authorization: Optional[str] = None) -> bool:
         bool: 認証が成功した場合True
     """
     if not WEBHOOK_AUTH_TOKEN:
-        logger.warning("REVENUECAT_WEBHOOK_AUTH_TOKENが設定されていません")
+        logger.warning("⚠️ [WEBHOOK] REVENUECAT_WEBHOOK_AUTH_TOKENが設定されていません")
         return False
     
     if not authorization:
-        logger.warning("Authorizationヘッダーが存在しません")
+        logger.warning("⚠️ [WEBHOOK] Authorizationヘッダーが存在しません")
         return False
     
     # Bearerトークンの検証
@@ -180,7 +180,7 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
         app_user_id = event_data.get("app_user_id")
         
         if not app_user_id:
-            logger.warning("app_user_idが存在しません")
+            logger.warning("⚠️ [WEBHOOK] app_user_idが存在しません")
             return None
         
         # customer_infoが存在する場合（後方互換性のため）
@@ -305,7 +305,7 @@ async def revenuecat_webhook(
     try:
         # 認証の検証
         if not verify_webhook_auth(authorization):
-            logger.warning("Webhook認証に失敗しました")
+            logger.warning("⚠️ [WEBHOOK] Webhook認証に失敗しました")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Unauthorized"
@@ -313,7 +313,7 @@ async def revenuecat_webhook(
         
         # リクエストボディを取得
         request_data = await request.json()
-        logger.debug(f"RevenueCat Webhook受信データ: {request_data}")
+        logger.debug(f"🔍 [WEBHOOK] RevenueCat Webhook受信データ: {request_data}")
         
         # RevenueCat Webhookの構造に対応
         # 構造1: { "api_version": "1.0", "event": { ... } }
@@ -321,11 +321,11 @@ async def revenuecat_webhook(
         if "event" in request_data:
             # 新しい構造: eventオブジェクトから情報を取得
             event_data = request_data["event"]
-            logger.info(f"RevenueCat Webhookイベントを受信 (api_version={request_data.get('api_version', 'unknown')}): {event_data.get('type', 'UNKNOWN')}")
+            logger.info(f"🔍 [WEBHOOK] RevenueCat Webhookイベントを受信しました (api_version={request_data.get('api_version', 'unknown')}): {event_data.get('type', 'UNKNOWN')}")
         else:
             # 古い構造: 直接イベントデータ
             event_data = request_data
-            logger.info(f"RevenueCat Webhookイベントを受信: {event_data.get('type', 'UNKNOWN')}")
+            logger.info(f"🔍 [WEBHOOK] RevenueCat Webhookイベントを受信しました: {event_data.get('type', 'UNKNOWN')}")
         
         # イベントを解析
         parsed_event = parse_revenuecat_event(event_data)

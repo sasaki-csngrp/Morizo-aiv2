@@ -47,7 +47,7 @@ class ContextManager:
     def clear_context(self) -> None:
         """コンテキストをクリア"""
         self.context.clear()
-        self.logger.info("🧹 [ContextManager] Context cleared")
+        self.logger.info("🧹 [ContextManager] コンテキストをクリアしました")
     
     def get_context(self) -> Dict[str, Any]:
         """全コンテキストを取得"""
@@ -80,7 +80,7 @@ class ContextManager:
             return {"success": True}
             
         except Exception as e:
-            self.logger.error(f"❌ [ContextManager] Failed to save context for task {task_id}: {e}")
+            self.logger.error(f"❌ [ContextManager] タスク {task_id} のコンテキスト保存に失敗しました: {e}")
             return {"success": False, "error": str(e)}
     
     def load_context_for_resume(self, task_id: str) -> Optional[dict]:
@@ -121,5 +121,5 @@ class ContextManager:
             return context
             
         except Exception as e:
-            self.logger.error(f"❌ [ContextManager] Failed to load context for task {task_id}: {e}")
+            self.logger.error(f"❌ [ContextManager] タスク {task_id} のコンテキスト読み込みに失敗しました: {e}")
             return None

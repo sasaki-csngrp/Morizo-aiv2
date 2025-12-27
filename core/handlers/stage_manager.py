@@ -42,7 +42,7 @@ class StageManager:
             return stage
             
         except Exception as e:
-            self.logger.error(f"❌ [STAGE] Failed to get current stage: {e}")
+            self.logger.error(f"❌ [STAGE] 現在の段階の取得に失敗しました: {e}")
             return "main"
     
     async def get_selected_recipe_from_task(self, task_id: str, selection: int, sse_session_id: str) -> Dict[str, Any]:
@@ -62,7 +62,7 @@ class StageManager:
             # セッションから候補情報を取得
             session = await self.session_service.get_session(sse_session_id, user_id=None)
             if not session:
-                self.logger.error(f"❌ [STAGE] Session not found: {sse_session_id}")
+                self.logger.error(f"❌ [STAGE] セッションが見つかりませんでした: {sse_session_id}")
                 return {}
             
             # 現在の段階を取得
@@ -72,7 +72,7 @@ class StageManager:
             # セッションから候補情報を取得
             candidates = session.get_candidates(category)
             if not candidates or len(candidates) < selection:
-                self.logger.error(f"❌ [STAGE] Invalid selection: {selection} for {len(candidates)} candidates")
+                self.logger.error(f"❌ [STAGE] 無効な選択です: {selection} (候補数: {len(candidates)})")
                 return {}
             
             # 選択されたレシピを取得
@@ -88,7 +88,7 @@ class StageManager:
             return selected_recipe
             
         except Exception as e:
-            self.logger.error(f"❌ [STAGE] Failed to get selected recipe: {e}")
+            self.logger.error(f"❌ [STAGE] 選択されたレシピの取得に失敗しました: {e}")
             return {}
     
     async def advance_stage(self, sse_session_id: str, user_id: str, selected_recipe: Dict[str, Any]) -> str:
@@ -106,7 +106,7 @@ class StageManager:
             # セッションを取得
             session = await self.session_service.get_session(sse_session_id, user_id)
             if not session:
-                self.logger.error(f"❌ [STAGE] Session not found")
+                self.logger.error(f"❌ [STAGE] セッションが見つかりませんでした")
                 return "main"
             
             # 現在の段階を取得
@@ -132,13 +132,13 @@ class StageManager:
                 # 汁物を選択した場合、完了
                 session.set_selected_recipe("soup", selected_recipe)
                 next_stage = "completed"
-                self.logger.info(f"✅ [STAGE] Completed all stages")
+                self.logger.info(f"✅ [STAGE] すべての段階が完了しました")
                 
             elif current_stage == "other":
                 # otherカテゴリを選択した場合、完了（単体動作のため）
                 session.set_selected_recipe("other", selected_recipe)
                 next_stage = "completed"
-                self.logger.info(f"✅ [STAGE] Completed other category selection")
+                self.logger.info(f"✅ [STAGE] その他カテゴリの選択が完了しました")
                 
             else:
                 self.logger.warning(f"⚠️ [STAGE] Unexpected stage: {current_stage}")
@@ -147,7 +147,7 @@ class StageManager:
             return next_stage
             
         except Exception as e:
-            self.logger.error(f"❌ [STAGE] Failed to advance stage: {e}")
+            self.logger.error(f"❌ [STAGE] 段階の進行に失敗しました: {e}")
             return "main"
     
     async def generate_sub_dish_request(
@@ -195,7 +195,7 @@ class StageManager:
                 return session.selected_sub_dish
             return None
         except Exception as e:
-            self.logger.error(f"❌ [STAGE] Failed to get selected sub dish: {e}")
+            self.logger.error(f"❌ [STAGE] 選択された副菜の取得に失敗しました: {e}")
             return None
     
     async def get_selected_soup(self, sse_session_id: str, user_id: str) -> Optional[Dict[str, Any]]:
@@ -206,7 +206,7 @@ class StageManager:
                 return session.selected_soup
             return None
         except Exception as e:
-            self.logger.error(f"❌ [STAGE] Failed to get selected soup: {e}")
+            self.logger.error(f"❌ [STAGE] 選択された汁物の取得に失敗しました: {e}")
             return None
     
     async def get_selected_recipes(self, sse_session_id: str) -> Dict[str, Any]:

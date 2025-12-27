@@ -75,8 +75,8 @@ class PerplexitySearchClient:
             # エラーレスポンスの詳細を取得
             if response.status_code != 200:
                 error_detail = response.text
-                logger.error(f"❌ [PERPLEXITY] API Error {response.status_code}: {error_detail}")
-                logger.error(f"❌ [PERPLEXITY] Request payload: {payload}")
+                logger.error(f"❌ [PERPLEXITY] APIエラー {response.status_code}: {error_detail}")
+                logger.error(f"❌ [PERPLEXITY] リクエストペイロード: {payload}")
                 response.raise_for_status()
             
             result = response.json()
@@ -89,7 +89,7 @@ class PerplexitySearchClient:
             return recipes
             
         except Exception as e:
-            logger.error(f"❌ [PERPLEXITY] Search error: {e}")
+            logger.error(f"❌ [PERPLEXITY] 検索エラー: {e}")
             return []
     
     def _build_recipe_query(self, recipe_title: str) -> str:
@@ -317,9 +317,9 @@ class PerplexitySearchClient:
             logger.warning(f"⚠️ [PERPLEXITY] Timeout while fetching image from {url}")
             return None
         except requests.exceptions.RequestException as e:
-            logger.warning(f"⚠️ [PERPLEXITY] Request error while fetching image from {url}: {e}")
+            logger.warning(f"⚠️ [PERPLEXITY] 画像取得中のリクエストエラー ({url}): {e}")
             return None
         except Exception as e:
-            logger.warning(f"⚠️ [PERPLEXITY] Failed to fetch image from {url}: {e}")
+            logger.warning(f"⚠️ [PERPLEXITY] 画像の取得に失敗しました ({url}): {e}")
             return None
 

@@ -52,84 +52,84 @@ async def inventory_add(
     token: str = ""
 ) -> Dict[str, Any]:
     """在庫にアイテムを1件追加（個別在庫法）"""
-    logger.debug(f"🔧 [INVENTORY] Starting inventory_add")
-    logger.debug(f"🔍 [INVENTORY] User ID: {user_id}, item: {item_name}")
+    logger.debug(f"🔧 [INVENTORY] inventory_add を開始します")
+    logger.debug(f"🔍 [INVENTORY] ユーザーID: {user_id}, アイテム: {item_name}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [INVENTORY] ユーザー {user_id} の認証済みクライアントを作成しました")
         
         result = await crud.add_item(client, user_id, item_name, quantity, unit, storage_location, expiry_date)
-        logger.debug(f"✅ [INVENTORY] inventory_add completed successfully")
+        logger.debug(f"✅ [INVENTORY] inventory_add が正常に完了しました")
         logger.debug(f"📊 [INVENTORY] Add result: {result}")
         
         return result
         
     except Exception as e:
-        logger.error(f"❌ [INVENTORY] Error in inventory_add: {e}")
+        logger.error(f"❌ [INVENTORY] inventory_add でエラーが発生しました: {e}")
         return {"success": False, "error": str(e)}
 
 
 @mcp.tool()
 async def inventory_list(user_id: str, token: str = "") -> Dict[str, Any]:
     """ユーザーの全在庫アイテムを取得"""
-    logger.debug(f"🔧 [INVENTORY] Starting inventory_list")
-    logger.debug(f"🔍 [INVENTORY] User ID: {user_id}")
+    logger.debug(f"🔧 [INVENTORY] inventory_list を開始します")
+    logger.debug(f"🔍 [INVENTORY] ユーザーID: {user_id}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [INVENTORY] ユーザー {user_id} の認証済みクライアントを作成しました")
         
         result = await crud.get_all_items(client, user_id)
-        logger.debug(f"✅ [INVENTORY] inventory_list completed successfully")
+        logger.debug(f"✅ [INVENTORY] inventory_list が正常に完了しました")
         logger.debug(f"📊 [INVENTORY] List result: {result}")
         
         return result
         
     except Exception as e:
-        logger.error(f"❌ [INVENTORY] Error in inventory_list: {e}")
+        logger.error(f"❌ [INVENTORY] inventory_list でエラーが発生しました: {e}")
         return {"success": False, "error": str(e)}
 
 
 @mcp.tool()
 async def inventory_list_by_name(user_id: str, item_name: str, token: str = "") -> Dict[str, Any]:
     """指定したアイテム名の在庫アイテムを取得"""
-    logger.debug(f"🔧 [INVENTORY] Starting inventory_list_by_name")
-    logger.debug(f"🔍 [INVENTORY] User ID: {user_id}, item: {item_name}")
+    logger.debug(f"🔧 [INVENTORY] inventory_list_by_name を開始します")
+    logger.debug(f"🔍 [INVENTORY] ユーザーID: {user_id}, アイテム: {item_name}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [INVENTORY] ユーザー {user_id} の認証済みクライアントを作成しました")
         
         result = await crud.get_items_by_name(client, user_id, item_name)
-        logger.debug(f"✅ [INVENTORY] inventory_list_by_name completed successfully")
+        logger.debug(f"✅ [INVENTORY] inventory_list_by_name が正常に完了しました")
         logger.debug(f"📊 [INVENTORY] List by name result: {result}")
         
         return result
         
     except Exception as e:
-        logger.error(f"❌ [INVENTORY] Error in inventory_list_by_name: {e}")
+        logger.error(f"❌ [INVENTORY] inventory_list_by_name でエラーが発生しました: {e}")
         return {"success": False, "error": str(e)}
 
 
 @mcp.tool()
 async def inventory_get(user_id: str, item_id: str, token: str = "") -> Dict[str, Any]:
     """指定したIDの在庫アイテムを取得"""
-    logger.debug(f"🔧 [INVENTORY] Starting inventory_get")
-    logger.debug(f"🔍 [INVENTORY] User ID: {user_id}, item_id: {item_id}")
+    logger.debug(f"🔧 [INVENTORY] inventory_get を開始します")
+    logger.debug(f"🔍 [INVENTORY] ユーザーID: {user_id}, アイテムID: {item_id}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [INVENTORY] ユーザー {user_id} の認証済みクライアントを作成しました")
         
         result = await crud.get_item_by_id(client, user_id, item_id)
-        logger.debug(f"✅ [INVENTORY] inventory_get completed successfully")
+        logger.debug(f"✅ [INVENTORY] inventory_get が正常に完了しました")
         logger.debug(f"📊 [INVENTORY] Get result: {result}")
         
         return result
         
     except Exception as e:
-        logger.error(f"❌ [INVENTORY] Error in inventory_get: {e}")
+        logger.error(f"❌ [INVENTORY] inventory_get でエラーが発生しました: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -145,42 +145,42 @@ async def inventory_update_by_id(
     token: str = ""
 ) -> Dict[str, Any]:
     """指定したIDの在庫アイテムを更新"""
-    logger.debug(f"🔧 [INVENTORY] Starting inventory_update_by_id")
-    logger.debug(f"🔍 [INVENTORY] User ID: {user_id}, item_id: {item_id}")
+    logger.debug(f"🔧 [INVENTORY] inventory_update_by_id を開始します")
+    logger.debug(f"🔍 [INVENTORY] ユーザーID: {user_id}, アイテムID: {item_id}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [INVENTORY] ユーザー {user_id} の認証済みクライアントを作成しました")
         
         result = await crud.update_item_by_id(client, user_id, item_id, item_name, quantity, unit, storage_location, expiry_date)
-        logger.debug(f"✅ [INVENTORY] inventory_update_by_id completed successfully")
+        logger.debug(f"✅ [INVENTORY] inventory_update_by_id が正常に完了しました")
         logger.debug(f"📊 [INVENTORY] Update by id result: {result}")
         
         return result
         
     except Exception as e:
-        logger.error(f"❌ [INVENTORY] Error in inventory_update_by_id: {e}")
+        logger.error(f"❌ [INVENTORY] inventory_update_by_id でエラーが発生しました: {e}")
         return {"success": False, "error": str(e)}
 
 
 @mcp.tool()
 async def inventory_delete_by_id(user_id: str, item_id: str, token: str = "") -> Dict[str, Any]:
     """指定したIDの在庫アイテムを削除"""
-    logger.debug(f"🔧 [INVENTORY] Starting inventory_delete_by_id")
-    logger.debug(f"🔍 [INVENTORY] User ID: {user_id}, item_id: {item_id}")
+    logger.debug(f"🔧 [INVENTORY] inventory_delete_by_id を開始します")
+    logger.debug(f"🔍 [INVENTORY] ユーザーID: {user_id}, アイテムID: {item_id}")
     
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"🔐 [INVENTORY] Authenticated client created for user: {user_id}")
+        logger.info(f"🔐 [INVENTORY] ユーザー {user_id} の認証済みクライアントを作成しました")
         
         result = await crud.delete_item_by_id(client, user_id, item_id)
-        logger.debug(f"✅ [INVENTORY] inventory_delete_by_id completed successfully")
+        logger.debug(f"✅ [INVENTORY] inventory_delete_by_id が正常に完了しました")
         logger.debug(f"📊 [INVENTORY] Delete by id result: {result}")
         
         return result
         
     except Exception as e:
-        logger.error(f"❌ [INVENTORY] Error in inventory_delete_by_id: {e}")
+        logger.error(f"❌ [INVENTORY] inventory_delete_by_id でエラーが発生しました: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -254,5 +254,5 @@ async def inventory_delete_by_name_latest(user_id: str, item_name: str, token: s
 
 
 if __name__ == "__main__":
-    logger.debug("🚀 Starting Inventory MCP Server")
+    logger.debug("🚀 在庫MCPサーバーを起動中")
     mcp.run()

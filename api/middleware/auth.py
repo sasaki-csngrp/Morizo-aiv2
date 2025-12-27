@@ -43,10 +43,10 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         """リクエスト処理"""
         try:
-            self.logger.debug(f"🔍 [Auth] Processing request: {request.method} {request.url.path}")
+            self.logger.debug(f"🔍 [Auth] リクエスト処理中: {request.method} {request.url.path}")
             # 認証が必要なパスかチェック
             if self._requires_auth(request.url.path):
-                self.logger.debug(f"🔍 [Auth] Authentication required for path: {request.url.path}")
+                self.logger.debug(f"🔍 [Auth] 認証が必要なパス: {request.url.path}")
                 # トークンの取得と検証
                 user_info = await self._authenticate_request(request)
                 if not user_info:
@@ -85,21 +85,21 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         try:
             # Authorizationヘッダーからトークンを取得
             authorization = request.headers.get("Authorization")
-            self.logger.debug(f"🔍 [Auth] Authorization header: {'Present' if authorization else 'Missing'}")
+            self.logger.debug(f"🔍 [Auth] Authorizationヘッダー: {'存在' if authorization else 'なし'}")
             if not authorization:
-                self.logger.warning("⚠️ [Auth] No Authorization header")
+                self.logger.warning("⚠️ [Auth] Authorizationヘッダーが存在しません")
                 return None
             
             # Bearerトークンを抽出
             token = self.auth_handler.extract_token_from_header(authorization)
             if not token:
-                self.logger.warning("⚠️ [Auth] Invalid Authorization header format")
+                self.logger.warning("⚠️ [Auth] Authorizationヘッダーの形式が不正です")
                 return None
             
             # トークンを検証
             user_info = await self.auth_handler.verify_token(token)
             if not user_info:
-                self.logger.warning("⚠️ [Auth] Token verification failed")
+                self.logger.warning("⚠️ [Auth] トークン検証に失敗しました")
                 return None
             
             return user_info

@@ -91,7 +91,7 @@ class RecipeLLM:
             return {"success": True, "data": menu_titles}
             
         except Exception as e:
-            self.logger.error(f"❌ [LLM] Failed to generate menu titles: {e}")
+            self.logger.error(f"❌ [LLM] 献立タイトルの生成に失敗しました: {e}")
             return {"success": False, "error": str(e)}
     
     def _build_menu_prompt(
@@ -162,7 +162,7 @@ ingredients_usedは献立全体で使用される食材のリストです。
                     self.logger.debug(f"✅ [LLM] Successfully parsed JSON from markdown code block")
                     return self._extract_menu_data(menu_data)
                 except json.JSONDecodeError as e:
-                    self.logger.warning(f"⚠️ [LLM] Failed to parse JSON from markdown block: {e}")
+                    self.logger.warning(f"⚠️ [LLM] マークダウンブロックからのJSON解析に失敗しました: {e}")
             
             # マークダウンコードブロックがない場合、直接JSONを探す（より寛容な正規表現）
             # ネストされたオブジェクトにも対応
@@ -174,7 +174,7 @@ ingredients_usedは献立全体で使用される食材のリストです。
                     self.logger.debug(f"✅ [LLM] Successfully parsed JSON from direct match")
                     return self._extract_menu_data(menu_data)
                 except json.JSONDecodeError as e:
-                    self.logger.warning(f"⚠️ [LLM] Failed to parse JSON from direct match: {e}")
+                    self.logger.warning(f"⚠️ [LLM] 直接マッチからのJSON解析に失敗しました: {e}")
             
             # 通常のJSON解析を試行
             try:
@@ -182,15 +182,15 @@ ingredients_usedは献立全体で使用される食材のリストです。
                 self.logger.debug(f"✅ [LLM] Successfully parsed JSON from full content")
                 return self._extract_menu_data(menu_data)
             except json.JSONDecodeError as e:
-                self.logger.warning(f"⚠️ [LLM] Failed to parse JSON from full content: {e}")
+                self.logger.warning(f"⚠️ [LLM] 全コンテンツからのJSON解析に失敗しました: {e}")
             
             # すべてのJSON解析に失敗した場合、テキストから抽出を試行
-            self.logger.warning(f"⚠️ [LLM] All JSON parsing attempts failed, attempting text extraction")
+            self.logger.warning(f"⚠️ [LLM] すべてのJSON解析試行が失敗しました。テキスト抽出を試行します")
             self.logger.debug(f"🔍 [LLM] Response content (first 1000 chars): {response_content[:1000]}")
             return self._extract_from_text(response_content)
             
         except Exception as e:
-            self.logger.error(f"❌ [LLM] Failed to parse response: {e}")
+            self.logger.error(f"❌ [LLM] レスポンスの解析に失敗しました: {e}")
             self.logger.debug(f"🔍 [LLM] Response content (first 1000 chars): {response_content[:1000]}")
             return {"main_dish": "", "side_dish": "", "soup": "", "main_dish_ingredients": [], "side_dish_ingredients": [], "soup_ingredients": [], "ingredients_used": []}
     
@@ -449,7 +449,7 @@ ingredients_usedは献立全体で使用される食材のリストです。
             return {"success": True, "data": {"candidates": candidates}}
             
         except Exception as e:
-            self.logger.error(f"❌ [LLM] Failed to generate {category} candidates: {e}")
+            self.logger.error(f"❌ [LLM] {category} 候補の生成に失敗しました: {e}")
             return {"success": False, "error": str(e)}
 
     def _build_candidate_prompt(
@@ -564,7 +564,7 @@ ingredients_usedは献立全体で使用される食材のリストです。
             self.logger.warning(f"⚠️ [LLM] No JSON found in LLM response")
             return []
         except Exception as e:
-            self.logger.error(f"❌ [LLM] Failed to parse candidate response: {e}")
+            self.logger.error(f"❌ [LLM] 候補レスポンスの解析に失敗しました: {e}")
             return []
 
 

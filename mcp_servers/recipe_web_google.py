@@ -78,7 +78,7 @@ class GoogleSearchClient:
             return recipes
             
         except Exception as e:
-            logger.error(f"❌ [WEB] Search error: {e}")
+            logger.error(f"❌ [WEB] 検索エラー: {e}")
             return []
     
     def _filter_mock_recipes(self, recipe_title: str, num_results: int) -> List[Dict[str, Any]]:

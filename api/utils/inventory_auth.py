@@ -34,7 +34,7 @@ async def get_authenticated_user_and_client(http_request: Request) -> Tuple[str,
     # 2. リクエストステートからユーザー情報を取得
     user_info = getattr(http_request.state, 'user_info', None)
     if not user_info:
-        logger.error("❌ [API] User info not found in request state")
+        logger.error("❌ [API] リクエストステートにユーザー情報が見つかりません")
         raise HTTPException(status_code=401, detail="認証が必要です")
     
     user_id = user_info['user_id']
@@ -43,9 +43,9 @@ async def get_authenticated_user_and_client(http_request: Request) -> Tuple[str,
     # 3. 認証済みSupabaseクライアントの作成
     try:
         client = get_authenticated_client(user_id, token)
-        logger.info(f"✅ [API] Authenticated client created for user: {user_id}")
+        logger.info(f"✅ [API] ユーザー {user_id} の認証済みクライアントを作成しました")
     except Exception as e:
-        logger.error(f"❌ [API] Failed to create authenticated client: {e}")
+        logger.error(f"❌ [API] 認証済みクライアントの作成に失敗しました: {e}")
         raise HTTPException(status_code=401, detail="認証に失敗しました")
     
     return user_id, client

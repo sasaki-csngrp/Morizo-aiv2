@@ -270,9 +270,9 @@ class RecipeService:
                 category_detail_keyword=category_detail_keyword
             )
         except Exception as e:
-            self.logger.error(f"❌ [RECIPE] Failed to create LLM task: {e}")
-            self.logger.error(f"❌ [RECIPE] LLM task creation error type: {type(e).__name__}")
-            self.logger.error(f"❌ [RECIPE] LLM task creation traceback: {traceback.format_exc()}")
+            self.logger.error(f"❌ [RECIPE] LLMタスクの作成に失敗しました: {e}")
+            self.logger.error(f"❌ [RECIPE] LLMタスク作成エラータイプ: {type(e).__name__}")
+            self.logger.error(f"❌ [RECIPE] LLMタスク作成トレースバック: {traceback.format_exc()}")
             raise
         
         try:
@@ -287,18 +287,18 @@ class RecipeService:
                 category_detail_keyword=category_detail_keyword
             )
         except Exception as e:
-            self.logger.error(f"❌ [RECIPE] Failed to create RAG task: {e}")
-            self.logger.error(f"❌ [RECIPE] RAG task creation error type: {type(e).__name__}")
-            self.logger.error(f"❌ [RECIPE] RAG task creation traceback: {traceback.format_exc()}")
+            self.logger.error(f"❌ [RECIPE] RAGタスクの作成に失敗しました: {e}")
+            self.logger.error(f"❌ [RECIPE] RAGタスク作成エラータイプ: {type(e).__name__}")
+            self.logger.error(f"❌ [RECIPE] RAGタスク作成トレースバック: {traceback.format_exc()}")
             raise
         
         # 両方の結果を待つ（並列実行）
         try:
             llm_result, rag_result = await asyncio.gather(llm_task, rag_task)
         except Exception as e:
-            self.logger.error(f"❌ [RECIPE] asyncio.gather failed: {e}")
-            self.logger.error(f"❌ [RECIPE] asyncio.gather error type: {type(e).__name__}")
-            self.logger.error(f"❌ [RECIPE] asyncio.gather traceback: {traceback.format_exc()}")
+            self.logger.error(f"❌ [RECIPE] asyncio.gather が失敗しました: {e}")
+            self.logger.error(f"❌ [RECIPE] asyncio.gather エラータイプ: {type(e).__name__}")
+            self.logger.error(f"❌ [RECIPE] asyncio.gather トレースバック: {traceback.format_exc()}")
             raise
         
         # 統合（sourceフィールドを追加）
@@ -319,11 +319,11 @@ class RecipeService:
                     )
                     recipe_proposals.append(proposal)
             except Exception as e:
-                self.logger.error(f"❌ [RECIPE] Error processing LLM results: {e}")
-                self.logger.error(f"❌ [RECIPE] LLM result processing error type: {type(e).__name__}")
-                self.logger.error(f"❌ [RECIPE] LLM result processing traceback: {traceback.format_exc()}")
+                self.logger.error(f"❌ [RECIPE] LLM結果の処理でエラーが発生しました: {e}")
+                self.logger.error(f"❌ [RECIPE] LLM結果処理エラータイプ: {type(e).__name__}")
+                self.logger.error(f"❌ [RECIPE] LLM結果処理トレースバック: {traceback.format_exc()}")
         else:
-            self.logger.warning(f"⚠️ [RECIPE] LLM result indicates failure: {llm_result.get('error', 'Unknown error')}")
+            self.logger.warning(f"⚠️ [RECIPE] LLM結果が失敗を示しています: {llm_result.get('error', '不明なエラー')}")
         
         # RAG結果の処理
         if rag_result:
@@ -339,16 +339,16 @@ class RecipeService:
                     )
                     recipe_proposals.append(proposal)
             except Exception as e:
-                self.logger.error(f"❌ [RECIPE] Error processing RAG results: {e}")
-                self.logger.error(f"❌ [RECIPE] RAG result processing error type: {type(e).__name__}")
-                self.logger.error(f"❌ [RECIPE] RAG result processing traceback: {traceback.format_exc()}")
+                self.logger.error(f"❌ [RECIPE] RAG結果の処理でエラーが発生しました: {e}")
+                self.logger.error(f"❌ [RECIPE] RAG結果処理エラータイプ: {type(e).__name__}")
+                self.logger.error(f"❌ [RECIPE] RAG結果処理トレースバック: {traceback.format_exc()}")
         else:
             self.logger.warning(f"⚠️ [RECIPE] RAG result is empty or falsy")
         
         # RecipeProposalを辞書に変換
         candidates = [proposal.to_dict() for proposal in recipe_proposals]
         
-        self.logger.info(f"✅ [RECIPE] generate_proposals completed")
+        self.logger.info(f"✅ [RECIPE] generate_proposals が完了しました")
         
         return {
             "success": True,
@@ -399,7 +399,7 @@ class RecipeService:
                     use_perplexity=use_perplexity
                 )
             except Exception as e:
-                self.logger.error(f"❌ [RECIPE] Error searching for '{title}': {e}")
+                self.logger.error(f"❌ [RECIPE] '{title}' の検索でエラーが発生しました: {e}")
                 return {
                     "success": False,
                     "error": str(e),
@@ -429,7 +429,7 @@ class RecipeService:
         
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                self.logger.error(f"❌ [RECIPE] Search failed for '{recipe_titles[i]}': {result}")
+                self.logger.error(f"❌ [RECIPE] '{recipe_titles[i]}' の検索が失敗しました: {result}")
                 continue
             elif result.get("success"):
                 recipes = result.get("data", [])
@@ -440,7 +440,7 @@ class RecipeService:
                     if recipes:
                         single_category_recipes.append(recipes[0])
             else:
-                self.logger.error(f"❌ [RECIPE] Search failed for '{recipe_titles[i]}': {result.get('error')}")
+                self.logger.error(f"❌ [RECIPE] '{recipe_titles[i]}' の検索が失敗しました: {result.get('error')}")
         
         # 単一カテゴリ提案の場合はシンプルな構造を返す
         if is_single_category:

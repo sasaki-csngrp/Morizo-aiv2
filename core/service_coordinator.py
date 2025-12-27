@@ -91,7 +91,7 @@ class ServiceCoordinator:
             return result
             
         except Exception as e:
-            self.logger.error(f"Service execution failed: {service}.{method} - {str(e)}")
+            self.logger.error(f"サービス実行が失敗しました: {service}.{method} - {str(e)}")
             raise
     
     def get_tool_descriptions(self) -> Dict[str, str]:
@@ -102,13 +102,13 @@ class ServiceCoordinator:
             self.logger.debug(f"✅ [ServiceCoordinator] Retrieved {len(descriptions)} tool descriptions")
             return descriptions
         except Exception as e:
-            self.logger.error(f"❌ [ServiceCoordinator] Error getting tool descriptions: {e}")
+            self.logger.error(f"❌ [ServiceCoordinator] ツール説明の取得でエラーが発生しました: {e}")
             return {}
     
     def get_available_tools_description(self) -> str:
         """利用可能なツールの説明を文字列形式で取得"""
         try:
-            self.logger.debug(f"🔧 [ServiceCoordinator] Getting available tools description")
+            self.logger.debug(f"🔧 [ServiceCoordinator] 利用可能なツール説明を取得中")
             
             tool_descriptions = self.get_tool_descriptions()
             
@@ -120,5 +120,5 @@ class ServiceCoordinator:
             return description_text
             
         except Exception as e:
-            self.logger.error(f"❌ [ServiceCoordinator] Error in get_available_tools_description: {e}")
+            self.logger.error(f"❌ [ServiceCoordinator] get_available_tools_description でエラーが発生しました: {e}")
             return "ツール情報の取得に失敗しました。"

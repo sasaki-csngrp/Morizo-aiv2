@@ -41,18 +41,18 @@ async def chat(request: ChatRequest, http_request: Request):
     """AIエージェントとの対話"""
     try:
         # リクエストボディからconfirmを取得（プロキシ問題回避）
-        logger.debug(f"🔍 [API] Raw headers: {dict(http_request.headers)}")
+        logger.debug(f"🔍 [API] 生ヘッダー: {dict(http_request.headers)}")
         
         # リクエストボディを直接読み取り
         raw_body = await http_request.body()
-        logger.debug(f"🔍 [API] Raw request body: {raw_body}")
+        logger.debug(f"🔍 [API] 生リクエストボディ: {raw_body}")
         
         try:
             import json
             raw_json = json.loads(raw_body)
-            logger.debug(f"🔍 [API] Raw JSON: {raw_json}")
+            logger.debug(f"🔍 [API] 生JSON: {raw_json}")
             confirm_from_body = raw_json.get("confirm", False)
-            logger.debug(f"🔍 [API] Confirm from body: {confirm_from_body}")
+            logger.debug(f"🔍 [API] リクエストボディからのconfirm: {confirm_from_body}")
         except Exception as e:
             logger.error(f"❌ [API] Failed to parse body: {e}")
             confirm_from_body = False
@@ -61,22 +61,22 @@ async def chat(request: ChatRequest, http_request: Request):
         logger.debug(f"🔍 [API] Parsed request model: {request.model_dump()}")
         
         # Pydanticモデルのフィールドを直接確認
-        logger.debug(f"🔍 [API] Pydantic model fields:")
+        logger.debug(f"🔍 [API] Pydanticモデルフィールド:")
         logger.debug(f"  message: {request.message}")
         logger.debug(f"  sse_session_id: {request.sse_session_id}")
         logger.debug(f"  confirm: {request.confirm}")
-        logger.debug(f"🔍 [API] Confirm from body: {confirm_from_body}")
+        logger.debug(f"🔍 [API] リクエストボディからのconfirm: {confirm_from_body}")
         
         # 実際に使用する値（リクエストボディを優先）
         actual_confirm = confirm_from_body or request.confirm
-        logger.debug(f"🔍 [API] Actual confirm value: {actual_confirm}")
+        logger.debug(f"🔍 [API] 実際のconfirm値: {actual_confirm}")
         
         # リクエストボディの詳細ログ
-        logger.info(f"🔍 [API] Chat request received")
-        logger.debug(f"  Message: {request.message[:100]}...")
-        logger.debug(f"  Token: {'SET' if request.token else 'NOT SET'}")
-        logger.debug(f"  SSE Session ID: {request.sse_session_id if request.sse_session_id else 'NOT SET'}")
-        logger.debug(f"  Confirm: {request.confirm} (type: {type(request.confirm).__name__})")
+        logger.info(f"🔍 [API] チャットリクエストを受信しました")
+        logger.debug(f"  メッセージ: {request.message[:100]}...")
+        logger.debug(f"  トークン: {'設定済み' if request.token else '未設定'}")
+        logger.debug(f"  SSEセッションID: {request.sse_session_id if request.sse_session_id else '未設定'}")
+        logger.debug(f"  Confirm: {request.confirm} (型: {type(request.confirm).__name__})")
         
         # ミドルウェアで認証済みのユーザー情報を取得
         user_info = getattr(http_request.state, 'user_info', None)
@@ -86,8 +86,8 @@ async def chat(request: ChatRequest, http_request: Request):
         authorization = http_request.headers.get("Authorization")
         token = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
         
-        logger.debug(f"🔍 [API] User info from middleware: {user_id}")
-        logger.debug(f"🔍 [API] Token from Authorization header: {'SET' if token else 'NOT SET'}")
+        logger.debug(f"🔍 [API] ミドルウェアからのユーザー情報: {user_id}")
+        logger.debug(f"🔍 [API] Authorizationヘッダーからのトークン: {'設定済み' if token else '未設定'}")
         
         # メッセージの前処理（空白のみのメッセージを検知）
         message_stripped = request.message.strip() if request.message else ""
@@ -224,7 +224,7 @@ async def chat(request: ChatRequest, http_request: Request):
             logger.debug(f"🔍 [API] Selection response built: requires_selection={response.requires_selection}, candidates_count={len(response.candidates or [])}")
         else:
             # 通常のレスポンス
-            logger.debug(f"🔍 [API] Building normal response")
+            logger.debug(f"🔍 [API] 通常レスポンスを構築中")
             if isinstance(response_data, dict):
                 response_text = response_data.get("response", str(response_data))
             else:
@@ -238,14 +238,14 @@ async def chat(request: ChatRequest, http_request: Request):
                 requires_confirmation=False,
                 confirmation_session_id=None
             )
-            logger.debug(f"🔍 [API] Normal response built: requires_confirmation={response.requires_confirmation}, confirmation_session_id={response.confirmation_session_id}")
+            logger.debug(f"🔍 [API] 通常レスポンス構築完了: requires_confirmation={response.requires_confirmation}, confirmation_session_id={response.confirmation_session_id}")
         
-        logger.debug(f"🔍 [API] Final response object: {response.dict()}")
+        logger.debug(f"🔍 [API] 最終レスポンスオブジェクト: {response.dict()}")
         
         # 完了通知はTaskChainManagerで送信されるため、ここでは送信しない
         # await sse_sender.send_complete(sse_session_id, response_text)
         
-        logger.info(f"✅ [API] Chat request completed for user: {user_id}")
+        logger.info(f"✅ [API] チャットリクエスト完了 ユーザー: {user_id}")
         return response.dict()
         
     except HTTPException:

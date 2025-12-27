@@ -21,7 +21,7 @@ class ResponseFormatter:
         try:
             # Use LLM service to format the response
             response, menu_data = await self.llm_service.format_response(execution_results, sse_session_id)
-            self.logger.debug(f"🔍 [ResponseFormatter] Menu data received: {menu_data is not None}")
+            self.logger.debug(f"🔍 [ResponseFormatter] メニューデータ受信: {menu_data is not None}")
             if menu_data:
                 self.logger.debug(f"📊 [ResponseFormatter] Menu data size: {len(str(menu_data))} characters")
             return response, menu_data

@@ -29,8 +29,8 @@ class InventoryCRUD:
     ) -> Dict[str, Any]:
         """在庫にアイテムを1件追加"""
         try:
-            self.logger.info(f"📦 [CRUD] Adding item")
-            self.logger.debug(f"🔍 [CRUD] Item: {item_name} ({quantity}{unit})")
+            self.logger.info(f"📦 [CRUD] アイテムを追加中")
+            self.logger.debug(f"🔍 [CRUD] アイテム: {item_name} ({quantity}{unit})")
             
             # データ準備
             data = {
@@ -48,14 +48,14 @@ class InventoryCRUD:
             result = client.table("inventory").insert(data).execute()
             
             if result.data:
-                self.logger.info(f"✅ [CRUD] Item added successfully")
-                self.logger.debug(f"🔍 [CRUD] Item ID: {result.data[0]['id']}")
+                self.logger.info(f"✅ [CRUD] アイテムの追加に成功しました")
+                self.logger.debug(f"🔍 [CRUD] アイテムID: {result.data[0]['id']}")
                 return {"success": True, "data": result.data[0]}
             else:
                 raise Exception("No data returned from insert")
                 
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to add item: {e}")
+            self.logger.error(f"❌ [CRUD] アイテムの追加に失敗: {e}")
             return {"success": False, "error": str(e)}
 
     async def add_items_bulk(
@@ -90,8 +90,8 @@ class InventoryCRUD:
             }
         """
         try:
-            self.logger.info(f"📦 [CRUD] Adding items in bulk")
-            self.logger.debug(f"🔍 [CRUD] Item count: {len(items)}")
+            self.logger.info(f"📦 [CRUD] アイテムを一括追加中")
+            self.logger.debug(f"🔍 [CRUD] アイテム数: {len(items)}")
             
             if not items:
                 # 空のリストは正常なケース（登録するデータがないだけ）
@@ -125,8 +125,8 @@ class InventoryCRUD:
                 
                 if result.data:
                     success_count = len(result.data)
-                    self.logger.info(f"✅ [CRUD] Items added successfully")
-                    self.logger.debug(f"📊 [CRUD] Added {success_count} items")
+                    self.logger.info(f"✅ [CRUD] アイテムの一括追加に成功しました")
+                    self.logger.debug(f"📊 [CRUD] {success_count}件のアイテムを追加しました")
                     return {
                         "success": True,
                         "total": len(items),
@@ -139,11 +139,11 @@ class InventoryCRUD:
                     
             except Exception as db_error:
                 # DBエラーの場合、個別に処理を試みる
-                self.logger.warning(f"⚠️ [CRUD] Bulk insert failed, trying individual inserts: {db_error}")
+                self.logger.warning(f"⚠️ [CRUD] 一括挿入に失敗、個別挿入を試行中: {db_error}")
                 return await self._add_items_individually(client, user_id, items)
                 
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to add items in bulk: {e}")
+            self.logger.error(f"❌ [CRUD] アイテムの一括追加に失敗: {e}")
             return {
                 "success": False,
                 "total": len(items) if items else 0,
@@ -213,19 +213,19 @@ class InventoryCRUD:
             sort_order: ソート順序 (asc, desc)
         """
         try:
-            self.logger.debug(f"📋 [CRUD] Getting all items")
-            self.logger.debug(f"🔍 [CRUD] User ID: {user_id}, sort_by={sort_by}, sort_order={sort_order}")
+            self.logger.debug(f"📋 [CRUD] 全アイテムを取得中")
+            self.logger.debug(f"🔍 [CRUD] ユーザーID: {user_id}, ソート項目={sort_by}, ソート順={sort_order}")
             
             # ソート対象カラムの検証
             valid_sort_columns = ["item_name", "quantity", "created_at", "storage_location", "expiry_date"]
             if sort_by not in valid_sort_columns:
                 sort_by = "created_at"
-                self.logger.warning(f"⚠️ [CRUD] Invalid sort_by, using default: created_at")
+                self.logger.warning(f"⚠️ [CRUD] 無効なソート項目、デフォルトを使用: created_at")
             
             # ソート順序の検証
             if sort_order not in ["asc", "desc"]:
                 sort_order = "desc"
-                self.logger.warning(f"⚠️ [CRUD] Invalid sort_order, using default: desc")
+                self.logger.warning(f"⚠️ [CRUD] 無効なソート順、デフォルトを使用: desc")
             
             # Supabaseクエリビルダー
             query = client.table("inventory").select("*").eq("user_id", user_id)
@@ -238,46 +238,46 @@ class InventoryCRUD:
             
             result = query.execute()
             
-            self.logger.debug(f"✅ [CRUD] Retrieved items successfully")
-            self.logger.debug(f"📊 [CRUD] Retrieved {len(result.data)} items")
+            self.logger.debug(f"✅ [CRUD] アイテムの取得に成功しました")
+            self.logger.debug(f"📊 [CRUD] {len(result.data)}件のアイテムを取得しました")
             return {"success": True, "data": result.data}
             
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to get items: {e}")
+            self.logger.error(f"❌ [CRUD] アイテムの取得に失敗: {e}")
             return {"success": False, "error": str(e)}
     
     async def get_items_by_name(self, client: Client, user_id: str, item_name: str) -> Dict[str, Any]:
         """指定されたアイテム名の在庫一覧を取得"""
         try:
-            self.logger.info(f"🔍 [CRUD] Getting items by name")
-            self.logger.debug(f"🔍 [CRUD] Item name: {item_name}")
+            self.logger.info(f"🔍 [CRUD] 名前でアイテムを取得中")
+            self.logger.debug(f"🔍 [CRUD] アイテム名: {item_name}")
             
             result = client.table("inventory").select("*").eq("user_id", user_id).eq("item_name", item_name).execute()
             
-            self.logger.debug(f"✅ [CRUD] Retrieved items successfully")
-            self.logger.debug(f"📊 [CRUD] Retrieved {len(result.data)} items")
+            self.logger.debug(f"✅ [CRUD] アイテムの取得に成功しました")
+            self.logger.debug(f"📊 [CRUD] {len(result.data)}件のアイテムを取得しました")
             return {"success": True, "data": result.data}
             
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to get items by name: {e}")
+            self.logger.error(f"❌ [CRUD] 名前でのアイテム取得に失敗: {e}")
             return {"success": False, "error": str(e)}
     
     async def get_item_by_id(self, client: Client, user_id: str, item_id: str) -> Dict[str, Any]:
         """特定の在庫アイテムを1件取得"""
         try:
-            self.logger.info(f"🔍 [CRUD] Getting item by ID")
-            self.logger.debug(f"🔍 [CRUD] Item ID: {item_id}")
+            self.logger.info(f"🔍 [CRUD] IDでアイテムを取得中")
+            self.logger.debug(f"🔍 [CRUD] アイテムID: {item_id}")
             
             result = client.table("inventory").select("*").eq("user_id", user_id).eq("id", item_id).execute()
             
             if result.data:
-                self.logger.info(f"✅ [CRUD] Item retrieved successfully")
+                self.logger.info(f"✅ [CRUD] アイテムの取得に成功しました")
                 return {"success": True, "data": result.data[0]}
             else:
                 return {"success": False, "error": "Item not found"}
                 
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to get item by ID: {e}")
+            self.logger.error(f"❌ [CRUD] IDでのアイテム取得に失敗: {e}")
             return {"success": False, "error": str(e)}
     
     async def update_item_by_id(
@@ -293,8 +293,8 @@ class InventoryCRUD:
     ) -> Dict[str, Any]:
         """ID指定での在庫アイテム1件更新"""
         try:
-            self.logger.debug(f"✏️ [CRUD] Updating item by ID")
-            self.logger.debug(f"🔍 [CRUD] Item ID: {item_id}")
+            self.logger.debug(f"✏️ [CRUD] IDでアイテムを更新中")
+            self.logger.debug(f"🔍 [CRUD] アイテムID: {item_id}")
             
             # 更新データの準備
             update_data = {}
@@ -316,31 +316,31 @@ class InventoryCRUD:
             result = client.table("inventory").update(update_data).eq("user_id", user_id).eq("id", item_id).execute()
             
             if result.data:
-                self.logger.debug(f"✅ [CRUD] Item updated successfully")
+                self.logger.debug(f"✅ [CRUD] アイテムの更新に成功しました")
                 return {"success": True, "data": result.data[0]}
             else:
                 return {"success": False, "error": "Item not found"}
                 
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to update item by ID: {e}")
+            self.logger.error(f"❌ [CRUD] IDでのアイテム更新に失敗: {e}")
             return {"success": False, "error": str(e)}
     
     async def delete_item_by_id(self, client: Client, user_id: str, item_id: str) -> Dict[str, Any]:
         """ID指定での在庫アイテム1件削除"""
         try:
-            self.logger.debug(f"🗑️ [CRUD] Deleting item by ID")
-            self.logger.debug(f"🔍 [CRUD] Item ID: {item_id}")
+            self.logger.debug(f"🗑️ [CRUD] IDでアイテムを削除中")
+            self.logger.debug(f"🔍 [CRUD] アイテムID: {item_id}")
             
             result = client.table("inventory").delete().eq("user_id", user_id).eq("id", item_id).execute()
             
             if result.data:
-                self.logger.debug(f"✅ [CRUD] Item deleted successfully")
+                self.logger.debug(f"✅ [CRUD] アイテムの削除に成功しました")
                 return {"success": True, "data": result.data[0]}
             else:
                 return {"success": False, "error": "Item not found"}
                 
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to delete item by ID: {e}")
+            self.logger.error(f"❌ [CRUD] IDでのアイテム削除に失敗: {e}")
             return {"success": False, "error": str(e)}
     
     async def update_item_by_name_with_ambiguity_check(
@@ -370,8 +370,8 @@ class InventoryCRUD:
             if len(items) == 1:
                 # 1件の場合は直接更新
                 item_id = items[0]["id"]
-                self.logger.info(f"✅ [CRUD] Single item found, updating directly")
-                self.logger.debug(f"🔍 [CRUD] Item ID: {item_id}")
+                self.logger.info(f"✅ [CRUD] アイテムが1件見つかりました、直接更新します")
+                self.logger.debug(f"🔍 [CRUD] アイテムID: {item_id}")
                 
                 # 更新データを準備
                 update_data = {}
@@ -388,14 +388,14 @@ class InventoryCRUD:
                 update_result = client.table("inventory").update(update_data).eq("user_id", user_id).eq("id", item_id).execute()
                 
                 if update_result.data:
-                    self.logger.debug(f"✅ [CRUD] Item updated successfully")
+                    self.logger.debug(f"✅ [CRUD] アイテムの更新に成功しました")
                     return {"success": True, "data": update_result.data[0]}
                 else:
                     return {"success": False, "error": "Update failed"}
             
             else:
                 # 複数件の場合は曖昧性エラーを返す
-                self.logger.warning(f"⚠️ [CRUD] Multiple items found ({len(items)}), ambiguity detected")
+                self.logger.warning(f"⚠️ [CRUD] アイテムが{len(items)}件見つかりました、曖昧性を検出")
                 
                 # アイテム情報を整理
                 items_info = []
@@ -418,7 +418,7 @@ class InventoryCRUD:
                 }
                 
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to update item with ambiguity check: {e}")
+            self.logger.error(f"❌ [CRUD] 曖昧性チェック付きアイテム更新に失敗: {e}")
             return {"success": False, "error": str(e)}
     
     async def delete_item_by_name_with_ambiguity_check(
@@ -445,8 +445,8 @@ class InventoryCRUD:
                 item_id = items[0]["id"]
                 delete_result = client.table("inventory").delete().eq("user_id", user_id).eq("id", item_id).execute()
                 
-                self.logger.info(f"✅ [CRUD] Single item deleted")
-                self.logger.debug(f"🔍 [CRUD] Item ID: {item_id}")
+                self.logger.info(f"✅ [CRUD] アイテムを1件削除しました")
+                self.logger.debug(f"🔍 [CRUD] アイテムID: {item_id}")
                 return {"success": True, "data": delete_result.data[0]}
             else:
                 # 3. 複数件の場合は曖昧性エラー
@@ -477,7 +477,7 @@ class InventoryCRUD:
                 }
                 
         except Exception as e:
-            self.logger.error(f"❌ [CRUD] Failed to delete item with ambiguity check: {e}")
+            self.logger.error(f"❌ [CRUD] 曖昧性チェック付きアイテム削除に失敗: {e}")
             return {"success": False, "error": str(e)}
 
 

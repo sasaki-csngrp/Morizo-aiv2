@@ -39,7 +39,7 @@ class AmbiguityDetector:
             曖昧性検出結果
         """
         try:
-            self.logger.debug(f"🔧 [AmbiguityDetector] Detecting ambiguity for user: {user_id}")
+            self.logger.debug(f"🔧 [AmbiguityDetector] ユーザー{user_id}の曖昧性を検出中")
             
             ambiguous_tasks = []
             
@@ -68,12 +68,12 @@ class AmbiguityDetector:
                 ambiguous_tasks=ambiguous_tasks
             )
             
-            self.logger.debug(f"✅ [AmbiguityDetector] Ambiguity detection completed: {len(ambiguous_tasks)} ambiguous tasks")
+            self.logger.debug(f"✅ [AmbiguityDetector] 曖昧性検出が完了: {len(ambiguous_tasks)}件の曖昧なタスク")
             
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ [AmbiguityDetector] Error in detect_ambiguity: {e}")
+            self.logger.error(f"❌ [AmbiguityDetector] detect_ambiguityでエラー: {e}")
             return AmbiguityResult(requires_confirmation=False, ambiguous_tasks=[])
     
     async def check_inventory_ambiguity(
@@ -118,10 +118,10 @@ class AmbiguityDetector:
                         )
                         
                         # Service層で曖昧性を判定
-                        self.logger.debug(f"🔍 [AmbiguityDetector] Checking ambiguity for {item_name}: result={result}")
+                        self.logger.debug(f"🔍 [AmbiguityDetector] {item_name}の曖昧性をチェック中: result={result}")
                         if result.get("success") and len(result.get("result", {}).get("data", [])) > 1:
                             items = result.get("result", {}).get("data", [])
-                            self.logger.info(f"⚠️ [AmbiguityDetector] Ambiguity detected: {len(items)} items found")
+                            self.logger.info(f"⚠️ [AmbiguityDetector] 曖昧性を検出: {len(items)}件のアイテムが見つかりました")
                             return AmbiguityInfo(
                                 task_id=task_id,
                                 tool_name=tool_name,
@@ -135,15 +135,15 @@ class AmbiguityDetector:
                                 original_parameters=parameters  # user_idを含むパラメータ
                             )
                         else:
-                            self.logger.debug(f"✅ [AmbiguityDetector] No ambiguity: success={result.get('success')}, data_count={len(result.get('result', {}).get('data', []))}")
+                            self.logger.debug(f"✅ [AmbiguityDetector] 曖昧性なし: success={result.get('success')}, data_count={len(result.get('result', {}).get('data', []))}")
                     elif item_name and strategy not in ["by_name"]:
                         # 明確な戦略の場合は曖昧性チェックをスキップ
-                        self.logger.info(f"✅ [AmbiguityDetector] Skipping ambiguity check for strategy: {strategy}")
+                        self.logger.info(f"✅ [AmbiguityDetector] 戦略{strategy}の曖昧性チェックをスキップ")
             
             return None
             
         except Exception as e:
-            self.logger.error(f"❌ [AmbiguityDetector] Error in check_inventory_ambiguity: {e}")
+            self.logger.error(f"❌ [AmbiguityDetector] check_inventory_ambiguityでエラー: {e}")
             return None
     
     async def check_main_dish_ambiguity(

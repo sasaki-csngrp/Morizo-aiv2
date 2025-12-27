@@ -170,14 +170,14 @@ class InventoryFormatter(BaseFormatter):
         response_parts = []
         
         # デバッグログ: 受信データの構造を確認
-        self.logger.info(f"🔍 [DEBUG] format_inventory_add received data: {data}")
-        self.logger.info(f"🔍 [DEBUG] data type: {type(data)}")
-        self.logger.info(f"🔍 [DEBUG] data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+        self.logger.info(f"🔍 [DEBUG] format_inventory_addがデータを受信: {data}")
+        self.logger.info(f"🔍 [DEBUG] データ型: {type(data)}")
+        self.logger.info(f"🔍 [DEBUG] データキー: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
         
         # 修正: success判定を追加
         if isinstance(data, dict) and data.get("success"):
             # 成功時の表示
-            self.logger.info(f"🔍 [DEBUG] Success branch executed")
+            self.logger.info(f"🔍 [DEBUG] 成功分岐を実行")
             item_data = data.get("data", {})
             self.logger.info(f"🔍 [DEBUG] item_data: {item_data}")
             item_name = item_data.get("item_name", "アイテム")
@@ -197,7 +197,7 @@ class InventoryFormatter(BaseFormatter):
             response_parts.append("在庫に正常に追加されました。")
         else:
             # エラー時の表示
-            self.logger.info(f"🔍 [DEBUG] Error branch executed")
+            self.logger.info(f"🔍 [DEBUG] エラー分岐を実行")
             error_msg = data.get("error", "不明なエラー") if isinstance(data, dict) else "不明なエラー"
             self.logger.info(f"🔍 [DEBUG] error_msg: {error_msg}")
             response_parts.append("❌ **在庫の追加に失敗しました**")
