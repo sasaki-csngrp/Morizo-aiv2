@@ -44,11 +44,22 @@ def verify_webhook_auth(authorization: Optional[str] = None) -> bool:
         return False
     
     # Bearerトークンの検証
-    expected_token = WEBHOOK_AUTH_TOKEN
-    if authorization != expected_token:
-        logger.warning(f"認証トークンが一致しません: {authorization[:20]}...")
+    # 環境変数からBearerプレフィックスを除去（あれば）
+    expected_token = WEBHOOK_AUTH_TOKEN.strip()
+    if expected_token.startswith("Bearer "):
+        expected_token = expected_token[7:]  # "Bearer "を除去
+    
+    # AuthorizationヘッダーからBearerプレフィックスを除去（あれば）
+    received_token = authorization.strip()
+    if received_token.startswith("Bearer "):
+        received_token = received_token[7:]  # "Bearer "を除去
+    
+    # トークンを比較
+    if received_token != expected_token:
+        logger.warning(f"⚠️ [WEBHOOK] 認証トークンが一致しません: 受信={received_token[:20]}..., 期待={expected_token[:20]}...")
         return False
     
+    logger.debug(f"🔍 [WEBHOOK] 認証成功")
     return True
 
 
@@ -135,12 +146,20 @@ def update_subscription_status(
         # 既存のレコードを確認
         existing = client.table("user_subscriptions").select("*").eq("user_id", user_id).execute()
         
+        # 更新前の既存レコードの値をログ出力（実行確認のため）
+        if existing.data and len(existing.data) > 0:
+            existing_data = existing.data[0]
+            logger.info(f"🔍 [WEBHOOK] 更新前の既存レコード: user_id={user_id}, plan_type={existing_data.get('plan_type')}, subscription_status={existing_data.get('subscription_status')}, updated_at={existing_data.get('updated_at')}, expires_at={existing_data.get('expires_at')}")
+        else:
+            logger.info(f"🔍 [WEBHOOK] 既存レコードなし（新規作成）: user_id={user_id}")
+        
         jst = ZoneInfo('Asia/Tokyo')
+        update_timestamp = datetime.now(jst)
         update_data = {
             "user_id": user_id,
             "plan_type": plan_type,
             "subscription_status": subscription_status,
-            "updated_at": datetime.now(jst).isoformat()
+            "updated_at": update_timestamp.isoformat()
         }
         
         if expires_at:
@@ -149,15 +168,32 @@ def update_subscription_status(
         if subscription_id:
             update_data["subscription_id"] = subscription_id
         
+        # 更新処理の実行タイムスタンプをログ出力
+        logger.info(f"🔍 [WEBHOOK] 更新処理実行タイムスタンプ: {update_timestamp.isoformat()}")
+        
         if existing.data and len(existing.data) > 0:
             # 既存レコードを更新
             result = client.table("user_subscriptions").update(update_data).eq("user_id", user_id).execute()
             logger.info(f"user_subscriptionsを更新: user_id={user_id}, status={subscription_status}")
+            
+            # 更新後の値をログ出力（実行確認のため）
+            if result.data and len(result.data) > 0:
+                result_data = result.data[0]
+                logger.info(f"🔍 [WEBHOOK] 更新後の値: user_id={user_id}, plan_type={result_data.get('plan_type')}, subscription_status={result_data.get('subscription_status')}, updated_at={result_data.get('updated_at')}, expires_at={result_data.get('expires_at')}")
+            else:
+                logger.warning(f"⚠️ [WEBHOOK] 更新後の値が取得できませんでした: user_id={user_id}")
         else:
             # 新規レコードを作成
-            update_data["purchased_at"] = datetime.now(jst).isoformat()
+            update_data["purchased_at"] = update_timestamp.isoformat()
             result = client.table("user_subscriptions").insert(update_data).execute()
             logger.info(f"user_subscriptionsを新規作成: user_id={user_id}, status={subscription_status}")
+            
+            # 作成後の値をログ出力（実行確認のため）
+            if result.data and len(result.data) > 0:
+                result_data = result.data[0]
+                logger.info(f"🔍 [WEBHOOK] 作成後の値: user_id={user_id}, plan_type={result_data.get('plan_type')}, subscription_status={result_data.get('subscription_status')}, updated_at={result_data.get('updated_at')}, expires_at={result_data.get('expires_at')}")
+            else:
+                logger.warning(f"⚠️ [WEBHOOK] 作成後の値が取得できませんでした: user_id={user_id}")
         
         return True
     except Exception as e:
@@ -186,11 +222,32 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
         # customer_infoが存在する場合（後方互換性のため）
         customer_info = event_data.get("customer_info", {})
         
+        # product_idの値をログ出力（実行確認のため）
+        product_id = event_data.get("product_id")
+        if product_id:
+            logger.info(f"🔍 [WEBHOOK] 受信product_id: {product_id}")
+        else:
+            logger.info(f"🔍 [WEBHOOK] product_idが存在しません")
+        
+        # エンタイトルメントの値をログ出力（実行確認のため）
+        if customer_info:
+            entitlements = customer_info.get("entitlements", {})
+            if entitlements:
+                active_entitlements = []
+                for ent_key, ent_data in entitlements.items():
+                    if ent_data.get("is_active", False):
+                        active_entitlements.append(ent_key)
+                logger.info(f"🔍 [WEBHOOK] アクティブなエンタイトルメント: {active_entitlements if active_entitlements else 'なし'}")
+            else:
+                logger.info(f"🔍 [WEBHOOK] エンタイトルメント情報が存在しません")
+        else:
+            logger.info(f"🔍 [WEBHOOK] customer_infoが存在しません")
+        
         # エンタイトルメントからプランタイプを判定
         plan_type = "free"
+        plan_type_source = "default"  # 判定元を記録
         
         # product_idからプランタイプを判定（優先）
-        product_id = event_data.get("product_id")
         if product_id:
             # コロン区切りの場合、先頭部分を取得（例: "morizo_pro_monthly:morizo-pro-monthly" -> "morizo_pro_monthly"）
             actual_product_id = product_id.split(":")[0] if ":" in product_id else product_id
@@ -199,10 +256,15 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
             mapped_plan_type = PRODUCT_ID_TO_PLAN.get(actual_product_id)
             if mapped_plan_type:
                 plan_type = mapped_plan_type
-                logger.debug(f"product_idからプランタイプを判定: {actual_product_id} -> {plan_type}")
+                plan_type_source = "product_id"
+                logger.info(f"🔍 [WEBHOOK] product_idからプランタイプを判定: {actual_product_id} -> {plan_type}")
+            else:
+                logger.warning(f"⚠️ [WEBHOOK] product_idがマッピングに存在しません: {actual_product_id}")
         
         # customer_infoからエンタイトルメントを判定（フォールバック）
-        if customer_info and plan_type == "free":
+        # product_idが存在しない場合のみ、エンタイトルメントをチェック
+        # これにより、RevenueCatのエンタイトルメント更新遅延の影響を受けない
+        if customer_info and plan_type == "free" and not product_id:
             entitlements = customer_info.get("entitlements", {})
             
             # proエンタイトルメントを確認
@@ -210,12 +272,17 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
                 pro_entitlement = entitlements["pro"]
                 if pro_entitlement.get("is_active", False):
                     plan_type = "pro"
+                    plan_type_source = "entitlement"
             
             # ultimateエンタイトルメントを確認（proより優先）
             if "ultimate" in entitlements:
                 ultimate_entitlement = entitlements["ultimate"]
                 if ultimate_entitlement.get("is_active", False):
                     plan_type = "ultimate"
+                    plan_type_source = "entitlement"
+        
+        # 判定結果をログ出力（実行確認のため）
+        logger.info(f"🔍 [WEBHOOK] プランタイプ判定結果: plan_type={plan_type}, 判定元={plan_type_source}")
         
         # サブスクリプション情報を取得
         subscription_status = "expired"
@@ -303,6 +370,11 @@ async def revenuecat_webhook(
         dict: 処理結果
     """
     try:
+        # リクエスト受信時のタイムスタンプを記録（ミリ秒単位、実行確認のため）
+        request_received_at = datetime.now(ZoneInfo('Asia/Tokyo'))
+        request_received_timestamp_ms = int(request_received_at.timestamp() * 1000)
+        logger.info(f"🔍 [WEBHOOK] リクエスト受信タイムスタンプ: {request_received_at.isoformat()} ({request_received_timestamp_ms}ms)")
+        
         # 認証の検証
         if not verify_webhook_auth(authorization):
             logger.warning("⚠️ [WEBHOOK] Webhook認証に失敗しました")
@@ -339,14 +411,38 @@ async def revenuecat_webhook(
             logger.warning(f"user_idが見つかりません: app_user_id={parsed_event['app_user_id']}")
             return {"status": "error", "message": "User not found"}
         
+        # 更新前の既存レコードの値を取得してログ出力（実行確認のため）
+        client = get_service_role_client()
+        try:
+            existing_before = client.table("user_subscriptions").select("*").eq("user_id", user_id).execute()
+            if existing_before.data and len(existing_before.data) > 0:
+                existing_before_data = existing_before.data[0]
+                logger.info(f"🔍 [WEBHOOK] 更新処理前の既存レコード: user_id={user_id}, plan_type={existing_before_data.get('plan_type')}, subscription_status={existing_before_data.get('subscription_status')}, updated_at={existing_before_data.get('updated_at')}, expires_at={existing_before_data.get('expires_at')}")
+            else:
+                logger.info(f"🔍 [WEBHOOK] 更新処理前: 既存レコードなし（新規作成）: user_id={user_id}")
+        except Exception as e:
+            logger.warning(f"⚠️ [WEBHOOK] 更新処理前の既存レコード取得中にエラー: {e}")
+        
         # user_subscriptionsテーブルを更新
         success = update_subscription_status(
             user_id=user_id,
             plan_type=parsed_event["plan_type"],
             subscription_status=parsed_event["subscription_status"],
             expires_at=parsed_event["expires_at"],
-            subscription_id=parsed_event["subscription_id"]
+            subscription_id=parsed_event["subscription_id"],
+            client=client
         )
+        
+        # 更新後の値を取得してログ出力（実行確認のため）
+        try:
+            existing_after = client.table("user_subscriptions").select("*").eq("user_id", user_id).execute()
+            if existing_after.data and len(existing_after.data) > 0:
+                existing_after_data = existing_after.data[0]
+                logger.info(f"🔍 [WEBHOOK] 更新処理後の値: user_id={user_id}, plan_type={existing_after_data.get('plan_type')}, subscription_status={existing_after_data.get('subscription_status')}, updated_at={existing_after_data.get('updated_at')}, expires_at={existing_after_data.get('expires_at')}")
+            else:
+                logger.warning(f"⚠️ [WEBHOOK] 更新処理後: レコードが見つかりません: user_id={user_id}")
+        except Exception as e:
+            logger.warning(f"⚠️ [WEBHOOK] 更新処理後の値取得中にエラー: {e}")
         
         if success:
             logger.info(f"Webhook処理が成功しました: user_id={user_id}, event_type={parsed_event['event_type']}")

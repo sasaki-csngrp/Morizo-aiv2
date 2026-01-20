@@ -139,6 +139,8 @@ class SubscriptionService:
             plan_type = subscription.get("plan_type", "free")
             subscription_status = subscription.get("subscription_status", "active")
             
+            # DBから取得した実際の値を詳細にログ出力（原因特定のため）
+            self.logger.debug(f"🔍 [Subscription] DBから取得した実際の値: plan_type={plan_type}, subscription_status={subscription_status}, expires_at={subscription.get('expires_at')}, purchased_at={subscription.get('purchased_at')}, updated_at={subscription.get('updated_at')}")
             self.logger.debug(f"✅ [Subscription] Plan retrieved: {plan_type}, status: {subscription_status}")
             
             return {

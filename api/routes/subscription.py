@@ -46,11 +46,12 @@ async def get_plan(http_request: Request) -> Dict[str, Any]:
     try:
         logger.info("🔍 [API] プラン取得リクエストを受信しました")
         
-        # 認証処理とクライアント作成
-        user_id, client = await get_authenticated_user_and_client(http_request)
+        # 認証処理（user_id取得のため）
+        user_id, _ = await get_authenticated_user_and_client(http_request)
         
-        # プラン情報を取得
-        result = await subscription_service.get_user_plan(user_id, client)
+        # プラン情報を取得（サービスロールクライアントを使用してRLSの影響を排除）
+        service_client = get_service_role_client()
+        result = await subscription_service.get_user_plan(user_id, service_client)
         
         if not result.get("success"):
             logger.error(f"❌ [API] プラン情報の取得に失敗しました: {result.get('error')}")
@@ -94,7 +95,7 @@ async def update_subscription(
     """
     try:
         logger.info("🔍 [API] サブスクリプション更新リクエストを受信しました")
-        logger.debug(f"🔍 [API] Plan type: {request.plan_type}, Product ID: {request.product_id}, Platform: {request.platform}")
+        logger.debug(f"🔍 [API] Plan type: {request.plan_type}, Product ID: {request.product_id}, Platform: {request.platform}, Subscription status: {request.subscription_status}")
         
         # 認証処理とクライアント作成
         user_id, _ = await get_authenticated_user_and_client(http_request)
@@ -160,13 +161,41 @@ async def update_subscription(
             from datetime import timedelta
             update_data["expires_at"] = (jst_now + timedelta(days=30)).isoformat()
         
-        # user_idにUNIQUE制約があるため、on_conflictでuser_idを指定
-        result = client.table("user_subscriptions").upsert(
-            update_data,
-            on_conflict="user_id"
-        ).execute()
+        # 更新データのログ出力（原因特定のため）
+        logger.debug(f"🔍 [API] 更新データ: plan_type={plan_type}, subscription_status={update_data.get('subscription_status')}, expires_at={update_data.get('expires_at')}, purchased_at={update_data.get('purchased_at')}")
         
-        logger.info(f"✅ [API] Subscription updated: user={user_id}, plan={plan_type}")
+        # 既存レコードの存在確認
+        existing_result = client.table("user_subscriptions").select("user_id").eq("user_id", user_id).execute()
+        is_existing = existing_result.data and len(existing_result.data) > 0
+        
+        # 既存レコードがある場合はupdate、ない場合はinsertを使用
+        if is_existing:
+            logger.debug(f"🔍 [API] 既存レコードを更新します: user_id={user_id}")
+            result = client.table("user_subscriptions").update(update_data).eq("user_id", user_id).execute()
+            operation = "update"
+        else:
+            logger.debug(f"🔍 [API] 新規レコードを挿入します: user_id={user_id}")
+            result = client.table("user_subscriptions").insert(update_data).execute()
+            operation = "insert"
+        
+        # 操作結果のログ出力（原因特定のため）
+        if result.data and len(result.data) > 0:
+            result_data = result.data[0]
+            logger.debug(f"🔍 [API] {operation}戻り値: plan_type={result_data.get('plan_type')}, subscription_status={result_data.get('subscription_status')}, expires_at={result_data.get('expires_at')}, purchased_at={result_data.get('purchased_at')}, updated_at={result_data.get('updated_at')}")
+        else:
+            logger.warning(f"⚠️ [API] {operation}の戻り値が空です")
+        
+        # 更新成功時のログ（原因特定のため）
+        logger.info(f"✅ [API] Subscription {operation}d: user={user_id}, plan={plan_type}, status={update_data.get('subscription_status')}, expires_at={update_data.get('expires_at')}")
+        
+        # 更新後のDBから取得して確認（原因特定のため）
+        try:
+            verify_result = client.table("user_subscriptions").select("*").eq("user_id", user_id).execute()
+            if verify_result.data and len(verify_result.data) > 0:
+                saved_data = verify_result.data[0]
+                logger.debug(f"🔍 [API] DB保存確認: plan_type={saved_data.get('plan_type')}, subscription_status={saved_data.get('subscription_status')}, expires_at={saved_data.get('expires_at')}")
+        except Exception as e:
+            logger.warning(f"⚠️ [API] DB保存確認中にエラー: {e}")
         
         return {
             "success": True,
@@ -221,15 +250,18 @@ async def get_usage(http_request: Request) -> Dict[str, Any]:
     try:
         logger.info("🔍 [API] 利用状況取得リクエストを受信しました")
         
-        # 認証処理とクライアント作成
-        user_id, client = await get_authenticated_user_and_client(http_request)
+        # 認証処理（user_id取得のため）
+        user_id, _ = await get_authenticated_user_and_client(http_request)
         
-        # プラン情報を取得
-        plan_result = await subscription_service.get_user_plan(user_id, client)
+        # サービスロールクライアントを取得（RLSの影響を排除）
+        service_client = get_service_role_client()
+        
+        # プラン情報を取得（サービスロールクライアントを使用）
+        plan_result = await subscription_service.get_user_plan(user_id, service_client)
         plan_type = plan_result.get("plan_type", "free")
         
-        # 利用回数を取得
-        usage_result = await subscription_service.get_usage_limits(user_id, None, client)
+        # 利用回数を取得（サービスロールクライアントを使用）
+        usage_result = await subscription_service.get_usage_limits(user_id, None, service_client)
         
         if not usage_result.get("success"):
             logger.error(f"❌ [API] 利用回数の取得に失敗しました: {usage_result.get('error')}")
