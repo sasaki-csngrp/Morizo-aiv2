@@ -334,6 +334,18 @@ def parse_revenuecat_event(event_data: Dict[str, Any]) -> Optional[Dict[str, Any
             subscription_status = "active"
         elif event_type == "INITIAL_PURCHASE":
             subscription_status = "active"
+        elif event_type == "PRODUCT_CHANGE":
+            # PRODUCT_CHANGEは通常、アクティブなプラン変更
+            # expires_atが未来の日付ならactive、過去の日付ならexpired
+            if expires_at:
+                now = datetime.now(ZoneInfo('UTC'))
+                if expires_at > now:
+                    subscription_status = "active"
+                else:
+                    subscription_status = "expired"
+            else:
+                # expires_atが取得できない場合はactiveとする（PRODUCT_CHANGEは通常アクティブな変更）
+                subscription_status = "active"
         elif event_type == "TEST":
             # テストイベントの場合、デフォルトでfreeプラン、activeステータス
             plan_type = "free"

@@ -584,7 +584,121 @@ if customer_info and plan_type == "free" and not product_id:
    - Webhookが`update`の前に実行されている可能性
    - タイムスタンプの不一致の原因を特定
 
+## デプロイ後のテスト結果（2026-01-20）
+
+### 12. テスト実行結果
+
+#### 12-1. テスト環境
+
+- **デプロイ日時**: 2026-01-20
+- **テスト環境**: ローカル開発環境（Webhookのみ本番環境を利用）
+- **テストユーザー**: `318de393-1d53-402e-8038-641617ac0d38`
+
+#### 12-2. ログ出力の確認結果
+
+**✅ 成功:**
+- `🔍 [WEBHOOK]`のログが正常に出力されている
+- リクエスト受信タイムスタンプが記録されている
+- 受信product_idが記録されている
+- プランタイプ判定結果が記録されている
+- 更新処理前後の値が記録されている
+
+**確認できたログ:**
+- `🔍 [WEBHOOK] リクエスト受信タイムスタンプ: 2026-01-20T16:21:06.977431+09:00`
+- `🔍 [WEBHOOK] 受信product_id: morizo_pro_monthly`
+- `🔍 [WEBHOOK] プランタイプ判定結果: plan_type=pro, 判定元=product_id`
+- `🔍 [WEBHOOK] 更新処理前の既存レコード: ...`
+- `🔍 [WEBHOOK] 更新処理後の値: ...`
+
+#### 12-3. 発見した問題
+
+**問題1: PRODUCT_CHANGEイベントで`subscription_status`が`expired`のまま**
+
+**ログの確認:**
+- `16:21:06` - PRODUCT_CHANGE (morizo_pro_monthly)
+  - 更新前: `plan_type=pro, subscription_status=expired`
+  - 更新後: `plan_type=pro, subscription_status=expired` ❌（変わっていない）
+- `16:21:38` - PRODUCT_CHANGE (morizo_ultimate_monthly)
+  - 更新前: `plan_type=pro, subscription_status=active`
+  - 更新後: `plan_type=ultimate, subscription_status=expired` ❌（expiredになってしまった）
+
+**原因:**
+- コードの288行目で`subscription_status = "expired"`がデフォルト値として設定されている
+- 328-340行目でイベントタイプに応じてステータスを調整しているが、**PRODUCT_CHANGEイベントの処理がない**
+- PRODUCT_CHANGEイベントの場合、デフォルトの`expired`のままになっている
+
+**現在のコード:**
+```python
+# 288行目: デフォルト値
+subscription_status = "expired"
+
+# 328-340行目: イベントタイプに応じてステータスを調整
+if event_type == "CANCELLATION":
+    subscription_status = "cancelled"
+elif event_type == "EXPIRATION":
+    subscription_status = "expired"
+elif event_type == "RENEWAL":
+    subscription_status = "active"
+elif event_type == "INITIAL_PURCHASE":
+    subscription_status = "active"
+# PRODUCT_CHANGEの処理がない！ → expiredのまま
+```
+
+**問題2: 更新前の値が古い可能性**
+
+**ログの確認:**
+- `16:21:38` - PRODUCT_CHANGE (morizo_ultimate_monthly)
+  - 更新前: `plan_type=pro, subscription_status=active`
+  - しかし、`16:21:08`のRENEWALで`plan_type=ultimate, subscription_status=active`に更新されているはず
+  - これは、Webhookが複数回実行されている可能性、または別の処理が実行されている可能性
+
+#### 12-4. テスト実行時のイベント履歴
+
+**16:21:06 - PRODUCT_CHANGE (morizo_pro_monthly)**
+- 受信product_id: `morizo_pro_monthly`
+- プランタイプ判定: `pro`（product_idから）
+- 更新前: `plan_type=pro, subscription_status=expired, updated_at=2026-01-19T10:35:22.332186+00:00`
+- 更新後: `plan_type=pro, subscription_status=expired, updated_at=2026-01-20T07:21:07.957529+00:00`
+- **問題**: `subscription_status`が`expired`のまま
+
+**16:21:08 - RENEWAL (morizo_ultimate_monthly)**
+- 受信product_id: `morizo_ultimate_monthly`
+- プランタイプ判定: `ultimate`（product_idから）
+- 更新前: `plan_type=pro, subscription_status=expired, updated_at=2026-01-20T07:21:07.957529+00:00`
+- 更新後: `plan_type=ultimate, subscription_status=active, updated_at=2026-01-20T07:21:08.382778+00:00`
+- **正常**: RENEWALイベントなので`active`に設定されている
+
+**16:21:38 - PRODUCT_CHANGE (morizo_ultimate_monthly)**
+- 受信product_id: `morizo_ultimate_monthly`
+- プランタイプ判定: `ultimate`（product_idから）
+- 更新前: `plan_type=pro, subscription_status=active, updated_at=2026-01-20T07:21:41.10125+00:00`
+- 更新後: `plan_type=ultimate, subscription_status=expired, updated_at=2026-01-20T07:21:38.796332+00:00`
+- **問題1**: `subscription_status`が`expired`になってしまった
+- **問題2**: 更新前の`updated_at`（`07:21:41`）が更新後の`updated_at`（`07:21:38`）より新しい（タイムスタンプの逆転）
+
+#### 12-5. 次のセッションで対応すべきこと
+
+**優先度1: PRODUCT_CHANGEイベントの処理を追加**
+
+1. **PRODUCT_CHANGEイベントの場合の`subscription_status`の決定方法を検討**
+   - オプション1: `expires_at`が未来の日付なら`active`、過去の日付なら`expired`
+   - オプション2: 既存の`subscription_status`を維持
+   - オプション3: 常に`active`にする（PRODUCT_CHANGEは通常、アクティブな変更）
+
+2. **コードの修正**
+   - `parse_revenuecat_event`関数にPRODUCT_CHANGEイベントの処理を追加
+
+**優先度2: タイムスタンプの逆転問題の調査**
+
+1. **更新前の`updated_at`が更新後の`updated_at`より新しい問題**
+   - これは、Webhookが複数回実行されている可能性
+   - または、別の処理（`/api/subscription/update`など）が同時に実行されている可能性
+
+2. **調査方法**
+   - ログのタイムスタンプを詳細に確認
+   - 複数のWebhookが同時に実行されていないか確認
+
 ---
 
 **最終更新**: 2026-01-20  
-**次回調査**: デプロイ後のログ確認
+**次回調査**: PRODUCT_CHANGEイベントの処理追加、タイムスタンプの逆転問題の調査
