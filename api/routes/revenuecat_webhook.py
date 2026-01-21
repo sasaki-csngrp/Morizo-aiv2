@@ -406,6 +406,9 @@ async def revenuecat_webhook(
         
         # イベントのメタデータを取得してログ出力（重複イベント・古いイベントの検出用）
         event_id = event_data.get("id") or request_data.get("event", {}).get("id")
+        
+        # イベント発生時刻を取得（event_timestamp_msまたはcreated_atから）
+        event_timestamp_ms = event_data.get("event_timestamp_ms") or request_data.get("event", {}).get("event_timestamp_ms")
         event_created_at_str = event_data.get("created_at") or request_data.get("event", {}).get("created_at")
         
         if event_id:
@@ -413,26 +416,35 @@ async def revenuecat_webhook(
         else:
             logger.warning(f"⚠️ [WEBHOOK] イベントIDが取得できませんでした")
         
-        if event_created_at_str:
+        event_created_at = None
+        if event_timestamp_ms:
             try:
-                # イベントの発生時刻をパース
-                event_created_at = datetime.fromisoformat(event_created_at_str.replace("Z", "+00:00"))
-                logger.info(f"🔍 [WEBHOOK] イベント発生時刻: {event_created_at.isoformat()}")
-                
-                # イベントの発生時刻と受信時刻の差を計算
-                time_diff = request_received_at.astimezone(ZoneInfo('UTC')) - event_created_at
-                time_diff_seconds = time_diff.total_seconds()
-                time_diff_minutes = time_diff_seconds / 60
-                
-                logger.info(f"🔍 [WEBHOOK] イベント発生時刻と受信時刻の差: {time_diff_seconds:.1f}秒 ({time_diff_minutes:.1f}分)")
-                
-                # 古いイベント（5分以上前）の場合は警告
-                if time_diff_seconds > 300:  # 5分 = 300秒
-                    logger.warning(f"⚠️ [WEBHOOK] 古いイベントが検出されました: {time_diff_minutes:.1f}分前のイベント")
+                # event_timestamp_msからイベント発生時刻を取得（ミリ秒単位）
+                event_created_at = datetime.fromtimestamp(event_timestamp_ms / 1000, tz=ZoneInfo('UTC'))
+                logger.info(f"🔍 [WEBHOOK] イベント発生時刻 (event_timestamp_ms): {event_created_at.isoformat()}")
             except Exception as e:
-                logger.warning(f"⚠️ [WEBHOOK] イベント発生時刻の解析に失敗: {event_created_at_str}, error: {e}")
+                logger.warning(f"⚠️ [WEBHOOK] event_timestamp_msの解析に失敗: {event_timestamp_ms}, error: {e}")
+        elif event_created_at_str:
+            try:
+                # created_atからイベント発生時刻を取得（ISO形式）
+                event_created_at = datetime.fromisoformat(event_created_at_str.replace("Z", "+00:00"))
+                logger.info(f"🔍 [WEBHOOK] イベント発生時刻 (created_at): {event_created_at.isoformat()}")
+            except Exception as e:
+                logger.warning(f"⚠️ [WEBHOOK] created_atの解析に失敗: {event_created_at_str}, error: {e}")
         else:
-            logger.warning(f"⚠️ [WEBHOOK] イベント発生時刻が取得できませんでした")
+            logger.warning(f"⚠️ [WEBHOOK] イベント発生時刻が取得できませんでした (event_timestamp_msもcreated_atも存在しません)")
+        
+        if event_created_at:
+            # イベントの発生時刻と受信時刻の差を計算
+            time_diff = request_received_at.astimezone(ZoneInfo('UTC')) - event_created_at
+            time_diff_seconds = time_diff.total_seconds()
+            time_diff_minutes = time_diff_seconds / 60
+            
+            logger.info(f"🔍 [WEBHOOK] イベント発生時刻と受信時刻の差: {time_diff_seconds:.1f}秒 ({time_diff_minutes:.1f}分)")
+            
+            # 古いイベント（5分以上前）の場合は警告
+            if time_diff_seconds > 300:  # 5分 = 300秒
+                logger.warning(f"⚠️ [WEBHOOK] 古いイベントが検出されました: {time_diff_minutes:.1f}分前のイベント")
         
         # イベントを解析
         parsed_event = parse_revenuecat_event(event_data)
