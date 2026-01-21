@@ -404,6 +404,36 @@ async def revenuecat_webhook(
             event_data = request_data
             logger.info(f"🔍 [WEBHOOK] RevenueCat Webhookイベントを受信しました: {event_data.get('type', 'UNKNOWN')}")
         
+        # イベントのメタデータを取得してログ出力（重複イベント・古いイベントの検出用）
+        event_id = event_data.get("id") or request_data.get("event", {}).get("id")
+        event_created_at_str = event_data.get("created_at") or request_data.get("event", {}).get("created_at")
+        
+        if event_id:
+            logger.info(f"🔍 [WEBHOOK] イベントID: {event_id}")
+        else:
+            logger.warning(f"⚠️ [WEBHOOK] イベントIDが取得できませんでした")
+        
+        if event_created_at_str:
+            try:
+                # イベントの発生時刻をパース
+                event_created_at = datetime.fromisoformat(event_created_at_str.replace("Z", "+00:00"))
+                logger.info(f"🔍 [WEBHOOK] イベント発生時刻: {event_created_at.isoformat()}")
+                
+                # イベントの発生時刻と受信時刻の差を計算
+                time_diff = request_received_at.astimezone(ZoneInfo('UTC')) - event_created_at
+                time_diff_seconds = time_diff.total_seconds()
+                time_diff_minutes = time_diff_seconds / 60
+                
+                logger.info(f"🔍 [WEBHOOK] イベント発生時刻と受信時刻の差: {time_diff_seconds:.1f}秒 ({time_diff_minutes:.1f}分)")
+                
+                # 古いイベント（5分以上前）の場合は警告
+                if time_diff_seconds > 300:  # 5分 = 300秒
+                    logger.warning(f"⚠️ [WEBHOOK] 古いイベントが検出されました: {time_diff_minutes:.1f}分前のイベント")
+            except Exception as e:
+                logger.warning(f"⚠️ [WEBHOOK] イベント発生時刻の解析に失敗: {event_created_at_str}, error: {e}")
+        else:
+            logger.warning(f"⚠️ [WEBHOOK] イベント発生時刻が取得できませんでした")
+        
         # イベントを解析
         parsed_event = parse_revenuecat_event(event_data)
         if not parsed_event:
@@ -418,15 +448,40 @@ async def revenuecat_webhook(
         
         # 更新前の既存レコードの値を取得してログ出力（実行確認のため）
         client = get_service_role_client()
+        existing_before_status = None
         try:
             existing_before = client.table("user_subscriptions").select("*").eq("user_id", user_id).execute()
             if existing_before.data and len(existing_before.data) > 0:
                 existing_before_data = existing_before.data[0]
-                logger.info(f"🔍 [WEBHOOK] 更新処理前の既存レコード: user_id={user_id}, plan_type={existing_before_data.get('plan_type')}, subscription_status={existing_before_data.get('subscription_status')}, updated_at={existing_before_data.get('updated_at')}, expires_at={existing_before_data.get('expires_at')}")
+                existing_before_status = existing_before_data.get('subscription_status')
+                logger.info(f"🔍 [WEBHOOK] 更新処理前の既存レコード: user_id={user_id}, plan_type={existing_before_data.get('plan_type')}, subscription_status={existing_before_status}, updated_at={existing_before_data.get('updated_at')}, expires_at={existing_before_data.get('expires_at')}")
             else:
                 logger.info(f"🔍 [WEBHOOK] 更新処理前: 既存レコードなし（新規作成）: user_id={user_id}")
         except Exception as e:
             logger.warning(f"⚠️ [WEBHOOK] 更新処理前の既存レコード取得中にエラー: {e}")
+        
+        # 状態遷移の検証ログ（問題の検出用）
+        new_status = parsed_event["subscription_status"]
+        if existing_before_status:
+            if existing_before_status in ["cancelled", "expired"] and new_status == "active":
+                logger.warning(f"⚠️ [WEBHOOK] 状態遷移の警告: {existing_before_status} → {new_status} (キャンセル・期限切れからactiveへの遷移)")
+            elif existing_before_status != new_status:
+                logger.info(f"🔍 [WEBHOOK] 状態遷移: {existing_before_status} → {new_status}")
+            else:
+                logger.info(f"🔍 [WEBHOOK] 状態遷移なし: {existing_before_status} → {new_status} (同じ状態)")
+        
+        # expires_atが過去の日付の場合の警告ログ（問題の検出用）
+        expires_at = parsed_event.get("expires_at")
+        if expires_at:
+            now_utc = datetime.now(ZoneInfo('UTC'))
+            if expires_at <= now_utc:
+                time_diff_expires = (now_utc - expires_at).total_seconds()
+                logger.warning(f"⚠️ [WEBHOOK] expires_atが過去の日付です: {expires_at.isoformat()} (現在時刻より{time_diff_expires:.1f}秒前), event_type={parsed_event.get('event_type')}")
+            else:
+                time_diff_expires = (expires_at - now_utc).total_seconds()
+                logger.info(f"🔍 [WEBHOOK] expires_at: {expires_at.isoformat()} (現在時刻より{time_diff_expires:.1f}秒後)")
+        else:
+            logger.info(f"🔍 [WEBHOOK] expires_at: 未設定")
         
         # user_subscriptionsテーブルを更新
         success = update_subscription_status(
