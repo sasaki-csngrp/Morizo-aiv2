@@ -180,7 +180,105 @@ class OCRService:
                 "error": str(e),
                 "items": []
             }
-    
+
+    async def analyze_refrigerator_image(
+        self,
+        image_bytes: bytes
+    ) -> Dict[str, Any]:
+        """冷蔵庫画像を解析して在庫候補を抽出"""
+        try:
+            self.logger.info("🔍 [OCR] 冷蔵庫画像解析を開始しました")
+
+            base64_image = base64.b64encode(image_bytes).decode('utf-8')
+
+            prompt = """この画像は冷蔵庫（または食品の保存場所）の写真です。
+写っている食材・食品を在庫管理用に列挙してください。
+
+抽出すべき情報:
+- 商品名（item_name）: 食材名・食品名（簡潔に）
+- 数量（quantity）: 見た目から推測できる数（不明なら1）
+- 単位（unit）: 個、本、パック、袋など
+- 保管場所（storage_location）: 冷蔵庫、冷凍庫など推測で可
+- 消費期限（expiry_date）: 写っていればYYYY-MM-DD、なければnull
+
+レスポンス形式: JSON配列のみ。Markdownのコードブロックで囲んでください。
+[
+  {"item_name": "食材名", "quantity": 数量, "unit": "単位", "storage_location": "保管場所", "expiry_date": "YYYY-MM-DD または null"}
+]"""
+
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.ocr_model,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
+                                }
+                            ]
+                        }
+                    ],
+                    max_tokens=2000,
+                    temperature=0.3
+                )
+            except Exception as api_error:
+                error_message = str(api_error)
+                if "image_parse_error" in error_message or "unsupported image" in error_message.lower():
+                    self.logger.error(f"❌ [OCR] 冷蔵庫画像解析エラー（画像形式が不正）: {error_message}")
+                    return {
+                        "success": False,
+                        "error": "画像ファイルが正しく解析できませんでした。有効なJPEGまたはPNG画像をアップロードしてください。",
+                        "items": []
+                    }
+                elif "invalid_request_error" in error_message:
+                    self.logger.error(f"❌ [OCR] リクエストエラー: {error_message}")
+                    return {
+                        "success": False,
+                        "error": "画像解析リクエストが無効です。画像ファイルを確認してください。",
+                        "items": []
+                    }
+                self.logger.error(f"❌ [OCR] OpenAI APIエラー: {error_message}")
+                return {
+                    "success": False,
+                    "error": f"冷蔵庫画像解析中にエラーが発生しました: {error_message}",
+                    "items": []
+                }
+
+            content = response.choices[0].message.content
+            self.logger.info(f"✅ [OCR] 冷蔵庫画像解析完了: {len(content)} characters")
+
+            json_match = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', content, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+            else:
+                json_str = content.strip()
+
+            items = json.loads(json_str)
+            if not isinstance(items, list):
+                raise ValueError("解析結果が配列形式ではありません")
+
+            for item in items:
+                if "item_name" in item and item["item_name"]:
+                    original_name = item["item_name"]
+                    normalized_name = self.normalize_item_name(original_name)
+                    if original_name != normalized_name:
+                        self.logger.debug(f"🔧 [OCR] Normalized item name: '{original_name}' -> '{normalized_name}'")
+                    item["item_name"] = normalized_name
+
+            self.logger.info(f"✅ [OCR] 冷蔵庫画像から {len(items)} 件のアイテムを抽出しました")
+            return {"success": True, "items": items, "raw_response": content}
+
+        except json.JSONDecodeError as e:
+            self.logger.error(f"❌ [OCR] 冷蔵庫画像JSON解析エラー: {e}")
+            self.logger.error(f"   レスポンス内容: {content[:500]}")
+            return {"success": False, "error": f"JSON解析エラー: {str(e)}", "items": []}
+        except Exception as e:
+            self.logger.error(f"❌ [OCR] 冷蔵庫画像解析エラー: {e}")
+            return {"success": False, "error": str(e), "items": []}
+
     def normalize_item_name(self, item_name: str) -> str:
         """
         商品名を正規化して食材名のみを抽出

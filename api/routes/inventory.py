@@ -356,6 +356,56 @@ async def ocr_receipt(
         raise HTTPException(status_code=500, detail="OCR処理でエラーが発生しました")
 
 
+@router.post("/inventory/photo-refrigerator", response_model=OCRReceiptResponse)
+async def photo_refrigerator(
+    image: UploadFile = File(...),
+    http_request: Request = None
+):
+    """冷蔵庫画像を解析して在庫候補を抽出（利用回数制限・変換テーブルなし）"""
+    try:
+        logger.info("🔍 [API] 冷蔵庫画像リクエストを受信しました")
+        logger.debug(f"🔍 [API] Filename: {image.filename}")
+
+        user_id, client = await get_authenticated_user_and_client(http_request)
+
+        image_bytes = await image.read()
+        is_valid, error_message = validate_image_file(image_bytes, image.filename)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_message)
+
+        from services.ocr_service import OCRService
+        ocr_service = OCRService()
+        ocr_result = await ocr_service.analyze_refrigerator_image(image_bytes)
+
+        if not ocr_result.get("success"):
+            error_message = ocr_result.get("error", "冷蔵庫画像の解析に失敗しました")
+            logger.error(f"❌ [API] 冷蔵庫画像解析失敗: {error_message}")
+            raise HTTPException(status_code=400, detail=error_message)
+
+        items = ocr_result.get("items", [])
+        if not items:
+            return {
+                "success": True,
+                "items": [],
+                "registered_count": 0,
+                "errors": ["冷蔵庫画像から在庫情報を抽出できませんでした"]
+            }
+
+        validated_items, validation_errors = validate_ocr_items(items)
+        return {
+            "success": True,
+            "items": validated_items,
+            "registered_count": 0,
+            "errors": validation_errors
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [API] 冷蔵庫画像処理で予期しないエラーが発生しました: {e}")
+        raise HTTPException(status_code=500, detail="冷蔵庫画像処理でエラーが発生しました")
+
+
 @router.post("/inventory/ocr-mapping", response_model=OCRMappingResponse)
 async def add_ocr_mapping(
     request: OCRMappingRequest,
